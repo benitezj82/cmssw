@@ -27,3 +27,7 @@
   <flags   EDM_PLUGIN="1"/>
 </library>
 
+<library   file="PCCLumiInfoReader.cc" name="PCCLumiInfoReader">
+  <flags   EDM_PLUGIN="1"/>
+</library>
+
