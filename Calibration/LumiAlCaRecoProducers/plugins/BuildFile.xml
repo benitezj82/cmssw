@@ -30,4 +30,7 @@
 <library   file="PCCLumiInfoReader.cc" name="PCCLumiInfoReader">
   <flags   EDM_PLUGIN="1"/>
 </library>
+<library   file="PCCLumiAnalyzer.cc" name="PCCLumiAnalyzer">
+  <flags   EDM_PLUGIN="1"/>
+</library>
 

@@ -3,29 +3,35 @@
 #########################
 import FWCore.ParameterSet.Config as cms
 
-process = cms.Process("PCCLumiInfoReader")
+process = cms.Process("PCCLumiAnalyzer")
 
-#process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(5000) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100000) )
 
-process.source = cms.Source("PoolSource",
-                            fileNames = cms.untracked.vstring(
-        'file:/eos/cms/store/group/comm_luminosity/PCC/ForLumiSystematics/2017/5Feb2018/AlCaLumiPixels/PCC_AlCaLumiPixels_Run2017B_5kLS/180205_190216/0000/raw_corr_PCC_RD_1.root',
-           )
-                            
+
+process.source = cms.Source
+(
+"PoolSource",
+fileNames = cms.untracked.vstring(
+        #'file:/eos/cms/store/group/comm_luminosity/PCC/ForLumiSystematics/2017/5Feb2018/AlCaLumiPixels/PCC_AlCaLumiPixels_Run2017B_5kLS/180205_190216/0000/raw_corr_PCC_RD_1.root',
+        #'file:/eos/cms/store/group/comm_luminosity/PCC/ForLumiComputations/2017/5Feb2018/AlCaLumiPixels/PCC_AlCaLumiPixels_Run2017C_1kLS_NoZeroes/180207_184738/0000/rawPCC_297411_ZB_112.root',
+        'file:./rawPCC_297411_ZB_112.root',
+        )                 
 )
 
-###init the reader
-process.PCCLumiInfoReader = cms.EDProducer("PCCLumiInfoReader",
+
+#############################    init the reader   #######################################
+process.PCCLumiAnalyzer = cms.EDAnalyzer("PCCLumiAnalyzer",
 cms.PSet(
-        inLumiObLabel = cms.string("rawPCCProd"),
-        ProdInst = cms.string("rawPCCRandom"),
+#        inLumiObLabel = cms.string("rawPCCProd"),ProdInst = cms.string("rawPCCRandom"),
+     # LuminosityBlocks->Print()    ...   LumiInfo_rawPCCProd_rawPCZeroBias_rawRECO.obj.errLumiByBX_
+        inLumiObLabel = cms.string("rawPCCProd"),ProdInst = cms.string("rawPCZeroBias"),
         )
 )
 
-process.p = cms.Path(process.PCCLumiInfoReader)
+process.p = cms.Path(process.PCCLumiAnalyzer)
 
 
-#
+############################# MessageLogger #######################################
 process.MessageLogger = cms.Service("MessageLogger",
     FrameworkJobReport = cms.untracked.PSet(
         FwkJob = cms.untracked.PSet(

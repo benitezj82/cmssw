@@ -1,5 +1,5 @@
 /**_________________________________________________________________
-author: Jose Benitez
+author: Jose Benitez, Chris Palmer
 ________________________________________________________________**/
 #include <memory>
 #include <string>
@@ -84,19 +84,36 @@ PCCLumiInfoReader::~PCCLumiInfoReader(){
 
 
 //--------------------------------------------------------------------------------------------------
-void PCCLumiInfoReader::produce(edm::Event& iEvent, const edm::EventSetup& iSetup){
-}
+void PCCLumiInfoReader::produce(edm::Event& iEvent, const edm::EventSetup& iSetup){}
+
+
 //--------------------------------------------------------------------------------------------------
 void PCCLumiInfoReader::beginRun(edm::Run const& runSeg, const edm::EventSetup& iSetup){
   run_=runSeg.run();
 }
 //--------------------------------------------------------------------------------------------------
 void PCCLumiInfoReader::beginLuminosityBlock(edm::LuminosityBlock const& lumiSeg, const edm::EventSetup& iSetup){
-    countLumi_++;
+  countLumi_++;
+  
+  edm::Handle<LumiInfo> PCCHandle; 
+  lumiSeg.getByToken(lumiInfoToken,PCCHandle);
+  const LumiInfo& inLumiOb = *(PCCHandle.product()); 
+  
+  const std::vector<float> lumiByBX= inLumiOb.getInstLumiAllBX();
 
-    csvfile.open("PCCLumiInfoReader.csv", std::ios_base::app);
-    csvfile<<std::to_string(lumiSeg.run())<<",";
-    csvfile<<std::to_string(lumiSeg.luminosityBlock())<<",";
+  csvfile.open("PCCLumiInfoReader.csv", std::ios_base::app);
+  csvfile<<std::to_string(lumiSeg.run())<<",";
+  csvfile<<std::to_string(lumiSeg.luminosityBlock())<<",";
+  
+  //std::cout<<countLumi_<<","<<run_<<","<<lumiSeg.luminosityBlock()<<","<<inLumiOb.getTotalInstLumi()<<","<<lumiByBX.size()<<std::endl;
+  
+  csvfile<<std::to_string(inLumiOb.getTotalInstLumi());
+  for(unsigned int i=0;i<lumiByBX.size();i++)
+    csvfile<<","<<std::to_string(lumiByBX[i]);
+  
+  csvfile<<std::endl;
+  
+  csvfile.close();
 
 }
 
@@ -104,20 +121,7 @@ void PCCLumiInfoReader::beginLuminosityBlock(edm::LuminosityBlock const& lumiSeg
 //--------------------------------------------------------------------------------------------------
 void PCCLumiInfoReader::endLuminosityBlock(edm::LuminosityBlock const& lumiSeg, const edm::EventSetup& iSetup){
   
-  edm::Handle<LumiInfo> PCCHandle; 
-  lumiSeg.getByToken(lumiInfoToken,PCCHandle);
-  const LumiInfo& inLumiOb = *(PCCHandle.product()); 
-  
-  const std::vector<float> lumiByBX= inLumiOb.getInstLumiAllBX();
-  
-  //std::cout<<countLumi_<<","<<run_<<","<<lumiSeg.luminosityBlock()<<","<<inLumiOb.getTotalInstLumi()<<","<<lumiByBX.size()<<std::endl;
-  csvfile<<std::to_string(inLumiOb.getTotalInstLumi());
-  for(unsigned int i=0;i<lumiByBX.size();i++){
-    csvfile<<","<<std::to_string(lumiByBX[i]);
-  }
-  csvfile<<std::endl;
 
-  csvfile.close();
 }
 
 //--------------------------------------------------------------------------------------------------
