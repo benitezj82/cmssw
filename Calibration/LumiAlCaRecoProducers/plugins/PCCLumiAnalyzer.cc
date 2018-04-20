@@ -33,10 +33,13 @@ public:
   ~PCCLumiAnalyzer();
   
 private:
- 
-  virtual void analyze(const edm::Event&, const edm::EventSetup&) override {}; 
+  
+  virtual void beginJob() override; 
+  //virtual void endJob() override {}; 
   virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
   virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override {};
+
+  virtual void analyze(const edm::Event&, const edm::EventSetup&) override {};//this module does not use event-by-event info 
 
   edm::EDGetTokenT<LumiInfo>  lumiInfoToken;
   std::string   pccSrc_;//input file EDproducer module label
@@ -57,7 +60,6 @@ PCCLumiAnalyzer::PCCLumiAnalyzer(const edm::ParameterSet& iConfig)
   countLumi_(0), 
   run_(0)
 {
-
   pccSrc_ = iConfig.getParameter<std::string>("inLumiObLabel");
   prodInst_ = iConfig.getParameter<std::string>("ProdInst");
 
@@ -74,7 +76,13 @@ PCCLumiAnalyzer::~PCCLumiAnalyzer()
 //
 // member functions
 //
-
+void 
+PCCLumiAnalyzer::beginJob()
+{
+  system("rm -f PCCLumiAnalyzer.csv");
+  csvfile.open("PCCLumiAnalyzer.csv", std::ios_base::out);
+  csvfile.close();
+}
 
 //--------------------------------------------------------------------------------------------------
 void 
@@ -88,14 +96,15 @@ PCCLumiAnalyzer::beginLuminosityBlock(const edm::LuminosityBlock& lumiSeg, const
 
   const std::vector<float> lumiByBX= inLumiOb.getInstLumiAllBX();
 
-  csvfile.open("PCCLumiInfoReader.csv", std::ios_base::app);
+  csvfile.open("PCCLumiAnalyzer.csv", std::ios_base::app);
   csvfile<<std::to_string(lumiSeg.run())<<",";
   csvfile<<std::to_string(lumiSeg.luminosityBlock())<<",";
 
   //std::cout<<countLumi_<<","<<run_<<","<<lumiSeg.luminosityBlock()<<","<<inLumiOb.getTotalInstLumi()<<","<<lumiByBX.size()<<std::endl;
 
   csvfile<<std::to_string(inLumiOb.getTotalInstLumi());
-  for(unsigned int i=0;i<lumiByBX.size();i++)
+  //for(unsigned int i=0;i<lumiByBX.size();i++)
+  for(unsigned int i=0;i<10;i++)
     csvfile<<","<<std::to_string(lumiByBX[i]);
 
   csvfile<<std::endl;
