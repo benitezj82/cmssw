@@ -3,8 +3,6 @@
 // Original Author:  Jose Feliciano Benitez
 //         Created:  Mon, 16 Apr 2018 02:53:46 GMT
 //
-//
-
 
 // system include files
 #include <memory>
