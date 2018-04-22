@@ -33,7 +33,6 @@ public:
 private:
   
   virtual void beginJob() override; 
-  //virtual void endJob() override {}; 
   virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
   virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override {};
 
@@ -46,6 +45,7 @@ private:
   unsigned int countLumi_;//lb's
   unsigned int run_;//keep track of the run number
 
+  std::string   csvfilename_;//
   std::ofstream csvfile;
 };
 
@@ -56,19 +56,15 @@ private:
 PCCLumiAnalyzer::PCCLumiAnalyzer(const edm::ParameterSet& iConfig)
   :
   countLumi_(0), 
-  run_(0)
+  run_(0),
+  csvfilename_("PCCLumiByBX.csv")
 {
   pccSrc_ = iConfig.getParameter<std::string>("inLumiObLabel");
   prodInst_ = iConfig.getParameter<std::string>("ProdInst");
-
-  edm::InputTag inputPCCTag_(pccSrc_, prodInst_);
-  lumiInfoToken=consumes<LumiInfo, edm::InLumi>(inputPCCTag_);
 }
 
 
-PCCLumiAnalyzer::~PCCLumiAnalyzer()
-{
-}
+PCCLumiAnalyzer::~PCCLumiAnalyzer(){}
 
 
 //
@@ -77,9 +73,22 @@ PCCLumiAnalyzer::~PCCLumiAnalyzer()
 void 
 PCCLumiAnalyzer::beginJob()
 {
-  system("rm -f PCCLumiAnalyzer.csv");
-  csvfile.open("PCCLumiAnalyzer.csv", std::ios_base::out);
+  ////
+  ///check if its possible to create the output file
+  ////
+  system(std::string("rm -f ")+csvfilename);
+  csvfile.open(csvfilename, std::ios_base::out);
+  if (!csvfile.is_open())
+    //std::cout << "Error opening file"<<std::endl;
+    throw cms::Exception("PCCLumiAnalyzer:: ") <<  " unable to create the csv file.";
   csvfile.close();
+  
+  ////
+  ////create LumiInfo token
+  ///
+  edm::InputTag inputPCCTag_(pccSrc_, prodInst_);
+  lumiInfoToken=consumes<LumiInfo, edm::InLumi>(inputPCCTag_);
+
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -88,24 +97,31 @@ PCCLumiAnalyzer::beginLuminosityBlock(const edm::LuminosityBlock& lumiSeg, const
 {
   countLumi_++;
 
+  //
+  //get the lumi info 
+  //
   edm::Handle<LumiInfo> PCCHandle;
   lumiSeg.getByToken(lumiInfoToken,PCCHandle);
   const LumiInfo& inLumiOb = *(PCCHandle.product());
-
   const std::vector<float> lumiByBX= inLumiOb.getInstLumiAllBX();
 
-  csvfile.open("PCCLumiAnalyzer.csv", std::ios_base::app);
+  //
+  //Open the output file
+  //
+  csvfile.open(csvfilename, std::ios_base::app);
   csvfile<<std::to_string(lumiSeg.run())<<",";
   csvfile<<std::to_string(lumiSeg.luminosityBlock())<<",";
 
+  //
+  //fill the output file
+  //
   //std::cout<<countLumi_<<","<<run_<<","<<lumiSeg.luminosityBlock()<<","<<inLumiOb.getTotalInstLumi()<<","<<lumiByBX.size()<<std::endl;
-
   csvfile<<std::to_string(inLumiOb.getTotalInstLumi());
   //for(unsigned int i=0;i<lumiByBX.size();i++)
   for(unsigned int i=0;i<10;i++)
     csvfile<<","<<std::to_string(lumiByBX[i]);
-
   csvfile<<std::endl;
+
 
   csvfile.close();
 }
