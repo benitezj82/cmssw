@@ -59,8 +59,18 @@ PCCLumiAnalyzer::PCCLumiAnalyzer(const edm::ParameterSet& iConfig)
   run_(0),
   csvfilename_("PCCLumiByBX.csv")
 {
+  //
+  //read the config
+  //
   pccSrc_ = iConfig.getParameter<std::string>("inLumiObLabel");
   prodInst_ = iConfig.getParameter<std::string>("ProdInst");
+
+  //
+  //create LumiInfo token
+  //
+  edm::InputTag inputPCCTag_(pccSrc_, prodInst_);
+  lumiInfoToken=consumes<LumiInfo, edm::InLumi>(inputPCCTag_);
+
 }
 
 
@@ -76,18 +86,13 @@ PCCLumiAnalyzer::beginJob()
   ////
   ///check if its possible to create the output file
   ////
-  system(std::string("rm -f ")+csvfilename);
-  csvfile.open(csvfilename, std::ios_base::out);
+  system((std::string("rm -f ")+csvfilename_).c_str());
+  csvfile.open(csvfilename_, std::ios_base::out);
   if (!csvfile.is_open())
     //std::cout << "Error opening file"<<std::endl;
     throw cms::Exception("PCCLumiAnalyzer:: ") <<  " unable to create the csv file.";
   csvfile.close();
   
-  ////
-  ////create LumiInfo token
-  ///
-  edm::InputTag inputPCCTag_(pccSrc_, prodInst_);
-  lumiInfoToken=consumes<LumiInfo, edm::InLumi>(inputPCCTag_);
 
 }
 
@@ -108,7 +113,7 @@ PCCLumiAnalyzer::beginLuminosityBlock(const edm::LuminosityBlock& lumiSeg, const
   //
   //Open the output file
   //
-  csvfile.open(csvfilename, std::ios_base::app);
+  csvfile.open(csvfilename_, std::ios_base::app);
   csvfile<<std::to_string(lumiSeg.run())<<",";
   csvfile<<std::to_string(lumiSeg.luminosityBlock())<<",";
 
