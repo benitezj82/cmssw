@@ -100,13 +100,15 @@ void RivetAnalyzer::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup
 
 void RivetAnalyzer::beginLuminosityBlock(const edm::LuminosityBlock& iLumi, const edm::EventSetup& iSetup) {
   edm::Handle<GenLumiInfoHeader> genLumiInfoHandle;
-  iLumi.getByToken(_genLumiInfoToken, genLumiInfoHandle);
-
-  _weightNames = genLumiInfoHandle->weightNames();
+  if (iLumi.getByToken(_genLumiInfoToken, genLumiInfoHandle)) {
+    _weightNames = genLumiInfoHandle->weightNames();
+  }
 
   // need to reset the default weight name (or plotting will fail)
   if (!_weightNames.empty()) {
     _weightNames[0] = "";
+  } else {  // Summer16 samples have 1 weight stored in HepMC but no weightNames
+    _weightNames.push_back("");
   }
 }
 
@@ -155,7 +157,7 @@ void RivetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     }
     // clean weight names to be accepted by Rivet plotting
     std::vector<std::string> cleanedWeightNames;
-    for (std::string wn : _weightNames) {
+    for (const std::string& wn : _weightNames) {
       cleanedWeightNames.push_back(std::regex_replace(wn, std::regex("[^A-Za-z\\d\\._=]"), "_"));
     }
     _analysisHandler.init(*myGenEvent, cleanedWeightNames);

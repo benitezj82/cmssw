@@ -1,5 +1,4 @@
 from CRABAPI.RawCommand import crabCommand
-from CRABClient.UserUtilities import getUsernameFromSiteDB
 from CRABClient.UserUtilities import config
 from copy import deepcopy
 import os
@@ -11,11 +10,12 @@ def submit(config):
         fi.write(config.pythonise_())
 
 samples = [
-    ("/RelValQCD_FlatPt_15_3000HS_13/CMSSW_10_6_0-106X_upgrade2018_realistic_v4-v1/GEN-SIM-DIGI-RAW", "QCD_noPU"),
-    ("/RelValQCD_FlatPt_15_3000HS_13/CMSSW_10_6_0-PU25ns_106X_upgrade2018_realistic_v4-v1/GEN-SIM-DIGI-RAW", "QCD_PU"),
-    #("/RelValZMM_13/CMSSW_10_6_0-106X_upgrade2018_realistic_v4-v1/GEN-SIM-DIGI-RAW", "ZMM"),
-    #("/RelValMinBias_13/CMSSW_10_6_0-106X_upgrade2018_design_v3-v1/GEN-SIM-DIGI-RAW", "MinBias"),
-    ("/RelValNuGun/CMSSW_10_6_0-PU25ns_106X_upgrade2018_realistic_v4-v1/GEN-SIM-DIGI-RAW", "NuGun_PU"),
+    ("/RelValQCD_FlatPt_15_3000HS_14/CMSSW_11_2_0_pre6-112X_mcRun3_2021_realistic_v7-v1/GEN-SIM-DIGI-RAW", "QCD_noPU"),
+    ("/RelValQCD_FlatPt_15_3000HS_14/CMSSW_11_2_0_pre6-PU_112X_mcRun3_2021_realistic_v7-v1/GEN-SIM-DIGI-RAW", "QCD_PU"),
+    ("/RelValZEE_14/CMSSW_11_2_0_pre6-PU_112X_mcRun3_2021_realistic_v7-v1/GEN-SIM-DIGI-RAW", "ZEE_PU"),
+    ("/RelValZMM_14/CMSSW_11_2_0_pre6-PU_112X_mcRun3_2021_realistic_v7-v1/GEN-SIM-DIGI-RAW", "ZMM_PU"),
+    ("/RelValTenTau_15_500/CMSSW_11_2_0_pre6-PU_112X_mcRun3_2021_realistic_v7-v1/GEN-SIM-DIGI-RAW", "TenTau_PU"),
+    ("/RelValNuGun/CMSSW_11_2_0_pre6-PU_112X_mcRun3_2021_realistic_v7-v1/GEN-SIM-DIGI-RAW", "NuGun_PU"),
 ]
 
 if __name__ == "__main__":
@@ -31,7 +31,7 @@ if __name__ == "__main__":
         conf.General.workArea = 'crab_projects'
         conf.JobType.pluginName = 'Analysis'
         conf.JobType.psetName = 'step3_dump.py'
-        conf.JobType.maxJobRuntimeMin = 4*60
+        conf.JobType.maxJobRuntimeMin = 8*60
         conf.JobType.allowUndistributedCMSSW = True
         conf.JobType.outputFiles = ["step3_inMINIAODSIM.root"]
         conf.JobType.maxMemoryMB = 5000
@@ -46,8 +46,8 @@ if __name__ == "__main__":
         #conf.Data.ignoreLocality = True
         
         # Where the output files will be transmitted to
-        #conf.Site.storageSite = 'T3_US_Baylor'
-        conf.Site.storageSite = 'T2_US_Caltech'
+        conf.Site.storageSite = 'T3_US_Baylor'
+        #conf.Site.storageSite = 'T2_US_Caltech'
         #conf.Site.whitelist = ["T2_US_Caltech", "T2_CH_CERN"]
         
         submit(conf) 

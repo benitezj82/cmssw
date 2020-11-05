@@ -13,10 +13,10 @@
 #include "FWCore/Framework/src/WorkerT.h"
 #include "FWCore/Framework/src/ModuleHolder.h"
 #include "FWCore/Framework/src/PreallocationConfiguration.h"
+#include "FWCore/Framework/src/TransitionInfoTypes.h"
 #include "FWCore/Framework/interface/stream/EDProducer.h"
 #include "FWCore/Framework/interface/stream/EDProducerAdaptor.h"
 #include "FWCore/Framework/interface/OccurrenceTraits.h"
-#include "DataFormats/Provenance/interface/ProcessHistoryRegistry.h"
 #include "DataFormats/Provenance/interface/ProductRegistry.h"
 #include "DataFormats/Provenance/interface/BranchIDListHelper.h"
 #include "DataFormats/Provenance/interface/ThinnedAssociationsHelper.h"
@@ -126,6 +126,33 @@ private:
 
     static void globalEndJob(int* iGlobal) {
       CPPUNIT_ASSERT(1 == *iGlobal);
+      ++m_count;
+    }
+  };
+  class GlobalProdWithBeginJob : public edm::stream::EDProducer<edm::GlobalCache<int>> {
+  public:
+    static unsigned int m_count;
+
+    static std::unique_ptr<int> initializeGlobalCache(edm::ParameterSet const&) { return std::make_unique<int>(1); }
+    GlobalProdWithBeginJob(edm::ParameterSet const&, const int* iGlobal) { CPPUNIT_ASSERT(*iGlobal == 1); }
+
+    static void globalBeginJob(int* iGlobal) {
+      CPPUNIT_ASSERT(1 == *iGlobal);
+      *iGlobal = 2;
+      ++m_count;
+    }
+
+    void beginStream(edm::StreamID) override {
+      int* iGlobal = const_cast<int*>(globalCache());
+      CPPUNIT_ASSERT(2 == *iGlobal);
+      *iGlobal = 3;
+      ++m_count;
+    }
+
+    void produce(edm::Event&, edm::EventSetup const&) override { ++m_count; }
+
+    static void globalEndJob(int* iGlobal) {
+      CPPUNIT_ASSERT(3 == *iGlobal);
       ++m_count;
     }
   };
@@ -321,6 +348,7 @@ private:
 };
 unsigned int testStreamProducer::BasicProd::m_count = 0;
 unsigned int testStreamProducer::GlobalProd::m_count = 0;
+unsigned int testStreamProducer::GlobalProdWithBeginJob::m_count = 0;
 unsigned int testStreamProducer::RunProd::m_count = 0;
 unsigned int testStreamProducer::LumiProd::m_count = 0;
 unsigned int testStreamProducer::RunSummaryProd::m_count = 0;
@@ -382,12 +410,12 @@ testStreamProducer::testStreamProducer()
   assert(pID->value() == 0);
 
   m_ep.reset(new edm::EventPrincipal(m_prodReg, m_idHelper, m_associationsHelper, m_procConfig, nullptr, *pID));
-  edm::ProcessHistoryRegistry phr;
-  m_ep->fillEventPrincipal(eventAux, phr);
+  m_ep->fillEventPrincipal(eventAux, nullptr);
   m_ep->setLuminosityBlockPrincipal(m_lbp.get());
   m_actReg.reset(new edm::ActivityRegistry);
 
   //For each transition, bind a lambda which will call the proper method of the Worker
+  m_transToFunc[Trans::kBeginJob] = [](edm::Worker* iBase) { iBase->beginJob(); };
   m_transToFunc[Trans::kBeginStream] = [](edm::Worker* iBase) {
     edm::StreamContext streamContext(s_streamID0, nullptr);
     iBase->beginStream(s_streamID0, streamContext);
@@ -396,23 +424,27 @@ testStreamProducer::testStreamProducer()
   m_transToFunc[Trans::kGlobalBeginRun] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionGlobalBegin> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, s_streamID0, parentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
   m_transToFunc[Trans::kStreamBeginRun] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionStreamBegin> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, s_streamID0, parentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
 
   m_transToFunc[Trans::kGlobalBeginLuminosityBlock] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionGlobalBegin> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, s_streamID0, parentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
   m_transToFunc[Trans::kStreamBeginLuminosityBlock] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionStreamBegin> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, s_streamID0, parentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
 
   m_transToFunc[Trans::kEvent] = [this](edm::Worker* iBase) {
@@ -420,35 +452,41 @@ testStreamProducer::testStreamProducer()
     edm::StreamContext streamContext(s_streamID0, nullptr);
     edm::ParentContext parentContext(&streamContext);
     iBase->setActivityRegistry(m_actReg);
-    iBase->doWork<Traits>(*m_ep, *m_es, s_streamID0, parentContext, nullptr);
+    edm::EventTransitionInfo info(*m_ep, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
 
   m_transToFunc[Trans::kStreamEndLuminosityBlock] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionStreamEnd> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, s_streamID0, parentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
   m_transToFunc[Trans::kGlobalEndLuminosityBlock] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionGlobalEnd> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, s_streamID0, parentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
 
   m_transToFunc[Trans::kStreamEndRun] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionStreamEnd> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, s_streamID0, parentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
   m_transToFunc[Trans::kGlobalEndRun] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionGlobalEnd> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, s_streamID0, parentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
 
   m_transToFunc[Trans::kEndStream] = [](edm::Worker* iBase) {
     edm::StreamContext streamContext(s_streamID0, nullptr);
     iBase->endStream(s_streamID0, streamContext);
   };
+  m_transToFunc[Trans::kEndJob] = [](edm::Worker* iBase) { iBase->endJob(); };
 }
 
 namespace {
@@ -495,7 +533,10 @@ void testStreamProducer::runTest(Expectations const& iExpect) {
 
 void testStreamProducer::basicTest() { runTest<BasicProd>({Trans::kEvent}); }
 
-void testStreamProducer::globalTest() { runTest<GlobalProd>({Trans::kBeginJob, Trans::kEvent, Trans::kEndJob}); }
+void testStreamProducer::globalTest() {
+  runTest<GlobalProd>({Trans::kEvent, Trans::kEndJob});
+  runTest<GlobalProdWithBeginJob>({Trans::kBeginJob, Trans::kBeginStream, Trans::kEvent, Trans::kEndJob});
+}
 
 void testStreamProducer::runTest() { runTest<RunProd>({Trans::kGlobalBeginRun, Trans::kEvent, Trans::kGlobalEndRun}); }
 

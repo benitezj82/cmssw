@@ -1990,7 +1990,9 @@ if __name__=="__main__":
 
         def testProcessDumpPython(self):
             self.assertEqual(Process("test").dumpPython(),
-"""import FWCore.ParameterSet.Config as cms\n\nprocess = cms.Process("test")
+"""import FWCore.ParameterSet.Config as cms
+
+process = cms.Process("test")
 
 process.maxEvents = cms.untracked.PSet(
     input = cms.optional.untracked.int32,
@@ -2011,7 +2013,7 @@ process.options = cms.untracked.PSet(
     emptyRunLumiMode = cms.obsolete.untracked.string,
     eventSetup = cms.untracked.PSet(
         forceNumberOfConcurrentIOVs = cms.untracked.PSet(
-
+            allowAnyLabel_=cms.required.untracked.uint32
         ),
         numberOfConcurrentIOVs = cms.untracked.uint32(1)
     ),
@@ -2874,7 +2876,9 @@ process.addSubProcess(cms.SubProcess(process = childProcess, SelectEvents = cms.
             self.assertEqual((True,"EDProducer"), p.values["sp"][1].values["@module_edm_type"])
             self.assertEqual((True, "SwitchProducer"), p.values["sp"][1].values["@module_type"])
             self.assertEqual((True, "sp"), p.values["sp"][1].values["@module_label"])
-            self.assertEqual((True, ["sp@test1", "sp@test2"]), p.values["sp"][1].values["@all_cases"])
+            all_cases = copy.deepcopy(p.values["sp"][1].values["@all_cases"])
+            all_cases[1].sort() # names of all cases come via dict, i.e. their order is undefined
+            self.assertEqual((True, ["sp@test1", "sp@test2"]), all_cases)
             self.assertEqual((False, "sp@test2"), p.values["sp"][1].values["@chosen_case"])
             self.assertEqual(["a", "sp", "sp@test1", "sp@test2"], p.values["@all_modules"][1])
             self.assertEqual((True,"EDProducer"), p.values["sp@test1"][1].values["@module_edm_type"])
@@ -2902,7 +2906,9 @@ process.addSubProcess(cms.SubProcess(process = childProcess, SelectEvents = cms.
             self.assertEqual((True,"EDProducer"), p.values["sp"][1].values["@module_edm_type"])
             self.assertEqual((True, "SwitchProducer"), p.values["sp"][1].values["@module_type"])
             self.assertEqual((True, "sp"), p.values["sp"][1].values["@module_label"])
-            self.assertEqual((True, ["sp@test1", "sp@test2"]), p.values["sp"][1].values["@all_cases"])
+            all_cases = copy.deepcopy(p.values["sp"][1].values["@all_cases"])
+            all_cases[1].sort()
+            self.assertEqual((True, ["sp@test1", "sp@test2"]), all_cases)
             self.assertEqual((False, "sp@test2"), p.values["sp"][1].values["@chosen_case"])
             self.assertEqual(["a", "sp", "sp@test2"], p.values["@all_modules"][1])
             self.assertEqual(["sp@test1"], p.values["@all_aliases"][1])

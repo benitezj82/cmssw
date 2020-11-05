@@ -48,6 +48,7 @@
 
 #include "Geometry/Records/interface/IdealGeometryRecord.h"
 #include "DetectorDescription/Core/interface/DDCompactView.h"
+#include "DetectorDescription/DDCMS/interface/DDCompactView.h"
 
 #include "SimDataFormats/GeneratorProducts/interface/HepMCProduct.h"
 #include "SimDataFormats/Forward/interface/LHCTransportLinkContainer.h"
@@ -79,9 +80,11 @@
 #include "G4SystemOfUnits.hh"
 
 #include <iostream>
-#include <sstream>
+#include <memory>
+
 #include <fstream>
 #include <memory>
+#include <sstream>
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
@@ -143,7 +146,7 @@ RunManager::RunManager(edm::ParameterSet const& p, edm::ConsumesCollector&& iC)
       m_g4overlap(p.getUntrackedParameter<edm::ParameterSet>("G4CheckOverlap")),
       m_G4Commands(p.getParameter<std::vector<std::string> >("G4Commands")),
       m_p(p) {
-  m_UIsession.reset(new CustomUIsession());
+  m_UIsession = new CustomUIsession();
   m_kernel = new G4RunManagerKernel();
   G4StateManager::GetStateManager()->SetExceptionHandler(new ExceptionHandler());
 
@@ -260,7 +263,7 @@ void RunManager::initG4(const edm::EventSetup& es) {
   }
 
   // we need the track manager now
-  m_trackManager = std::unique_ptr<SimTrackManager>(new SimTrackManager);
+  m_trackManager = std::make_unique<SimTrackManager>();
 
   // attach sensitive detector
   AttachSD attach;
@@ -344,7 +347,7 @@ void RunManager::initG4(const edm::EventSetup& es) {
   std::vector<int> vt = m_p.getUntrackedParameter<std::vector<int> >("VerboseTracks");
 
   if (sv > 0) {
-    m_sVerbose.reset(new CMSSteppingVerbose(sv, elim, ve, vn, vt));
+    m_sVerbose = std::make_unique<CMSSteppingVerbose>(sv, elim, ve, vn, vt);
   }
   initializeUserActions();
 
@@ -369,7 +372,7 @@ void RunManager::initG4(const edm::EventSetup& es) {
 
   // Geometry checks
   if (m_check || !regionFile.empty()) {
-    CMSG4CheckOverlap check(m_g4overlap, regionFile, m_UIsession.get(), pworld);
+    CMSG4CheckOverlap check(m_g4overlap, regionFile, m_UIsession, pworld);
   }
 
   // If the Geant4 particle table is needed, decomment the lines below
@@ -445,7 +448,7 @@ G4Event* RunManager::generateEvent(edm::Event& inpevt) {
   if (!m_nonBeam) {
     m_generator->HepMC2G4(HepMCEvt->GetEvent(), evt);
   } else {
-    m_generator->nonBeamEvent2G4(HepMCEvt->GetEvent(), evt);
+    m_generator->nonCentralEvent2G4(HepMCEvt->GetEvent(), evt);
   }
 
   return evt;

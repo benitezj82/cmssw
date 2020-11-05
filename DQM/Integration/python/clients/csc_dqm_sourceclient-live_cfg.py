@@ -1,5 +1,6 @@
 from __future__ import print_function
 import FWCore.ParameterSet.Config as cms
+import sys
 
 process = cms.Process("CSCDQMLIVE")
 
@@ -32,11 +33,22 @@ process.csc2DRecHits.readBadChambers = cms.bool(False)
 #----------------------------
 # Event Source
 #-----------------------------
-# for live online DQM in P5
-process.load("DQM.Integration.config.inputsource_cfi")
+
+unitTest=False
+if 'unitTest=True' in sys.argv:
+  unitTest=True
+
+if unitTest:
+  process.load("DQM.Integration.config.unittestinputsource_cfi")
+  from DQM.Integration.config.unittestinputsource_cfi import options
+else:
+  # for live online DQM in P5
+  process.load("DQM.Integration.config.inputsource_cfi")
+  from DQM.Integration.config.inputsource_cfi import options
 
 # for testing in lxplus
 #process.load("DQM.Integration.config.fileinputsource_cfi")
+#from DQM.Integration.config.fileinputsource_cfi import options
 
 #----------------------------
 # DQM Environment
@@ -49,8 +61,10 @@ process.load("DQM.Integration.config.inputsource_cfi")
 process.load("DQM.Integration.config.environment_cfi")
 process.dqmEnv.subSystemFolder    = "CSC"
 process.dqmSaver.tag = "CSC"
+process.dqmSaver.runNumber = options.runNumber
+process.dqmSaverPB.tag = "CSC"
+process.dqmSaverPB.runNumber = options.runNumber
 
-process.DQMStore.referenceFileName = '/dqmdata/dqm/reference/csc_reference.root'
 
 #process.DQM.collectorHost = 'pccmsdqm02.cern.ch'
 #process.DQM.collectorHost = 'localhost'
@@ -158,8 +172,8 @@ MessageLogger = cms.Service("MessageLogger",
 # Sequences
 #--------------------------
 
-#process.p = cms.Path(process.dqmCSCClient+process.dqmEnv+process.dqmSaver)
-process.p = cms.Path(process.dqmCSCClient * process.muonCSCDigis * process.csc2DRecHits * process.cscSegments * process.cscMonitor + process.dqmEnv + process.dqmSaver)
+#process.p = cms.Path(process.dqmCSCClient+process.dqmEnv+process.dqmSaver+process.dqmSaverPB)
+process.p = cms.Path(process.dqmCSCClient * process.muonCSCDigis * process.csc2DRecHits * process.cscSegments * process.cscMonitor + process.dqmEnv + process.dqmSaver + process.dqmSaverPB)
 
 
 process.castorDigis.InputLabel = cms.InputTag("rawDataCollector")

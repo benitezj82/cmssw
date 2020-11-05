@@ -35,7 +35,7 @@ private:
 CPPUNIT_TEST_SUITE_REGISTRATION(testDDFilteredView);
 
 void testDDFilteredView::setUp() {
-  fileName_ = edm::FileInPath("DetectorDescription/DDCMS/data/cms-geometry-2021.xml").fullPath();
+  fileName_ = edm::FileInPath("Geometry/CMSCommonData/data/dd4hep/cmsExtendedGeometry2021.xml").fullPath();
   refdattl_ = {0.000809653, 0.000713002, 0.000654918, 0.000602767, 0.000566295, 0.000541647, 0.000516174, 0.000502512,
                0.000504225, 0.000506212, 0.000506275, 0.000487621, 0.000473034, 0.000454002, 0.000442383, 0.000441043,
                0.000443609, 0.000433124, 0.000440188, 0.000435257, 0.000439224, 0.000431385, 0.00041707,  0.000415677,
@@ -68,7 +68,9 @@ void testDDFilteredView::checkFilteredView() {
   DDFilteredView fview(det.get(), det->description()->worldVolume());
   fview.next(0);
   std::cout << fview.name() << " is a " << cms::dd::name(cms::DDSolidShapeMap, fview.shape()) << "\n";
-  if (fview.isA<dd4hep::Box>())
+  std::cout << "Full path to it is " << fview.path() << "\n";
+  auto copyNos = fview.copyNos();
+  if (dd4hep::isA<dd4hep::Box>(fview.solid()))
     cout << "It's a Box\n";
   fview.parent();
   std::cout << fview.name() << " is a " << cms::dd::name(cms::DDSolidShapeMap, fview.shape()) << "\n";
@@ -115,4 +117,20 @@ void testDDFilteredView::checkFilteredView() {
     CPPUNIT_ASSERT(i.compare(refsLongFL_[count]) == 0);
     count++;
   }
+
+  cout << "Get CSC upar parameters for ChamberSpecs_ME11 as a vector of strings:\n";
+  std::vector<std::string> cscsPars = fview.get<std::vector<std::string>>("ChamberSpecs_ME11", "upar");
+  for (auto const& i : cscsPars) {
+    std::cout << i << ", ";
+    count++;
+  }
+  std::cout << "\n";
+
+  cout << "Get CSC upar parameters for ChamberSpecs_ME11 as a vector of doubles:\n";
+  std::vector<double> upars = fview.get("ChamberSpecs_ME11", "upar");
+  for (auto const& i : upars) {
+    std::cout << i << ", ";
+    count++;
+  }
+  std::cout << "\n";
 }

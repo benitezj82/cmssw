@@ -42,7 +42,6 @@ private:
   /** VK: use of localized dead-time zones */
   bool use_dead_time_zoning;
   unsigned int clct_state_machine_zone;  // +- around a keystrip
-  bool dynamic_state_machine_zone;       //use a pattern dependent zone
 
   /** VK: allow triggers only in +-pretrig_trig_zone around pretriggers */
   unsigned int pretrig_trig_zone;
@@ -55,9 +54,7 @@ private:
       const std::vector<int> halfstrip[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS]) override;
 
   /* SLHC version,  Check all half-strip pattern envelopes simultaneously, on every clock cycle, for a matching pattern */
-  bool preTrigger(const unsigned int pulse[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS],
-                  const int start_bx,
-                  int& first_bx) override;
+  bool preTrigger(const PulseArray pulse, const int start_bx, int& first_bx) override;
 };
 
 #endif

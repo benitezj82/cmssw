@@ -58,6 +58,7 @@
 
 #include "tbb/task.h"
 #include "tbb/concurrent_queue.h"
+#include "FWCore/Utilities/interface/thread_safety_macros.h"
 
 // user include files
 
@@ -73,6 +74,9 @@ namespace edm {
           m_pauseCount(iOther.m_pauseCount.exchange(0)) {
       assert(m_tasks.empty() and m_taskChosen == false);
     }
+    SerialTaskQueue(const SerialTaskQueue&) = delete;
+    const SerialTaskQueue& operator=(const SerialTaskQueue&) = delete;
+
     ~SerialTaskQueue();
 
     // ---------- const member functions ---------------------
@@ -138,9 +142,6 @@ namespace edm {
     tbb::task* pushAndGetNextTaskToRun(const T& iAction);
 
   private:
-    SerialTaskQueue(const SerialTaskQueue&) = delete;
-    const SerialTaskQueue& operator=(const SerialTaskQueue&) = delete;
-
     /** Base class for all tasks held by the SerialTaskQueue */
     class TaskBase : public tbb::task {
       friend class SerialTaskQueue;
@@ -209,9 +210,8 @@ namespace edm {
 
   template <typename T>
   tbb::task* SerialTaskQueue::QueuedTask<T>::execute() {
-    try {
-      this->m_action();
-    } catch (...) {
+    // Exception has to swallowed in order to avoid throwing from execute(). The user of SerialTaskQueue should handle exceptions within m_action().
+    CMS_SA_ALLOW try { this->m_action(); } catch (...) {
     }
     return this->finishedTask();
   }

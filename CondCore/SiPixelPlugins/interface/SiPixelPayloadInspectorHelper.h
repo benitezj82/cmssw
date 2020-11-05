@@ -3,7 +3,10 @@
 
 #include <vector>
 #include <numeric>
+#include <fstream>  // std::ifstream
 #include <string>
+#include <bitset>
+
 #include "TGraph.h"
 #include "TH1.h"
 #include "TH2.h"
@@ -14,12 +17,14 @@
 #include "TPaveText.h"
 #include "TStyle.h"
 #include "TCanvas.h"
+
 #include "CondCore/CondDB/interface/Time.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "FWCore/ParameterSet/interface/FileInPath.h"
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "DataFormats/SiPixelDetId/interface/PixelSubdetector.h"
-#include "DataFormats/SiPixelDetId/interface/PixelBarrelName.h"
-#include "DataFormats/SiPixelDetId/interface/PixelEndcapName.h"
+#include "DataFormats/TrackerCommon/interface/PixelBarrelName.h"
+#include "DataFormats/TrackerCommon/interface/PixelEndcapName.h"
 
 //#define MMDEBUG
 #ifdef MMDEBUG
@@ -31,9 +36,81 @@
 
 namespace SiPixelPI {
 
+  enum phase { zero = 0, one = 1, two = 2 };
+
   // size of the phase-0 pixel detID list
   static const unsigned int phase0size = 1440;
+  static const unsigned int phase1size = 1856;
+  static const unsigned int phase2size = 3892;
 
+  //============================================================================
+  // struct to store info useful to construct topology based on the detid list
+  struct PhaseInfo {
+    // construct with det size
+    PhaseInfo(unsigned int size) : m_detsize(size) {}
+    // construct passing the phase
+    PhaseInfo(const phase& thePhase) {
+      switch (thePhase) {
+        case phase::zero:
+          m_detsize = phase0size;
+          break;
+        case phase::one:
+          m_detsize = phase1size;
+          break;
+        case phase::two:
+          m_detsize = phase2size;
+          break;
+        default:
+          m_detsize = 99999;
+          edm::LogError("PhaseInfo") << "undefined phase: " << thePhase;
+      }
+    }
+    virtual ~PhaseInfo() { edm::LogInfo("PhaseInfo") << "PhaseInfo::~PhaseInfo()\n"; }
+    const SiPixelPI::phase phase() const {
+      if (m_detsize == phase0size)
+        return phase::zero;
+      else if (m_detsize == phase1size)
+        return phase::one;
+      else if (m_detsize > phase1size)
+        return phase::two;
+      else {
+        throw cms::Exception("LogicError") << "this detId list size: " << m_detsize << "should not exist!";
+      }
+    }
+
+    const char* pathToTopoXML() {
+      if (m_detsize == phase0size)
+        return "Geometry/TrackerCommonData/data/trackerParameters.xml";
+      else if (m_detsize == phase1size)
+        return "Geometry/TrackerCommonData/data/PhaseI/trackerParameters.xml";
+      else if (m_detsize > phase1size)
+        return "Geometry/TrackerCommonData/data/PhaseII/trackerParameters.xml";
+      else {
+        throw cms::Exception("LogicError") << "this detId list size: " << m_detsize << "should not exist!";
+      }
+    }
+
+    const bool isPhase1Comparison(const PhaseInfo& theOtherPhase) const {
+      if (phase() == phase::one || theOtherPhase.phase() == phase::one)
+        return true;
+      else
+        return false;
+    }
+
+    const bool isComparedWithPhase2(const PhaseInfo& theOtherPhase) const {
+      if ((phase() == phase::two && theOtherPhase.phase() != phase::two) ||
+          (phase() != phase::two && theOtherPhase.phase() == phase::two)) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+  private:
+    size_t m_detsize;
+  };
+
+  //============================================================================
   std::pair<unsigned int, unsigned int> unpack(cond::Time_t since) {
     auto kLowMask = 0XFFFFFFFF;
     auto run = (since >> 32);
@@ -174,7 +251,7 @@ namespace SiPixelPI {
     }
 
     h->SetMarkerSize(0.7);
-    h->Draw("colz");
+    h->Draw("colz1");
 
     auto ltx = TLatex();
     ltx.SetTextFont(62);
@@ -185,7 +262,7 @@ namespace SiPixelPI {
 
     // Draw Lines around modules
     if (lay > 0) {
-      std::vector<std::vector<int> > nladder = {{10, 16, 22}, {6, 14, 22, 32}};
+      std::vector<std::vector<int>> nladder = {{10, 16, 22}, {6, 14, 22, 32}};
       int nlad = nladder[phase][lay - 1];
       for (int xsign = -1; xsign <= 1; xsign += 2)
         for (int ysign = -1; ysign <= 1; ysign += 2) {
@@ -425,6 +502,30 @@ namespace SiPixelPI {
   }
 
   /*--------------------------------------------------------------------*/
+  void adjustCanvasMargins(TVirtualPad* pad, float top, float bottom, float left, float right)
+  /*--------------------------------------------------------------------*/
+  {
+    if (top > 0)
+      pad->SetTopMargin(top);
+    if (bottom > 0)
+      pad->SetBottomMargin(bottom);
+    if (left > 0)
+      pad->SetLeftMargin(left);
+    if (right > 0)
+      pad->SetRightMargin(right);
+  }
+
+  /*--------------------------------------------------------------------*/
+  void adjustStats(TPaveStats* stats, float X1, float Y1, float X2, float Y2)
+  /*--------------------------------------------------------------------*/
+  {
+    stats->SetX1NDC(X1);  //new x start position
+    stats->SetY1NDC(Y1);  //new y start position
+    stats->SetX2NDC(X2);  //new x end position
+    stats->SetY2NDC(Y2);  //new y end position
+  }
+
+  /*--------------------------------------------------------------------*/
   std::pair<float, float> getExtrema(TH1* h1, TH1* h2)
   /*--------------------------------------------------------------------*/
   {
@@ -458,7 +559,16 @@ namespace SiPixelPI {
     hist->GetYaxis()->SetLabelFont(42);
     hist->GetYaxis()->SetLabelSize(.05);
     hist->GetXaxis()->SetLabelSize(.05);
+
+    if (hist->InheritsFrom(TH2::Class())) {
+      hist->GetZaxis()->SetLabelFont(42);
+      hist->GetZaxis()->SetLabelFont(42);
+      hist->GetZaxis()->SetLabelSize(.05);
+      hist->GetZaxis()->SetLabelSize(.05);
+    }
   }
+
+  enum DetType { t_barrel = 0, t_forward = 1 };
 
   enum regions {
     BPixL1o,        //0  Barrel Pixel Layer 1 outer
@@ -549,10 +659,11 @@ namespace SiPixelPI {
     int m_side;
     int m_ring;
     bool m_isInternal;
+    SiPixelPI::phase* m_Phase;
 
   public:
     void init();
-    void fillGeometryInfo(const DetId& detId, const TrackerTopology& tTopo, bool isPhase0);
+    void fillGeometryInfo(const DetId& detId, const TrackerTopology& tTopo, const SiPixelPI::phase& ph);
     SiPixelPI::regions filterThePartition();
     bool sanityCheck();
     void printAll();
@@ -590,16 +701,18 @@ namespace SiPixelPI {
     }
   }
   /*--------------------------------------------------------------------*/
-  void topolInfo::fillGeometryInfo(const DetId& detId, const TrackerTopology& tTopo, bool isPhase0)
+  void topolInfo::fillGeometryInfo(const DetId& detId, const TrackerTopology& tTopo, const SiPixelPI::phase& ph)
   /*--------------------------------------------------------------------*/
   {
+    // set the phase
+    m_Phase = const_cast<SiPixelPI::phase*>(&ph);
     unsigned int subdetId = static_cast<unsigned int>(detId.subdetId());
 
     m_rawid = detId.rawId();
     m_subdetid = subdetId;
     if (subdetId == PixelSubdetector::PixelBarrel) {
       m_layer = tTopo.pxbLayer(detId.rawId());
-      m_isInternal = !SiPixelPI::isBPixOuterLadder(detId, tTopo, isPhase0);
+      m_isInternal = !SiPixelPI::isBPixOuterLadder(detId, tTopo, (ph == SiPixelPI::phase::zero));
     } else if (subdetId == PixelSubdetector::PixelEndcap) {
       m_layer = tTopo.pxfDisk(detId.rawId());
       m_side = tTopo.pxfSide(detId.rawId());
@@ -614,6 +727,10 @@ namespace SiPixelPI {
   /*--------------------------------------------------------------------*/
   {
     SiPixelPI::regions ret = SiPixelPI::NUM_OF_REGIONS;
+
+    if (m_Phase == nullptr) {
+      throw cms::Exception("LogicError") << "Cannot call filterThePartition BEFORE filling the geometry info!";
+    }
 
     // BPix
     if (m_subdetid == 1) {
@@ -647,7 +764,10 @@ namespace SiPixelPI {
           m_side > 1 ? ret = SiPixelPI::FPixpL3 : ret = SiPixelPI::FPixmL3;
           break;
         default:
-          edm::LogWarning("LogicError") << "Unknow FPix disk: " << m_layer;
+          if (*m_Phase < SiPixelPI::phase::two) {
+            // warning message only if the phase2 is < 2
+            edm::LogWarning("LogicError") << "Unknow FPix disk: " << m_layer;
+          }
           break;
       }
     }
@@ -656,10 +776,10 @@ namespace SiPixelPI {
 
   // overloaded method: mask entire module
   /*--------------------------------------------------------------------*/
-  std::vector<std::pair<int, int> > maskedBarrelRocsToBins(int layer, int ladder, int module)
+  std::vector<std::pair<int, int>> maskedBarrelRocsToBins(int layer, int ladder, int module)
   /*--------------------------------------------------------------------*/
   {
-    std::vector<std::pair<int, int> > rocsToMask;
+    std::vector<std::pair<int, int>> rocsToMask;
 
     int nlad_list[4] = {6, 14, 22, 32};
     int nlad = nlad_list[layer - 1];
@@ -686,11 +806,11 @@ namespace SiPixelPI {
 
   // overloaded method: mask single ROCs
   /*--------------------------------------------------------------------*/
-  std::vector<std::tuple<int, int, int> > maskedBarrelRocsToBins(
+  std::vector<std::tuple<int, int, int>> maskedBarrelRocsToBins(
       int layer, int ladder, int module, std::bitset<16> bad_rocs, bool isFlipped)
   /*--------------------------------------------------------------------*/
   {
-    std::vector<std::tuple<int, int, int> > rocsToMask;
+    std::vector<std::tuple<int, int, int>> rocsToMask;
 
     int nlad_list[4] = {6, 14, 22, 32};
     int nlad = nlad_list[layer - 1];
@@ -762,18 +882,14 @@ namespace SiPixelPI {
 
   // overloaded method: mask entire module
   /*--------------------------------------------------------------------*/
-  std::vector<std::pair<int, int> > maskedForwardRocsToBins(int ring, int blade, int panel, int disk)
+  std::vector<std::pair<int, int>> maskedForwardRocsToBins(int ring, int blade, int panel, int disk)
   /*--------------------------------------------------------------------*/
   {
-    std::vector<std::pair<int, int> > rocsToMask;
-
-    //int nblade_list[2] = {11, 17};
+    std::vector<std::pair<int, int>> rocsToMask;
     int nybins_list[2] = {92, 140};
-    //int nblade = nblade_list[ring - 1];
     int nybins = nybins_list[ring - 1];
 
     int start_x = disk > 0 ? ((disk + 3) * 8) + 1 : ((3 - (std::abs(disk))) * 8) + 1;
-    //int start_y = blade > 0 ? ((blade+nblade)*4)-panel*2  : ((nblade-(std::abs(blade)))*4)-panel*2;
     int start_y = blade > 0 ? (nybins / 2) + (blade * 4) - (panel * 2) + 3
                             : ((nybins / 2) - (std::abs(blade) * 4) - panel * 2) + 3;
 
@@ -796,19 +912,15 @@ namespace SiPixelPI {
 
   // overloaded method: mask single ROCs
   /*--------------------------------------------------------------------*/
-  std::vector<std::tuple<int, int, int> > maskedForwardRocsToBins(
+  std::vector<std::tuple<int, int, int>> maskedForwardRocsToBins(
       int ring, int blade, int panel, int disk, std::bitset<16> bad_rocs, bool isFlipped)
   /*--------------------------------------------------------------------*/
   {
-    std::vector<std::tuple<int, int, int> > rocsToMask;
-
-    //int nblade_list[2] = {11, 17};
+    std::vector<std::tuple<int, int, int>> rocsToMask;
     int nybins_list[2] = {92, 140};
-    //int nblade = nblade_list[ring - 1];
     int nybins = nybins_list[ring - 1];
 
     int start_x = disk > 0 ? ((disk + 3) * 8) + 1 : ((3 - (std::abs(disk))) * 8) + 1;
-    //int start_y = blade > 0 ? ((blade+nblade)*4)-panel*2  : ((nblade-(std::abs(blade)))*4)-panel*2;
     int start_y = blade > 0 ? (nybins / 2) + (blade * 4) - (panel * 2) + 3
                             : ((nybins / 2) - (std::abs(blade) * 4) - panel * 2) + 3;
 
@@ -874,5 +986,44 @@ namespace SiPixelPI {
     return rocsToMask;
   }
 
+  /*--------------------------------------------------------------------*/
+  void displayNotSupported(TCanvas& canv, const unsigned int size)
+  /*--------------------------------------------------------------------*/
+  {
+    std::string phase = (size < SiPixelPI::phase1size) ? "Phase-0" : "Phase-2";
+    canv.cd();
+    TLatex t2;
+    t2.SetTextAlign(21);
+    t2.SetTextSize(0.1);
+    t2.SetTextAngle(45);
+    t2.SetTextColor(kRed);
+    t2.DrawLatexNDC(0.6, 0.50, Form("%s  NOT SUPPORTED!", phase.c_str()));
+  }
+
+  /*--------------------------------------------------------------------*/
+  template <typename T>
+  std::pair<T, T> findMinMaxInMap(const std::map<unsigned int, T>& theMap)
+  /*--------------------------------------------------------------------*/
+  {
+    using pairtype = std::pair<unsigned int, T>;
+    auto max = *std::max_element(
+        theMap.begin(), theMap.end(), [](const pairtype& p1, const pairtype& p2) { return p1.second < p2.second; });
+    auto min = *std::min_element(
+        theMap.begin(), theMap.end(), [](const pairtype& p1, const pairtype& p2) { return p1.second < p2.second; });
+    return std::make_pair(min.second, max.second);
+  }
+
+  /*--------------------------------------------------------------------*/
+  bool checkAnswerOK(std::string& answer, bool& result)
+  /*--------------------------------------------------------------------*/
+  {
+    std::transform(answer.begin(), answer.end(), answer.begin(), [](unsigned char x) { return ::tolower(x); });
+
+    bool answer_valid = (answer == "y") || (answer == "n") || (answer == "yes") || (answer == "no") ||
+                        (answer == "true") || (answer == "false") || (answer == "1") || (answer == "0");
+
+    result = answer_valid && (answer[0] == 'y' || answer[0] == 't' || answer[0] == '1');
+    return answer_valid;
+  }
 };  // namespace SiPixelPI
 #endif

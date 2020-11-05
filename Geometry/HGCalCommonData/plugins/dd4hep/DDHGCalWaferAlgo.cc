@@ -2,14 +2,12 @@
 #include "DataFormats/Math/interface/CMSUnits.h"
 #include "DetectorDescription/DDCMS/interface/DDPlugins.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "Geometry/HGCalCommonData/interface/HGCalTypes.h"
 
 //#define EDM_ML_DEBUG
 using namespace cms_units::operators;
 
-static long algorithm(dd4hep::Detector& /* description */,
-                      cms::DDParsingContext& ctxt,
-                      xml_h e,
-                      dd4hep::SensitiveDetector& /* sens */) {
+static long algorithm(dd4hep::Detector& /* description */, cms::DDParsingContext& ctxt, xml_h e) {
   cms::DDNamespace ns(ctxt, e, true);
   cms::DDAlgoArguments args(ctxt, e);
 
@@ -28,9 +26,8 @@ static long algorithm(dd4hep::Detector& /* description */,
     edm::LogVerbatim("HGCalGeom") << "[" << k << "] x " << positionX[k] << " y " << positionY[k] << " angle "
                                   << angles[k] << " detector " << detectorType[k];
 
-  std::string idName = args.parentName();                         // Name of the "parent" volume.
-  std::string idNameSpace = static_cast<std::string>(ns.name());  // Namespace of this and ALL sub-parts
-  edm::LogVerbatim("HGCalGeom") << "DDHGCalWaferAlgo debug: Parent " << idName << " NameSpace " << idNameSpace;
+  std::string idName = args.parentName();  // Name of the "parent" volume.
+  edm::LogVerbatim("HGCalGeom") << "DDHGCalWaferAlgo debug: Parent " << idName << " NameSpace " << ns.name();
 #endif
 
   dd4hep::Volume mother = ns.volume(args.parentName());
@@ -39,8 +36,7 @@ static long algorithm(dd4hep::Detector& /* description */,
 
   for (unsigned int k = 0; k < positionX.size(); ++k) {
     std::string name(childNames[detectorType[k]]);
-    if (strchr(name.c_str(), NAMESPACE_SEP) == nullptr)
-      name = ns.name() + name;
+    name = ns.prepend(name);
     dd4hep::Rotation3D rotation;
     if (angles[k] != 0) {
       double phi = convertDegToRad(angles[k]);
@@ -53,7 +49,7 @@ static long algorithm(dd4hep::Detector& /* description */,
     double xpos = dx * positionX[k];
     double ypos = dy * positionY[k];
     dd4hep::Position tran(xpos, ypos, 0);
-    int copy = cellType * 1000 + k;
+    int copy = HGCalTypes::packCellType6(cellType, k);
     mother.placeVolume(ns.volume(name), copy, dd4hep::Transform3D(rotation, tran));
 #ifdef EDM_ML_DEBUG
     edm::LogVerbatim("HGCalGeom") << "DDHGCalWaferAlgo: " << name << " number " << copy << " positioned in " << idName
@@ -61,7 +57,7 @@ static long algorithm(dd4hep::Detector& /* description */,
 #endif
   }
 
-  return 1;
+  return cms::s_executed;
 }
 
 // first argument is the type from the xml file

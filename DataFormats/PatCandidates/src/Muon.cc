@@ -95,7 +95,9 @@ Muon::Muon(const edm::RefToBase<reco::Muon>& aMuonRef)
       jetPtRel_(0),
       mvaValue_(0),
       lowptMvaValue_(0),
-      softMvaValue_(0) {
+      softMvaValue_(0),
+      inverseBeta_(0),
+      inverseBetaErr_(0) {
   initImpactParameters();
   initSimInfo();
 }
@@ -124,7 +126,9 @@ Muon::Muon(const edm::Ptr<reco::Muon>& aMuonRef)
       jetPtRel_(0),
       mvaValue_(0),
       lowptMvaValue_(0),
-      softMvaValue_(0) {
+      softMvaValue_(0),
+      inverseBeta_(0),
+      inverseBetaErr_(0) {
   initImpactParameters();
   initSimInfo();
 }
@@ -373,6 +377,48 @@ void Muon::embedCombinedMuon() {
   if (reco::Muon::globalTrack().isNonnull()) {
     combinedMuon_.push_back(*reco::Muon::globalTrack());
     embeddedCombinedMuon_ = true;
+  }
+}
+
+// recursively look for reassociated TrackExtraRefs in the edm::Associations and rekey
+void Muon::rekeyEmbeddedTracks(std::vector<edm::Handle<edm::Association<reco::TrackExtraCollection>>> const& assocs) {
+  auto rekey = [&assocs](reco::Track& track) {
+    reco::TrackExtraRef trackExtra = track.extra();
+    for (auto const& assoc : assocs) {
+      if (!assoc->contains(trackExtra.id())) {
+        continue;
+      }
+      reco::TrackExtraRef const& trackExtraOut = (*assoc)[trackExtra];
+      if (trackExtraOut.isNonnull()) {
+        trackExtra = trackExtraOut;
+      }
+    }
+    track.setExtra(trackExtra);
+  };
+
+  for (reco::Track& track : muonBestTrack_) {
+    rekey(track);
+  }
+  for (reco::Track& track : tunePMuonBestTrack_) {
+    rekey(track);
+  }
+  for (reco::Track& track : track_) {
+    rekey(track);
+  }
+  for (reco::Track& track : standAloneMuon_) {
+    rekey(track);
+  }
+  for (reco::Track& track : combinedMuon_) {
+    rekey(track);
+  }
+  for (reco::Track& track : pickyMuon_) {
+    rekey(track);
+  }
+  for (reco::Track& track : tpfmsMuon_) {
+    rekey(track);
+  }
+  for (reco::Track& track : dytMuon_) {
+    rekey(track);
   }
 }
 

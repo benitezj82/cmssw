@@ -15,6 +15,8 @@
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 
+#include "DataFormats/Histograms/interface/DQMToken.h"
+
 //Run Info
 #include "CondFormats/DataRecord/interface/RunSummaryRcd.h"
 #include "CondFormats/RunInfo/interface/RunSummary.h"
@@ -27,7 +29,10 @@
 #include <sstream>
 #include <cmath>
 
-SiStripCertificationInfo::SiStripCertificationInfo(edm::ParameterSet const&) {}
+SiStripCertificationInfo::SiStripCertificationInfo(edm::ParameterSet const&) {
+  consumes<DQMToken, edm::InRun>(edm::InputTag("siStripOfflineAnalyser", "DQMGenerationSiStripAnalyserRun"));
+  consumes<DQMToken, edm::InLumi>(edm::InputTag("siStripOfflineAnalyser", "DQMGenerationSiStripAnalyserLumi"));
+}
 
 void SiStripCertificationInfo::beginRun(edm::Run const& run, edm::EventSetup const& eSetup) {
   edm::LogInfo("SiStripCertificationInfo") << "SiStripCertificationInfo:: Begining of Run";
@@ -235,7 +240,7 @@ void SiStripCertificationInfo::fillSiStripCertificationMEs(DQMStore& dqm_store, 
     if (ndet_subdet > 0)
       fraction_subdet = 1 - ((nfaulty_subdet * 1.0) / ndet_subdet);
     // Check S/N status flag and use the minimum between the two
-    std::string full_path = mechanical_dir.substr(0, mechanical_dir.find_last_of("/")) +
+    std::string full_path = mechanical_dir.substr(0, mechanical_dir.find_last_of('/')) +
                             "/EventInfo/reportSummaryContents/SiStrip_SToNFlag_" + name;
     MonitorElement* me_ston = dqm_store.get(full_path);
     me->Reset();

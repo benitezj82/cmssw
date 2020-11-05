@@ -118,8 +118,8 @@ void DTHVStatusHandler::getNewObjects() {
   // offline info
 
   //to access the information on the tag inside the offline database:
-  cond::TagInfo const& ti = tagInfo();
-  cond::Time_t last = ti.lastInterval.first;
+  cond::TagInfo_t const& ti = tagInfo();
+  cond::Time_t last = ti.lastInterval.since;
   std::cout << "latest DCS data (HV) already copied until: " << last << std::endl;
 
   coral::TimeStamp coralSince(ySince, mSince, dSince, hSince, pSince, sSince, 0);
@@ -437,11 +437,11 @@ void DTHVStatusHandler::dumpHVAliases() {
     if ((iofw == al) || (iofc == al) || (iofs == al) || (iofq == al) || (iofl == al)) {
       break;
     }
-    int ioew = an.find("_", iofw);
-    int ioec = an.find("_", iofc);
-    int ioes = an.find("_", iofs);
-    int ioeq = an.find("_", iofq);
-    int ioel = an.find("_", iofl);
+    int ioew = an.find('_', iofw);
+    int ioec = an.find('_', iofc);
+    int ioes = an.find('_', iofs);
+    int ioeq = an.find('_', iofq);
+    int ioel = an.find('_', iofl);
     std::string swhe(an.substr(iofw, ioew - iofw));
     const char* cwhe = swhe.c_str();
     int whe = cwhe[1] - '0';

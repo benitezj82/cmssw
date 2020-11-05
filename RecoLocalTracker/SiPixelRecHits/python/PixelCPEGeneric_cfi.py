@@ -8,14 +8,23 @@ PixelCPEGenericESProducer = _generic_default.clone()
 from Configuration.Eras.Modifier_run3_common_cff import run3_common
 run3_common.toModify(PixelCPEGenericESProducer, IrradiationBiasCorrection = True)
 
-# This customization will be removed once we get the templates for phase2 pixel
-# FIXME::Is the Upgrade variable actually used?
+
+# customize the Pixel CPE generic producer for phase2
 from Configuration.Eras.Modifier_phase2_tracker_cff import phase2_tracker
-phase2_tracker.toModify(PixelCPEGenericESProducer, 
-  UseErrorsFromTemplates = False,
-  LoadTemplatesFromDB = False,
+phase2_tracker.toModify(PixelCPEGenericESProducer,
+  UseErrorsFromTemplates = True,    
+  LoadTemplatesFromDB = True,       
+  NoTemplateErrorsWhenNoTrkAngles = True,
   TruncatePixelCharge = False,
-  IrradiationBiasCorrection = False,
+  IrradiationBiasCorrection = False, # set IBC off
   DoCosmics = False,
-  Upgrade = cms.bool(True)
+  Upgrade = True                     # use 'upgrade' version of hardcoded CPE errors
+)
+
+
+# customize the Pixel CPE generic producer in order not to use any  template information
+from Configuration.ProcessModifiers.phase2_PixelCPEGeneric_cff import phase2_PixelCPEGeneric
+phase2_PixelCPEGeneric.toModify(PixelCPEGenericESProducer,
+  UseErrorsFromTemplates = False,    # no GenErrors
+  LoadTemplatesFromDB = False,       # do not load templates
 )

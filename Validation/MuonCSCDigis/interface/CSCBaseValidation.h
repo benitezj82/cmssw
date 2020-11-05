@@ -1,10 +1,9 @@
-#ifndef CSCBaseValidation_h
-#define CSCBaseValidation_h
+#ifndef Validation_MuonCSCDigis_CSCBaseValidation_h
+#define Validation_MuonCSCDigis_CSCBaseValidation_h
 
 // user include files
 
 #include "FWCore/Framework/interface/EDAnalyzer.h"
-#include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 

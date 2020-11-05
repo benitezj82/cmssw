@@ -147,7 +147,7 @@ public:
 #endif
 
     DetParam const& theDetParam = detParam(det);
-    ClusterParam* theClusterParam = createClusterParam(cl);
+    std::unique_ptr<ClusterParam> theClusterParam = createClusterParam(cl);
     setTheClu(theDetParam, *theClusterParam);
     computeAnglesFromDetPosition(theDetParam, *theClusterParam);
 
@@ -156,7 +156,6 @@ public:
     LocalError le = localError(theDetParam, *theClusterParam);
     SiPixelRecHitQuality::QualWordType rqw = rawQualityWord(*theClusterParam);
     auto tuple = std::make_tuple(lp, le, rqw);
-    delete theClusterParam;
 
     //std::cout<<" in PixelCPEBase:localParameters(all) - "<<lp.x()<<" "<<lp.y()<<std::endl;  //dk
     return tuple;
@@ -174,7 +173,7 @@ public:
 #endif
 
     DetParam const& theDetParam = detParam(det);
-    ClusterParam* theClusterParam = createClusterParam(cl);
+    std::unique_ptr<ClusterParam> theClusterParam = createClusterParam(cl);
     setTheClu(theDetParam, *theClusterParam);
     computeAnglesFromTrajectory(theDetParam, *theClusterParam, ltp);
 
@@ -183,14 +182,13 @@ public:
     LocalError le = localError(theDetParam, *theClusterParam);
     SiPixelRecHitQuality::QualWordType rqw = rawQualityWord(*theClusterParam);
     auto tuple = std::make_tuple(lp, le, rqw);
-    delete theClusterParam;
 
     //std::cout<<" in PixelCPEBase:localParameters(on track) - "<<lp.x()<<" "<<lp.y()<<std::endl;  //dk
     return tuple;
   }
 
 private:
-  virtual ClusterParam* createClusterParam(const SiPixelCluster& cl) const = 0;
+  virtual std::unique_ptr<ClusterParam> createClusterParam(const SiPixelCluster& cl) const = 0;
 
   //--------------------------------------------------------------------------
   // This is where the action happens.
@@ -252,6 +250,19 @@ protected:
 
   bool DoLorentz_;
   bool LoadTemplatesFromDB_;
+
+  //errors for template reco for edge hits, based on observed residuals from
+  //studies likely done in 2011...
+  static constexpr float xEdgeXError_ = 23.0f;
+  static constexpr float xEdgeYError_ = 39.0f;
+
+  static constexpr float yEdgeXError_ = 24.0f;
+  static constexpr float yEdgeYError_ = 96.0f;
+
+  static constexpr float bothEdgeXError_ = 31.0f;
+  static constexpr float bothEdgeYError_ = 90.0f;
+
+  static constexpr float clusterSplitMaxError_ = 7777.7f;
 
   //---------------------------------------------------------------------------
   //  Geometrical services to subclasses.

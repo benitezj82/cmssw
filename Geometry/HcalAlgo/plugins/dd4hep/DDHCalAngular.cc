@@ -6,10 +6,7 @@
 //#define EDM_ML_DEBUG
 using namespace geant_units::operators;
 
-static long algorithm(dd4hep::Detector& /* description */,
-                      cms::DDParsingContext& ctxt,
-                      xml_h e,
-                      dd4hep::SensitiveDetector& /* sens */) {
+static long algorithm(dd4hep::Detector& /* description */, cms::DDParsingContext& ctxt, xml_h e) {
   cms::DDNamespace ns(ctxt, e, true);
   cms::DDAlgoArguments args(ctxt, e);
   // Header section of original DDHCalAngular.h
@@ -23,8 +20,7 @@ static long algorithm(dd4hep::Detector& /* description */,
   double zoffset = args.value<double>("zoffset");        //z offset
   dd4hep::Volume mother = ns.volume(args.parentName());
   std::string childName = args.value<std::string>("ChildName");
-  if (strchr(childName.c_str(), NAMESPACE_SEP) == nullptr)
-    childName = ns.name() + childName;
+  childName = ns.prepend(childName);
   dd4hep::Volume child = ns.volume(childName);
 
   // Increment

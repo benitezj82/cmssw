@@ -41,6 +41,7 @@ _minPU = [0, 10, 20, 50, 100, 150]
 _maxPU = [20, 50, 65, 80, 100, 150, 200, 250]
 _minMaxTracks = [0, 200, 500, 1000, 1500, 2000]
 _minMaxMVA = [-1.025, -0.5, 0, 0.5, 1.025]
+_maxDRJ = 0.1
 
 def _minMaxResidual(ma):
     return ([-x for x in ma], ma)
@@ -216,7 +217,7 @@ _effandfakePos = PlotGroup("effandfakePos",
 )
 _effandfakeDeltaRPU = PlotGroup("effandfakeDeltaRPU",
                                 _makeEffFakeDupPlots("dr"     , "#DeltaR", effopts=dict(xtitle="TP min #DeltaR"), fakeopts=dict(xtitle="track min #DeltaR"), common=dict(xlog=True)) +
-                                _makeEffFakeDupPlots("drj" , "#DeltaR(track, jet)", effopts=dict(xtitle="#DeltaR(TP, jet)", ytitle="efficiency vs #DeltaR(TP, jet"), fakeopts=dict(xtitle="#DeltaR(track, jet)"), common=dict(xlog=True))+
+                                _makeEffFakeDupPlots("drj" , "#DeltaR(track, jet)", effopts=dict(xtitle="#DeltaR(TP, jet)", ytitle="efficiency vs #DeltaR(TP, jet"), fakeopts=dict(xtitle="#DeltaR(track, jet)"), common=dict(xlog=True, xmax=_maxDRJ))+
                                 _makeEffFakeDupPlots("pu"     , "PU"     , common=dict(xtitle="Pileup", xmin=_minPU, xmax=_maxPU)),
                                 legendDy=_legendDy_4rows
 )
@@ -262,7 +263,7 @@ _dupandfakePos = PlotGroup("dupandfakePos",
 )
 _dupandfakeDeltaRPU = PlotGroup("dupandfakeDeltaRPU",
                                 _makeFakeDupPileupPlots("dr"     , "#DeltaR", xquantity="min #DeltaR", common=dict(xlog=True)) +
-                                _makeFakeDupPileupPlots("drj"     , "#DeltaR(track, jet)", xtitle="#DeltaR(track, jet)", common=dict(xlog=True)) +
+                                _makeFakeDupPileupPlots("drj"     , "#DeltaR(track, jet)", xtitle="#DeltaR(track, jet)", common=dict(xlog=True, xmax=_maxDRJ)) +
                                 _makeFakeDupPileupPlots("pu"     , "PU"     , xtitle="Pileup", common=dict(xmin=_minPU, xmax=_maxPU)),
                                 ncols=3
 )
@@ -373,6 +374,7 @@ _tuning = PlotGroup("tuning", [
          fallback={"name": "chi2_vs_eta", "profileX": True}),
     Plot("ptres_vs_eta_Mean", scale=100, title="", xtitle="TP #eta (PCA to beamline)", ytitle="< #delta p_{T} / p_{T} > (%)", ymin=_minResidualPt, ymax=_maxResidualPt),
     Plot("chi2mean_vs_pt", title="", xtitle="p_{T}", ytitle="< #chi^{2} / ndf >", ymin=[0, 0.5], ymax=[2, 2.5, 3, 5], xlog=True, fallback={"name": "chi2_vs_pt", "profileX": True}),
+    Plot("chi2mean_vs_drj", title="", xtitle="#DeltaR(track, jet)", ytitle="< #chi^{2} / ndf >", ymin=[0, 0.5], ymax=[2, 2.5, 3, 5], xlog=True, xmax=_maxDRJ, fallback={"name": "chi2_vs_drj", "profileX": True}),
     Plot("ptres_vs_pt_Mean", title="", xtitle="p_{T}", ytitle="< #delta p_{T}/p_{T} > (%)", scale=100, ymin=_minResidualPt, ymax=_maxResidualPt,xlog=True)
 ])
 _common = {"stat": True, "fit": True, "normalizeToUnitArea": True, "drawStyle": "hist", "drawCommand": "", "xmin": -10, "xmax": 10, "ylog": True, "ymin": 5e-5, "ymax": [0.01, 0.05, 0.1, 0.2, 0.5, 0.8, 1.025], "ratioUncertainty": False}
@@ -401,6 +403,13 @@ _resolutionsPt = PlotGroup("resolutionsPt", [
     Plot("dxyres_vs_pt_Sigma", ytitle="#sigma(#delta d_{xy}) (cm)", **_common),
     Plot("dzres_vs_pt_Sigma", ytitle="#sigma(#delta d_{z}) (cm)", **_common),
     Plot("ptres_vs_pt_Sigma", ytitle="#sigma(#delta p_{T}/p_{T})", **_common),
+])
+_common = {"title": "", "ylog": True, "xtitle": "TP #Phi (PCA to beamline)", "ymin": _minMaxResol, "ymax": _minMaxResol}
+_resolutionsPhi = PlotGroup("resolutionsPhi", [
+    Plot("dxyres_vs_phi_Sigma", ytitle="#sigma(#delta d_{xy}) (cm)", **_common),
+    Plot("dzres_vs_phi_Sigma", ytitle="#sigma(#delta d_{z}) (cm)", **_common),
+    Plot("phires_vs_phi_Sigma", ytitle="#sigma(#delta #phi) (rad)", **_common),
+    Plot("ptres_vs_phi_Sigma", ytitle="#sigma(#delta p_{T}/p_{T})", **_common),
 ])
 
 ## Extended set of plots
@@ -434,7 +443,7 @@ _extDistPos = PlotGroup("distPos",
 )
 _extDistDeltaR = PlotGroup("distDeltaR",
                               _makeDistPlots("dr"     , "min #DeltaR", common=dict(xlog=True)) +
-                              _makeDistPlots("drj"     , "#DeltaR(track, jet)", common=dict(xlog=True)),
+                              _makeDistPlots("drj"     , "#DeltaR(track, jet)", common=dict(xlog=True, xmax=_maxDRJ)),
                               ncols=2, legendDy=_legendDy_2rows,
 )
 _extDistSeedingPlots = _makeDistPlots("seedingLayerSet", "seeding layers", common=dict(xtitle="", **_seedingLayerSet_common))
@@ -505,7 +514,7 @@ _extDistSimPos = PlotGroup("distsimPos",
 )
 _extDistSimDeltaR = PlotGroup("distsimDeltaR",
                                  _makeDistSimPlots("dr"     , "min #DeltaR", common=dict(xlog=True)) +
-                                 _makeDistSimPlots("drj" , "#DeltaR(TP, jet)", common=dict(xlog=True)),
+                                 _makeDistSimPlots("drj" , "#DeltaR(TP, jet)", common=dict(xlog=True, xmax=_maxDRJ)),
                                  ncols=2, legendDy=_legendDy_2rows,
 )
 
@@ -625,8 +634,8 @@ def _mapCollectionToAlgoQuality(collName):
         collNameLow = collNameLow[:i_seeds]
 
     algo = None
-    prefixes = ["cutsreco", "cutsrecofrompv", "cutsrecofrompv2", "cutsrecofrompvalltp"]
-    if collNameLow in ["general", "generalfrompv"]+prefixes:
+    prefixes = ["cutsreco", "cutsrecofrompv", "cutsrecofrompv2", "cutsrecofrompvalltp", "cutsrecoetagreater2p7"]
+    if collNameLow in ["general", "generalfrompv", "generaletagreater2p7"]+prefixes:
         algo = "ootb"
     else:
         def testColl(coll):
@@ -1220,6 +1229,7 @@ _recoBasedPlots = [
     _hitsAndPt,
     _pulls,
     _resolutionsEta,
+    _resolutionsPhi,
     _resolutionsPt,
     _tuning,
 ]
@@ -1242,6 +1252,7 @@ _seedingBuildingPlots = _simBasedPlots + [
 _buildingExtendedPlots = [
     _pulls,
     _resolutionsEta,
+    _resolutionsPhi,
     _resolutionsPt,
     _tuning,
 ]
@@ -1354,6 +1365,7 @@ def _appendTrackingPlots(lastDirName, name, algoPlots, onlyForPileup=False, only
         plotter.appendTable(summaryName, folders, TrackingSummaryTable(section="ak4PFJets", collection=TrackingSummaryTable.AK4PFJets))
 _appendTrackingPlots("Track", "", _simBasedPlots+_recoBasedPlots)
 _appendTrackingPlots("TrackTPPtLess09", "tpPtLess09", _simBasedPlots)
+_appendTrackingPlots("TrackTPEtaGreater2p7", "tpEtaGreater2p7", _simBasedPlots+_recoBasedPlots)
 _appendTrackingPlots("TrackAllTPEffic", "allTPEffic", _simBasedPlots, onlyForPileup=True)
 _appendTrackingPlots("TrackFromPV", "fromPV", _simBasedPlots+_recoBasedPlots, onlyForPileup=True)
 _appendTrackingPlots("TrackFromPVAllTP", "fromPVAllTP", _simBasedPlots+_recoBasedPlots, onlyForPileup=True)

@@ -47,10 +47,10 @@
 // DB
 #include "CondFormats/DataRecord/interface/CTPPSPixelDAQMappingRcd.h"
 #include "CondFormats/DataRecord/interface/CTPPSPixelAnalysisMaskRcd.h"
-#include "CondFormats/CTPPSReadoutObjects/interface/CTPPSPixelDAQMapping.h"
-#include "CondFormats/CTPPSReadoutObjects/interface/CTPPSPixelAnalysisMask.h"
-#include "CondFormats/CTPPSReadoutObjects/interface/CTPPSPixelGainCalibrations.h"
-#include "RecoCTPPS/PixelLocal/interface/CTPPSPixelGainCalibrationDBService.h"
+#include "CondFormats/PPSObjects/interface/CTPPSPixelDAQMapping.h"
+#include "CondFormats/PPSObjects/interface/CTPPSPixelAnalysisMask.h"
+#include "CondFormats/PPSObjects/interface/CTPPSPixelGainCalibrations.h"
+#include "RecoPPS/Local/interface/CTPPSPixelGainCalibrationDBService.h"
 
 // user include files
 #include "SimDataFormats/TrackingHit/interface/PSimHitContainer.h"
@@ -228,8 +228,8 @@ void CTPPSPixelDigiProducer::produce(edm::Event& iEvent, const edm::EventSetup& 
     edm::DetSet<CTPPSPixelDigi> digi_collector(it->first);
 
     if (theAlgoMap.find(it->first) == theAlgoMap.end()) {
-      theAlgoMap[it->first] = std::unique_ptr<RPixDetDigitizer>(
-          new RPixDetDigitizer(conf_, *rndEngine_, it->first, iSetup));  //a digitizer for eny detector
+      theAlgoMap[it->first] =
+          std::make_unique<RPixDetDigitizer>(conf_, *rndEngine_, it->first, iSetup);  //a digitizer for eny detector
     }
 
     std::vector<int> input_links;

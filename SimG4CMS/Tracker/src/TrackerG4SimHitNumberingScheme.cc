@@ -2,7 +2,7 @@
 #include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
 
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
-
+#include "DD4hep/Filter.h"
 #include "G4TransportationManager.hh"
 #include "G4Navigator.hh"
 #include "G4VTouchable.hh"
@@ -25,7 +25,7 @@ void TrackerG4SimHitNumberingScheme::buildAll() {
 
   std::vector<const GeometricDet*> allSensitiveDets;
   geomDet_->deepComponents(allSensitiveDets);
-  edm::LogInfo("TrackerSimInfoNumbering")
+  edm::LogVerbatim("TrackerSimInfoNumbering")
       << " TouchableTo History: got " << allSensitiveDets.size() << " sensitive detectors from GeometricDet.";
 
   for (auto& theSD : allSensitiveDets) {
@@ -35,7 +35,7 @@ void TrackerG4SimHitNumberingScheme::buildAll() {
     TrackerG4SimHitNumberingScheme::Nav_Story st;
     touchToNavStory(hist, st);
 
-    directMap_[st] = theSD->geographicalID();
+    directMap_[st] = theSD->geographicalId();
 
     LogDebug("TrackerSimDebugNumbering") << " INSERTING LV " << hist->GetVolume()->GetLogicalVolume()->GetName()
                                          << " SD: "
@@ -43,7 +43,7 @@ void TrackerG4SimHitNumberingScheme::buildAll() {
                                          << " Now size is " << directMap_.size();
     delete hist;
   }
-  edm::LogInfo("TrackerSimInfoNumbering")
+  edm::LogVerbatim("TrackerSimInfoNumbering")
       << " TrackerG4SimHitNumberingScheme: mapped " << directMap_.size() << " detectors to Geant4.";
 
   if (directMap_.size() != allSensitiveDets.size()) {
@@ -62,7 +62,7 @@ void TrackerG4SimHitNumberingScheme::touchToNavStory(const G4VTouchable* v,
   int levels = v->GetHistoryDepth();
 
   for (int k = 0; k <= levels; ++k) {
-    if (v->GetVolume(k)->GetLogicalVolume()->GetName() != "TOBInactive") {
+    if (dd4hep::dd::noNamespace(v->GetVolume(k)->GetLogicalVolume()->GetName()) != "TOBInactive") {
       st.emplace_back(
           std::pair<int, std::string>(v->GetVolume(k)->GetCopyNo(), v->GetVolume(k)->GetLogicalVolume()->GetName()));
 #ifdef DEBUG

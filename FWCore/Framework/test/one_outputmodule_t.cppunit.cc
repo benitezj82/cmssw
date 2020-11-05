@@ -12,9 +12,9 @@
 #include <functional>
 #include "FWCore/Framework/interface/one/OutputModule.h"
 #include "FWCore/Framework/src/OutputModuleCommunicatorT.h"
+#include "FWCore/Framework/src/TransitionInfoTypes.h"
 #include "FWCore/Framework/src/WorkerT.h"
 #include "FWCore/Framework/interface/OccurrenceTraits.h"
-#include "DataFormats/Provenance/interface/ProcessHistoryRegistry.h"
 #include "DataFormats/Provenance/interface/ProductRegistry.h"
 #include "DataFormats/Provenance/interface/BranchIDListHelper.h"
 #include "DataFormats/Provenance/interface/ThinnedAssociationsHelper.h"
@@ -154,7 +154,7 @@ private:
     using edm::one::OutputModuleBase::doPreallocate;
     RunCacheOutputModule(edm::ParameterSet const& iPSet)
         : edm::one::OutputModuleBase(iPSet), edm::one::OutputModule<edm::RunCache<DummyCache>>(iPSet) {}
-    mutable unsigned int m_count = 0;
+    mutable std::atomic<unsigned int> m_count = 0;
     void write(edm::EventForOutput const&) override { ++m_count; }
     void writeRun(edm::RunForOutput const&) override { ++m_count; }
     void writeLuminosityBlock(edm::LuminosityBlockForOutput const&) override { ++m_count; }
@@ -172,7 +172,7 @@ private:
     using edm::one::OutputModuleBase::doPreallocate;
     LumiCacheOutputModule(edm::ParameterSet const& iPSet)
         : edm::one::OutputModuleBase(iPSet), edm::one::OutputModule<edm::LuminosityBlockCache<DummyCache>>(iPSet) {}
-    mutable unsigned int m_count = 0;
+    mutable std::atomic<unsigned int> m_count = 0;
     void write(edm::EventForOutput const&) override { ++m_count; }
     void writeRun(edm::RunForOutput const&) override { ++m_count; }
     void writeLuminosityBlock(edm::LuminosityBlockForOutput const&) override { ++m_count; }
@@ -261,8 +261,7 @@ testOneOutputModule::testOneOutputModule()
   edm::EventAuxiliary eventAux(eventID, uuid, now, true);
 
   m_ep.reset(new edm::EventPrincipal(m_prodReg, m_idHelper, m_associationsHelper, m_procConfig, nullptr));
-  edm::ProcessHistoryRegistry phr;
-  m_ep->fillEventPrincipal(eventAux, phr);
+  m_ep->fillEventPrincipal(eventAux, nullptr);
   m_ep->setLuminosityBlockPrincipal(m_lbp.get());
   m_actReg.reset(new edm::ActivityRegistry);
 
@@ -275,13 +274,15 @@ testOneOutputModule::testOneOutputModule()
   m_transToFunc[Trans::kGlobalBeginRun] = [this](edm::Worker* iBase, edm::OutputModuleCommunicator*) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionGlobalBegin> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, edm::StreamID::invalidStreamID(), parentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, edm::StreamID::invalidStreamID(), parentContext, nullptr);
   };
 
   m_transToFunc[Trans::kGlobalBeginLuminosityBlock] = [this](edm::Worker* iBase, edm::OutputModuleCommunicator*) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionGlobalBegin> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, edm::StreamID::invalidStreamID(), parentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, edm::StreamID::invalidStreamID(), parentContext, nullptr);
   };
 
   m_transToFunc[Trans::kEvent] = [this](edm::Worker* iBase, edm::OutputModuleCommunicator*) {
@@ -289,13 +290,15 @@ testOneOutputModule::testOneOutputModule()
     edm::StreamContext streamContext(s_streamID0, nullptr);
     edm::ParentContext parentContext(&streamContext);
     iBase->setActivityRegistry(m_actReg);
-    iBase->doWork<Traits>(*m_ep, *m_es, s_streamID0, parentContext, nullptr);
+    edm::EventTransitionInfo info(*m_ep, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, parentContext, nullptr);
   };
 
   m_transToFunc[Trans::kGlobalEndLuminosityBlock] = [this](edm::Worker* iBase, edm::OutputModuleCommunicator* iComm) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionGlobalEnd> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, edm::StreamID::invalidStreamID(), parentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, edm::StreamID::invalidStreamID(), parentContext, nullptr);
     auto t = edm::make_empty_waiting_task();
     t->increment_ref_count();
     iComm->writeLumiAsync(edm::WaitingTaskHolder(t.get()), *m_lbp, nullptr, &activityRegistry);
@@ -308,7 +311,8 @@ testOneOutputModule::testOneOutputModule()
   m_transToFunc[Trans::kGlobalEndRun] = [this](edm::Worker* iBase, edm::OutputModuleCommunicator* iComm) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionGlobalEnd> Traits;
     edm::ParentContext parentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, edm::StreamID::invalidStreamID(), parentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, edm::StreamID::invalidStreamID(), parentContext, nullptr);
     auto t = edm::make_empty_waiting_task();
     t->increment_ref_count();
     iComm->writeRunAsync(edm::WaitingTaskHolder(t.get()), *m_rp, nullptr, &activityRegistry, nullptr);

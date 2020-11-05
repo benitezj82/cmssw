@@ -1,7 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
 from DQMServices.Components.DQMMessageLoggerClient_cff import *
-from DQMServices.Components.DQMDcsInfoClient_cfi import *
 from DQMServices.Components.DQMFastTimerServiceClient_cfi import *
 
 from DQMOffline.Ecal.ecal_dqm_client_offline_cff import *
@@ -12,9 +11,10 @@ from DQM.HcalTasks.OfflineHarvestingSequence_hi import *
 from DQM.DTMonitorClient.dtDQMOfflineClients_cff import *
 from DQM.RPCMonitorClient.RPCTier0Client_cff import *
 from DQM.CSCMonitorModule.csc_dqm_offlineclient_collisions_cff import *
+from DQMOffline.Muon.gem_dqm_offline_client_cff import *
 from DQMServices.Components.DQMFEDIntegrityClient_cff import *
 
-DQMOfflineHeavyIons_SecondStepDCS = cms.Sequence( dqmDcsInfoClient )
+DQMNone = cms.Sequence()
 
 DQMOfflineHeavyIons_SecondStepEcal = cms.Sequence( ecal_dqm_client_offline *
 						    es_dqm_client_offline )
@@ -29,9 +29,14 @@ DQMOfflineHeavyIons_SecondStepMuonDPG = cms.Sequence(  dtClients *
                                                       rpcTier0Client *
                                                       cscOfflineCollisionsClients )
 
+from Configuration.Eras.Modifier_run3_GEM_cff import run3_GEM
+_run3_GEM_DQMOfflineHeavyIons_SecondStepMuonDPG = DQMOfflineHeavyIons_SecondStepMuonDPG.copy()
+_run3_GEM_DQMOfflineHeavyIons_SecondStepMuonDPG += gemClients
+run3_GEM.toReplaceWith(DQMOfflineHeavyIons_SecondStepMuonDPG, _run3_GEM_DQMOfflineHeavyIons_SecondStepMuonDPG)
+
 DQMOfflineHeavyIons_SecondStepFED = cms.Sequence( dqmFEDIntegrityClient )
 
-DQMOfflineHeavyIons_SecondStep_PreDPG = cms.Sequence( DQMOfflineHeavyIons_SecondStepDCS *
+DQMOfflineHeavyIons_SecondStep_PreDPG = cms.Sequence( 
 						      DQMOfflineHeavyIons_SecondStepEcal *
                                                       DQMOfflineHeavyIons_SecondStepTrackerStrip *
                                                       DQMOfflineHeavyIons_SecondStepTrackerPixel *
@@ -78,3 +83,7 @@ DQMOfflineHeavyIons_SecondStep = cms.Sequence(
                                                DQMOfflineHeavyIons_SecondStep_PreDPG *
                                                DQMOfflineHeavyIons_SecondStep_PrePOG *
                                                DQMMessageLoggerClientSeq )
+
+DQMOfflineHeavyIons_SecondStep_FakeHLT = cms.Sequence( DQMOfflineHeavyIons_SecondStep )
+DQMOfflineHeavyIons_SecondStep_FakeHLT.remove( DQMOfflineHeavyIons_SecondStepTrigger )
+

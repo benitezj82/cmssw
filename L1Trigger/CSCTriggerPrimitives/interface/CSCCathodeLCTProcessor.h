@@ -34,8 +34,12 @@
 #include "DataFormats/CSCDigi/interface/CSCCLCTDigi.h"
 #include "DataFormats/CSCDigi/interface/CSCCLCTPreTriggerDigi.h"
 #include "L1Trigger/CSCTriggerPrimitives/interface/CSCBaseboard.h"
+#include "L1Trigger/CSCTriggerPrimitives/interface/CSCComparatorCodeLUT.h"
+#include "L1Trigger/CSCTriggerPrimitives/interface/LCTQualityControl.h"
 
 #include <vector>
+#include <array>
+#include <string>
 
 class CSCCathodeLCTProcessor : public CSCBaseboard {
 public:
@@ -49,6 +53,9 @@ public:
 
   /** Default constructor. Used for testing. */
   CSCCathodeLCTProcessor();
+
+  /** Default destructor. */
+  ~CSCCathodeLCTProcessor() override = default;
 
   /** Sets configuration parameters obtained via EventSetup mechanism. */
   void setConfigParameters(const CSCDBL1TPParameters* conf);
@@ -65,12 +72,12 @@ public:
   void run(const std::vector<int> halfstrip[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS]);
 
   /** Returns vector of CLCTs in the read-out time window, if any. */
-  std::vector<CSCCLCTDigi> readoutCLCTs() const;
-  std::vector<CSCCLCTDigi> readoutCLCTsME1a() const;
-  std::vector<CSCCLCTDigi> readoutCLCTsME1b() const;
+  std::vector<CSCCLCTDigi> readoutCLCTs(int nMaxCLCTs = CSCConstants::MAX_CLCTS_READOUT) const;
+  std::vector<CSCCLCTDigi> readoutCLCTsME1a(int nMaxCLCTs = CSCConstants::MAX_CLCTS_READOUT) const;
+  std::vector<CSCCLCTDigi> readoutCLCTsME1b(int nMaxCLCTs = CSCConstants::MAX_CLCTS_READOUT) const;
 
   /** Returns vector of all found CLCTs, if any. */
-  std::vector<CSCCLCTDigi> getCLCTs() const;
+  std::vector<CSCCLCTDigi> getCLCTs(unsigned nMaxCLCTs = CSCConstants::MAX_CLCTS_PER_PROCESSOR) const;
 
   /** get best/second best CLCT
    * Note: CLCT has BX shifted */
@@ -91,6 +98,11 @@ protected:
   /** Second best LCT in this chamber, as found by the processor. */
   CSCCLCTDigi secondCLCT[CSCConstants::MAX_CLCT_TBINS];
 
+  // unique pointers to the luts
+  std::array<std::unique_ptr<CSCComparatorCodeLUT>, 5> lutpos_;
+  std::array<std::unique_ptr<CSCComparatorCodeLUT>, 5> lutslope_;
+  std::array<std::unique_ptr<CSCComparatorCodeLUT>, 5> lutpatconv_;
+
   /** Access routines to comparator digis. */
   bool getDigis(const CSCComparatorDigiCollection* compdc);
   void getDigis(const CSCComparatorDigiCollection* compdc, const CSCDetId& id);
@@ -101,6 +113,8 @@ protected:
   /** Make sure that the parameter values are within the allowed range. */
   void checkConfigParameters();
 
+  typedef unsigned int PulseArray[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS];
+
   //---------------- Methods common to all firmware versions ------------------
   // Single-argument version for TMB07 (halfstrip-only) firmware.
   // Takes the comparator & time info and stuffs it into halfstrip vector.
@@ -108,21 +122,25 @@ protected:
   void readComparatorDigis(std::vector<int> halfstrip[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS]);
   void pulseExtension(const std::vector<int> time[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS],
                       const int nStrips,
-                      unsigned int pulse[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS]);
+                      PulseArray pulse);
 
   //--------------- Functions for post-2007 version of the firmware -----------
   virtual std::vector<CSCCLCTDigi> findLCTs(
       const std::vector<int> halfstrip[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS]);
 
   /* Check all half-strip pattern envelopes simultaneously, on every clock cycle, for a matching pattern */
-  virtual bool preTrigger(const unsigned int pulse[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS],
-                          const int start_bx,
-                          int& first_bx);
+  virtual bool preTrigger(const PulseArray pulse, const int start_bx, int& first_bx);
 
   /* For a given clock cycle, check each half-strip if a pattern matches */
-  bool patternFinding(const unsigned int pulse[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS],
+  bool patternFinding(const PulseArray pulse,
                       const int nStrips,
-                      const unsigned int bx_time);
+                      const unsigned int bx_time,
+                      std::map<int, std::map<int, CSCCLCTDigi::ComparatorContainer> >& hits_in_patterns);
+
+  // enum used in the comparator code logic
+  enum CLCT_CompCode { INVALID_HALFSTRIP = 65535 };
+
+  void cleanComparatorContainer(CSCCLCTDigi& lct) const;
 
   /* Mark the half-strips around the best half-strip as busy */
   void markBusyKeys(const int best_hstrip, const int best_patid, int quality[CSCConstants::NUM_HALF_STRIPS_7CFEBS]);
@@ -135,6 +153,17 @@ protected:
   void dumpDigis(const std::vector<int> strip[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS],
                  const int nStrips) const;
 
+  // --------Functions for the comparator code algorith for Run-3 ---------//
+  //calculates the id based on location of hits
+  int calculateComparatorCode(const std::array<std::array<int, 3>, 6>& halfStripPattern) const;
+
+  // sets the 1/4 and 1/8 strip bits given a floating point position offset
+  void assignPositionCC(const unsigned offset, std::tuple<uint16_t, bool, bool>& returnValue) const;
+
+  // runs the CCLUT procedure
+  void runCCLUT(CSCCLCTDigi& digi) const;
+
+  unsigned convertSlopeToRun2Pattern(const unsigned slope) const;
   //--------------------------- Member variables -----------------------------
 
   /* best pattern Id for a given half-strip */
@@ -147,6 +176,9 @@ protected:
 
   /* does a given half-strip have a pre-trigger? */
   bool ispretrig[CSCConstants::NUM_HALF_STRIPS_7CFEBS];
+
+  // actual LUT used
+  CSCPatternBank::LCTPatterns clct_pattern_ = {};
 
   // we use these next ones to address the various bits inside the array that's
   // used to make the cathode LCTs.
@@ -194,6 +226,13 @@ protected:
   static const unsigned int def_nplanes_hit_pattern;
   static const unsigned int def_pid_thresh_pretrig, def_min_separation;
   static const unsigned int def_tmb_l1a_window_size;
+
+  std::vector<std::string> positionLUTFiles_;
+  std::vector<std::string> slopeLUTFiles_;
+  std::vector<std::string> patternConversionLUTFiles_;
+
+  /* quality control */
+  std::unique_ptr<LCTQualityControl> qualityControl_;
 };
 
 #endif

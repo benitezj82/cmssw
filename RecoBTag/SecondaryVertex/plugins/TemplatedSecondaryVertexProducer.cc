@@ -21,6 +21,11 @@
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/Exception.h"
+#include "FWCore/Utilities/interface/ESGetToken.h"
+
+#include "FWCore/ParameterSet/interface/Registry.h"
+#include "FWCore/Common/interface/Provenance.h"
+#include "DataFormats/Provenance/interface/ProductProvenance.h"
 
 #include "DataFormats/PatCandidates/interface/Jet.h"
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -162,6 +167,8 @@ private:
   bool useGroomedFatJets;
   edm::EDGetTokenT<edm::View<reco::Jet> > token_fatJets;
   edm::EDGetTokenT<edm::View<reco::Jet> > token_groomedFatJets;
+  edm::EDGetTokenT<edm::ValueMap<float> > token_weights;
+  edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> token_trackBuilder;
 
   ClusterSequencePtr fjClusterSeq;
   JetDefPtr fjJetDefinition;
@@ -286,10 +293,17 @@ TemplatedSecondaryVertexProducer<IPTI, VTX>::TemplatedSecondaryVertexProducer(co
       throw cms::Exception("InvalidJetAlgorithm") << "Jet clustering algorithm is invalid: " << jetAlgorithm
                                                   << ", use CambridgeAachen | Kt | AntiKt" << std::endl;
   }
-  if (useFatJets)
+  token_trackBuilder =
+      esConsumes<TransientTrackBuilder, TransientTrackRecord>(edm::ESInputTag("", "TransientTrackBuilder"));
+  if (useFatJets) {
     token_fatJets = consumes<edm::View<reco::Jet> >(params.getParameter<edm::InputTag>("fatJets"));
-  if (useGroomedFatJets)
+  }
+  edm::InputTag srcWeights = params.getParameter<edm::InputTag>("weights");
+  if (!srcWeights.label().empty())
+    token_weights = consumes<edm::ValueMap<float> >(srcWeights);
+  if (useGroomedFatJets) {
     token_groomedFatJets = consumes<edm::View<reco::Jet> >(params.getParameter<edm::InputTag>("groomedFatJets"));
+  }
   if (useFatJets && !useSVClustering)
     rParam = params.getParameter<double>("rParam");  // will be used later as a dR cut
 
@@ -305,8 +319,7 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
   //How about good old pointers?
   typedef std::map<const Track *, TransientTrack> TransientTrackMap;
 
-  edm::ESHandle<TransientTrackBuilder> trackBuilder;
-  es.get<TransientTrackRecord>().get("TransientTrackBuilder", trackBuilder);
+  edm::ESHandle<TransientTrackBuilder> trackBuilder = es.getHandle(token_trackBuilder);
 
   edm::Handle<std::vector<IPTI> > trackIPTagInfos;
   event.getByToken(token_trackIPTagInfo, trackIPTagInfos);
@@ -320,7 +333,6 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
   edm::Handle<edm::View<reco::Jet> > groomedFatJetsHandle;
   if (useFatJets) {
     event.getByToken(token_fatJets, fatJetsHandle);
-
     if (useGroomedFatJets) {
       event.getByToken(token_groomedFatJets, groomedFatJetsHandle);
 
@@ -330,6 +342,9 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
             << fatJetsHandle->size() << "). Please check that the two jet collections belong to each other.";
     }
   }
+  edm::Handle<edm::ValueMap<float> > weightsHandle;
+  if (!token_weights.isUninitialized())
+    event.getByToken(token_weights, weightsHandle);
 
   edm::Handle<BeamSpot> beamSpot;
   unsigned int bsCovSrc[7] = {
@@ -380,7 +395,17 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
             edm::LogWarning("NullTransverseMomentum") << "dropping input candidate with pt=0";
             continue;
           }
-          fjInputs.push_back(fastjet::PseudoJet(constit->px(), constit->py(), constit->pz(), constit->energy()));
+          if (it->isWeighted()) {
+            if (token_weights.isUninitialized())
+              throw cms::Exception("MissingConstituentWeight")
+                  << "TemplatedSecondaryVertexProducer: No weights (e.g. PUPPI) given for weighted jet collection"
+                  << std::endl;
+            float w = (*weightsHandle)[constit];
+            fjInputs.push_back(
+                fastjet::PseudoJet(constit->px() * w, constit->py() * w, constit->pz() * w, constit->energy() * w));
+          } else {
+            fjInputs.push_back(fastjet::PseudoJet(constit->px(), constit->py(), constit->pz(), constit->energy()));
+          }
         }
       }
     } else {
@@ -394,7 +419,17 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
             edm::LogWarning("NullTransverseMomentum") << "dropping input candidate with pt=0";
             continue;
           }
-          fjInputs.push_back(fastjet::PseudoJet(constit->px(), constit->py(), constit->pz(), constit->energy()));
+          if (it->jet()->isWeighted()) {
+            if (token_weights.isUninitialized())
+              throw cms::Exception("MissingConstituentWeight")
+                  << "TemplatedSecondaryVertexProducer: No weights (e.g. PUPPI) given for weighted jet collection"
+                  << std::endl;
+            float w = (*weightsHandle)[constit];
+            fjInputs.push_back(
+                fastjet::PseudoJet(constit->px() * w, constit->py() * w, constit->pz() * w, constit->energy() * w));
+          } else {
+            fjInputs.push_back(fastjet::PseudoJet(constit->px(), constit->py(), constit->pz(), constit->energy()));
+          }
         }
       }
     }
@@ -653,14 +688,14 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
   std::unique_ptr<ConfigurableVertexReconstructor> vertexReco;
   std::unique_ptr<GhostTrackVertexFinder> vertexRecoGT;
   if (useGhostTrack)
-    vertexRecoGT.reset(
-        new GhostTrackVertexFinder(vtxRecoPSet.getParameter<double>("maxFitChi2"),
-                                   vtxRecoPSet.getParameter<double>("mergeThreshold"),
-                                   vtxRecoPSet.getParameter<double>("primcut"),
-                                   vtxRecoPSet.getParameter<double>("seccut"),
-                                   getGhostTrackFitType(vtxRecoPSet.getParameter<std::string>("fitType"))));
+    vertexRecoGT = std::make_unique<GhostTrackVertexFinder>(
+        vtxRecoPSet.getParameter<double>("maxFitChi2"),
+        vtxRecoPSet.getParameter<double>("mergeThreshold"),
+        vtxRecoPSet.getParameter<double>("primcut"),
+        vtxRecoPSet.getParameter<double>("seccut"),
+        getGhostTrackFitType(vtxRecoPSet.getParameter<std::string>("fitType")));
   else
-    vertexReco.reset(new ConfigurableVertexReconstructor(vtxRecoPSet));
+    vertexReco = std::make_unique<ConfigurableVertexReconstructor>(vtxRecoPSet);
 
   TransientTrackMap primariesMap;
 
@@ -707,7 +742,7 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
     std::vector<GhostTrackState> gtStates;
     std::unique_ptr<GhostTrackPrediction> gtPred;
     if (useGhostTrack)
-      gtPred.reset(new GhostTrackPrediction(*iterJets->ghostTrack()));
+      gtPred = std::make_unique<GhostTrackPrediction>(*iterJets->ghostTrack());
 
     for (unsigned int i = 0; i < indices.size(); i++) {
       typedef typename TemplatedSecondaryVertexTagInfo<IPTI, VTX>::IndexedTrackData IndexedTrackData;
@@ -747,7 +782,7 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
 
     std::unique_ptr<GhostTrack> ghostTrack;
     if (useGhostTrack)
-      ghostTrack.reset(new GhostTrack(
+      ghostTrack = std::make_unique<GhostTrack>(
           GhostTrackPrediction(
               RecoVertex::convertPos(pv.position()),
               RecoVertex::convertError(pv.error()),
@@ -756,7 +791,7 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::produce(edm::Event &event, con
           *gtPred,
           gtStates,
           iterJets->ghostTrack()->chi2(),
-          iterJets->ghostTrack()->ndof()));
+          iterJets->ghostTrack()->ndof());
 
     // perform actual vertex finding
 
@@ -1272,6 +1307,7 @@ void TemplatedSecondaryVertexProducer<IPTI, VTX>::fillDescriptions(edm::Configur
   desc.addOptional<double>("relPtTolerance", 1e-03);
   desc.addOptional<edm::InputTag>("fatJets");
   desc.addOptional<edm::InputTag>("groomedFatJets");
+  desc.add<edm::InputTag>("weights", edm::InputTag(""));
   descriptions.addDefault(desc);
 }
 

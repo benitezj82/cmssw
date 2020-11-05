@@ -14,8 +14,8 @@
 #include "CondFormats/RunInfo/interface/RunInfo.h"
 #include "CondFormats/DataRecord/interface/RunSummaryRcd.h"
 
-#include "EventFilter/L1TXRawToDigi/plugins/UCTDAQRawData.h"
-#include "EventFilter/L1TXRawToDigi/plugins/UCTAMCRawData.h"
+#include "EventFilter/L1TXRawToDigi/interface/UCTDAQRawData.h"
+#include "EventFilter/L1TXRawToDigi/interface/UCTAMCRawData.h"
 
 L1TStage2CaloLayer1::L1TStage2CaloLayer1(const edm::ParameterSet& ps)
     : ecalTPSourceRecd_(consumes<EcalTrigPrimDigiCollection>(ps.getParameter<edm::InputTag>("ecalTPSourceRecd"))),
@@ -35,8 +35,6 @@ L1TStage2CaloLayer1::L1TStage2CaloLayer1(const edm::ParameterSet& ps)
 }
 
 L1TStage2CaloLayer1::~L1TStage2CaloLayer1() {}
-
-void L1TStage2CaloLayer1::dqmBeginRun(const edm::Run&, const edm::EventSetup&) {}
 
 void L1TStage2CaloLayer1::analyze(const edm::Event& event, const edm::EventSetup& es) {
   // Monitorables stored in Layer 1 raw data but

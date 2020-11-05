@@ -25,7 +25,7 @@
 #include "CalibTracker/Records/interface/SiStripDetCablingRcd.h"
 #include "DQMServices/Core/interface/DQMStore.h"
 #include "CalibFormats/SiStripObjects/interface/SiStripDetCabling.h"
-#include "DataFormats/SiStripDetId/interface/SiStripSubStructure.h"
+#include "DataFormats/TrackerCommon/interface/SiStripSubStructure.h"
 #include "DQM/SiStripCommon/interface/SiStripFolderOrganizer.h"
 
 using namespace std;
@@ -544,13 +544,6 @@ void SiStripTrackingRecHitsValid::bookHistograms(DQMStore::IBooker &ibooker,
                                         << " Creating MEs for new Cabling ";
 
     createMEs(ibooker, es);
-  }
-}
-
-void SiStripTrackingRecHitsValid::endJob() {
-  //Only in standalone mode save local root file
-  if (runStandalone && outputMEsInRootFile) {
-    dbe_->save(outputFileName);
   }
 }
 
@@ -1208,23 +1201,20 @@ void SiStripTrackingRecHitsValid::rechitanalysis_matched(LocalVector ldir,
     float dist = std::numeric_limits<float>::max();
     float distx = std::numeric_limits<float>::max();
     float disty = std::numeric_limits<float>::max();
-    std::pair<LocalPoint, LocalVector> closestPair;
-    PSimHit *closest = nullptr;
-
-    const StripGeomDetUnit *partnerstripdet = static_cast<const StripGeomDetUnit *>(gluedDet->stereoDet());
-    std::pair<LocalPoint, LocalVector> hitPair;
 
     if (matchedmonorstereo == MatchStatus::matched) {
+      const StripGeomDetUnit *partnerstripdet = static_cast<const StripGeomDetUnit *>(gluedDet->stereoDet());
+      std::pair<LocalPoint, LocalVector> hitPair;
+      std::pair<LocalPoint, LocalVector> closestPair;
       for (auto &m : matched) {
         //project simhit;
         hitPair = projectHit(m, partnerstripdet, gluedDet->surface());
         distx = fabs(rechitpro.x - hitPair.first.x());
         disty = fabs(rechitpro.y - hitPair.first.y());
-        dist = sqrt(distx * distx + disty * disty);
+        dist = distx * distx + disty * disty;
         if (dist < mindist) {
           mindist = dist;
           closestPair = hitPair;
-          closest = &m;
         }
       }
       float closestX = closestPair.first.x();
@@ -1234,12 +1224,12 @@ void SiStripTrackingRecHitsValid::rechitanalysis_matched(LocalVector ldir,
       rechitpro.pullx = ((rechit)->localPosition().x() - closestX) / sqrt(error.xx());
       rechitpro.pully = ((rechit)->localPosition().y() - closestY) / sqrt(error.yy());
     } else if (matchedmonorstereo == MatchStatus::monoHit) {
+      PSimHit *closest = nullptr;
       for (auto &m : matched) {
         //project simhit;
         dist = abs((monohit)->localPosition().x() - m.localPosition().x());
         if (dist < mindist) {
           mindist = dist;
-          closestPair = hitPair;
           closest = &m;
         }
       }
@@ -1249,12 +1239,12 @@ void SiStripTrackingRecHitsValid::rechitanalysis_matched(LocalVector ldir,
       rechitpro.pullx = (rechit->localPosition().x() - closestX) / sqrt(error.xx());
       rechitpro.pullxMF = (rechitpro.resxMF) / sqrt(Merror.uu());
     } else if (matchedmonorstereo == MatchStatus::stereoHit) {
+      PSimHit *closest = nullptr;
       for (auto &m : matched) {
         //project simhit;
         dist = abs((stereohit)->localPosition().x() - m.localPosition().x());
         if (dist < mindist) {
           mindist = dist;
-          closestPair = hitPair;
           closest = &m;
         }
       }

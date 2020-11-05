@@ -1,13 +1,13 @@
 #include "FWCore/Framework/interface/Event.h"
 
 #include "DataFormats/Common/interface/TriggerResults.h"
-#include "DataFormats/Provenance/interface/ProcessHistoryRegistry.h"
 #include "DataFormats/Provenance/interface/Provenance.h"
 #include "DataFormats/Provenance/interface/StableProvenance.h"
 #include "DataFormats/Provenance/interface/ParentageRegistry.h"
 #include "FWCore/Common/interface/TriggerResultsByName.h"
 #include "FWCore/Framework/interface/EventPrincipal.h"
 #include "FWCore/Framework/interface/LuminosityBlock.h"
+#include "FWCore/Framework/src/TransitionInfoTypes.h"
 #include "FWCore/ParameterSet/interface/Registry.h"
 #include "FWCore/Utilities/interface/Algorithms.h"
 #include "FWCore/Utilities/interface/InputTag.h"
@@ -18,6 +18,9 @@ namespace {
 namespace edm {
 
   std::string const Event::emptyString_;
+
+  Event::Event(EventTransitionInfo const& info, ModuleDescription const& md, ModuleCallingContext const* mcc)
+      : Event(info.principal(), md, mcc) {}
 
   Event::Event(EventPrincipal const& ep, ModuleDescription const& md, ModuleCallingContext const* moduleCallingContext)
       : provRecorder_(ep, md, true /*always at end*/),

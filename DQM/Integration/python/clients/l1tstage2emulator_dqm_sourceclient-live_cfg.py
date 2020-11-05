@@ -1,16 +1,27 @@
 import FWCore.ParameterSet.Config as cms
 
+import sys
 from Configuration.Eras.Era_Run2_2018_cff import Run2_2018
 process = cms.Process("L1TStage2EmulatorDQM", Run2_2018)
+
+unitTest = False
+if 'unitTest=True' in sys.argv:
+    unitTest=True
 
 #--------------------------------------------------
 # Event Source and Condition
 
-# Live Online DQM in P5
-process.load("DQM.Integration.config.inputsource_cfi")
+if unitTest:
+    process.load("DQM.Integration.config.unittestinputsource_cfi")
+    from DQM.Integration.config.unittestinputsource_cfi import options
+else:
+    # Live Online DQM in P5
+    process.load("DQM.Integration.config.inputsource_cfi")
+    from DQM.Integration.config.inputsource_cfi import options
 
 # Testing in lxplus
 #process.load("DQM.Integration.config.fileinputsource_cfi")
+#from DQM.Integration.config.fileinputsource_cfi import options
 
 # Required to load Global Tag
 process.load("DQM.Integration.config.FrontierCondition_GT_cfi")
@@ -27,11 +38,14 @@ process.load("DQM.Integration.config.environment_cfi")
 
 process.dqmEnv.subSystemFolder = "L1TEMU"
 process.dqmSaver.tag = "L1TEMU"
-process.DQMStore.referenceFileName = "/dqmdata/dqm/reference/l1temu_reference.root"
+process.dqmSaver.runNumber = options.runNumber
+process.dqmSaverPB.tag = "L1TEMU"
+process.dqmSaverPB.runNumber = options.runNumber
 
 process.dqmEndPath = cms.EndPath(
     process.dqmEnv *
-    process.dqmSaver
+    process.dqmSaver *
+    process.dqmSaverPB
 )
 
 #--------------------------------------------------

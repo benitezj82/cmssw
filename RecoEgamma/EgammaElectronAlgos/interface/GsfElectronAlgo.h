@@ -40,15 +40,12 @@
 #include "RecoEgamma/ElectronIdentification/interface/SoftElectronMVAEstimator.h"
 #include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgo.h"
 #include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgoRcd.h"
-#include "RecoTracker/MeasurementDet/interface/MeasurementTracker.h"
 #include "TrackingTools/GsfTools/interface/MultiTrajectoryStateMode.h"
 #include "TrackingTools/GsfTools/interface/MultiTrajectoryStateTransform.h"
 #include "TrackingTools/GsfTracking/interface/GsfConstraintAtVertex.h"
 #include "TrackingTools/MaterialEffects/interface/PropagatorWithMaterial.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
-
-#include <list>
-#include <string>
+#include "RecoEgamma/EgammaElectronAlgos/interface/ConversionFinder.h"
 
 class GsfElectronAlgo {
 public:
@@ -60,8 +57,6 @@ public:
   };
 
   struct Tokens {
-    edm::EDGetTokenT<reco::GsfElectronCollection> previousGsfElectrons;
-    edm::EDGetTokenT<reco::GsfElectronCollection> pflowGsfElectronsTag;
     edm::EDGetTokenT<reco::GsfElectronCoreCollection> gsfElectronCores;
     edm::EDGetTokenT<CaloTowerCollection> hcalTowersTag;
     edm::EDGetTokenT<reco::SuperClusterCollection> barrelSuperClusters;
@@ -71,13 +66,11 @@ public:
     edm::EDGetTokenT<reco::ElectronSeedCollection> seedsTag;
     edm::EDGetTokenT<reco::TrackCollection> ctfTracks;
     edm::EDGetTokenT<reco::BeamSpot> beamSpotTag;
-    edm::EDGetTokenT<reco::GsfPFRecTrackCollection> gsfPfRecTracksTag;
     edm::EDGetTokenT<reco::VertexCollection> vtxCollectionTag;
     edm::EDGetTokenT<reco::ConversionCollection> conversions;
   };
 
   struct StrategyConfiguration {
-    bool useGsfPfRecTracks;
     // if true, electron preselection is applied
     bool applyPreselection;
     // if true, electron level escale corrections are
@@ -86,16 +79,15 @@ public:
     bool ecalDrivenEcalErrorFromClassBasedParameterization;
     bool pureTrackerDrivenEcalErrorFromSimpleParameterization;
     // ambiguity solving
-    bool applyAmbResolution;              // if not true, ambiguity solving is not applied
+    bool applyAmbResolution;  // if not true, ambiguity solving is not applied
+    bool ignoreNotPreselected;
     unsigned ambSortingStrategy;          // 0:isBetter, 1:isInnermost
     unsigned ambClustersOverlapStrategy;  // 0:sc adresses, 1:bc shared energy
-    // if true, trackerDriven electrons are added
-    bool addPflowElectrons;
     // for backward compatibility
     bool ctfTracksCheck;
-    bool gedElectronMode;
     float PreSelectMVA;
     float MaxElePtForOnlyMVA;
+    bool useDefaultEnergyCorrection;
     // GED-Regression (ECAL and combination)
     bool useEcalRegression;
     bool useCombinationRegression;
@@ -147,10 +139,6 @@ public:
     bool isEndcaps;
     bool isFiducial;
 
-    // BDT output (if available)
-    double minMVA;
-    double minMvaByPassForIsolated;
-
     // transverse impact parameter wrt beam spot
     double maxTIP;
 
@@ -185,9 +173,7 @@ public:
   GsfElectronAlgo(const Tokens&,
                   const StrategyConfiguration&,
                   const CutsConfiguration& cutsCfg,
-                  const CutsConfiguration& cutsCfgPflow,
                   const ElectronHcalHelper::Configuration& hcalCfg,
-                  const ElectronHcalHelper::Configuration& hcalCfgPflow,
                   const IsolationConfiguration&,
                   const EcalRecHitsConfiguration&,
                   std::unique_ptr<EcalClusterFunctionBaseClass>&& superClusterErrorFunction,
@@ -200,10 +186,9 @@ public:
                   edm::ConsumesCollector&& cc);
 
   // main methods
-  void completeElectrons(reco::GsfElectronCollection& electrons,  // do not redo cloned electrons done previously
-                         edm::Event const& event,
-                         edm::EventSetup const& eventSetup,
-                         const HeavyObjectCache* hoc);
+  reco::GsfElectronCollection completeElectrons(edm::Event const& event,
+                                                edm::EventSetup const& eventSetup,
+                                                const HeavyObjectCache* hoc);
 
 private:
   // internal structures
@@ -213,7 +198,6 @@ private:
     const Tokens tokens;
     const StrategyConfiguration strategy;
     const CutsConfiguration cuts;
-    const CutsConfiguration cutsPflow;
     const IsolationConfiguration iso;
     const EcalRecHitsConfiguration recHits;
   };
@@ -233,7 +217,9 @@ private:
                       CaloGeometry const& geometry,
                       MultiTrajectoryStateTransform const& mtsTransform,
                       double magneticFieldInTesla,
-                      const HeavyObjectCache*);
+                      const HeavyObjectCache*,
+                      egamma::conv::TrackTableView ctfTable,
+                      egamma::conv::TrackTableView gsfTable);
 
   void setCutBasedPreselectionFlag(reco::GsfElectron& ele, const reco::BeamSpot&) const;
 
@@ -252,10 +238,10 @@ private:
   // constant class members
   const Configuration cfg_;
 
-  const EleTkIsolFromCands tkIsol03Calc_;
-  const EleTkIsolFromCands tkIsol04Calc_;
-  const EleTkIsolFromCands tkIsolHEEP03Calc_;
-  const EleTkIsolFromCands tkIsolHEEP04Calc_;
+  const EleTkIsolFromCands::Configuration tkIsol03CalcCfg_;
+  const EleTkIsolFromCands::Configuration tkIsol04CalcCfg_;
+  const EleTkIsolFromCands::Configuration tkIsolHEEP03CalcCfg_;
+  const EleTkIsolFromCands::Configuration tkIsolHEEP04CalcCfg_;
 
   const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> magneticFieldToken_;
   const edm::ESGetToken<CaloGeometry, CaloGeometryRecord> caloGeometryToken_;
@@ -265,7 +251,6 @@ private:
 
   // additional configuration and helpers
   ElectronHcalHelper hcalHelper_;
-  ElectronHcalHelper hcalHelperPflow_;
   std::unique_ptr<EcalClusterFunctionBaseClass> superClusterErrorFunction_;
   std::unique_ptr<EcalClusterFunctionBaseClass> crackCorrectionFunction_;
   RegressionHelper regHelper_;

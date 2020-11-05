@@ -32,9 +32,10 @@ SiStripGainsPCLWorker::SiStripGainsPCLWorker(const edm::ParameterSet& iConfig) {
     int id = APVGain::subdetectorId((hnames[i]).first);
     int side = APVGain::subdetectorSide((hnames[i]).first);
     int plane = APVGain::subdetectorPlane((hnames[i]).first);
+    int thick = APVGain::thickness((hnames[i]).first);
     std::string s = hnames[i].first;
 
-    auto loc = APVloc(id, side, plane, s);
+    auto loc = APVloc(thick, id, side, plane, s);
     theTopologyMap.insert(std::make_pair(i, loc));
   }
 
@@ -262,6 +263,10 @@ void SiStripGainsPCLWorker::dqmAnalyze(edm::Event const& iEvent,
   LogDebug("SiStripGainsPCLWorker") << "for mode" << m_calibrationMode << std::endl;
 
   int elepos = statCollectionFromMode(m_calibrationMode.c_str());
+
+  histograms.EventStats->Fill(0., 0., 1);
+  histograms.EventStats->Fill(1., 0., trackp->size());
+  histograms.EventStats->Fill(2., 0., charge->size());
 
   unsigned int FirstAmplitude = 0;
   for (unsigned int i = 0; i < charge->size(); i++) {
@@ -538,9 +543,6 @@ void SiStripGainsPCLWorker::checkBookAPVColls(const TrackerGeometry* bareTkGeomP
 }
 
 //********************************************************************************//
-void SiStripGainsPCLWorker::endJob() {}
-
-//********************************************************************************//
 void SiStripGainsPCLWorker::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.setUnknown();
@@ -560,6 +562,14 @@ void SiStripGainsPCLWorker::bookHistograms(DQMStore::IBooker& ibooker,
                                         << std::endl;
 
   ibooker.setCurrentFolder(dqm_dir);
+
+  // this MonitorElement is created to log the number of events / tracks and clusters used
+  // by the calibration algorithm
+
+  histograms.EventStats = ibooker.book2S("EventStats", "Statistics", 3, -0.5, 2.5, 1, 0, 1);
+  histograms.EventStats->setBinLabel(1, "events count", 1);
+  histograms.EventStats->setBinLabel(2, "tracks count", 1);
+  histograms.EventStats->setBinLabel(3, "clusters count", 1);
 
   std::string stag(tag);
   if (!stag.empty() && stag[0] != '_')

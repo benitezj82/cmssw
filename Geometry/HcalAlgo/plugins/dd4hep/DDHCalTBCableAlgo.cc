@@ -7,15 +7,11 @@
 
 using namespace geant_units::operators;
 
-static long algorithm(dd4hep::Detector& /* description */,
-                      cms::DDParsingContext& ctxt,
-                      xml_h e,
-                      dd4hep::SensitiveDetector& /* sens */) {
+static long algorithm(dd4hep::Detector& /* description */, cms::DDParsingContext& ctxt, xml_h e) {
   cms::DDNamespace ns(ctxt, e, true);
   cms::DDAlgoArguments args(ctxt, e);
 
   // Header section
-  std::string idNameSpace = static_cast<std::string>(ns.name());  //Namespace of this and ALL sub-parts
   //     <---- Zout ---->
   //  |  ****************     |
   //  |  *              *     Wstep
@@ -64,7 +60,7 @@ static long algorithm(dd4hep::Detector& /* description */,
                                << " and " << convertCmToMm(length2) << ", " << convertCmToMm(width2) << " Gap "
                                << convertCmToMm(gap2);
   edm::LogVerbatim("HCalGeom") << "DDHCalTBCableAlgo: Parent " << args.parentName() << " idName " << idName
-                               << " NameSpace " << idNameSpace << " for solids";
+                               << " NameSpace " << ns.name() << " for solids";
 #endif
 
   double alpha = 1._pi / nsectors;

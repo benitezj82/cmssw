@@ -1,3 +1,5 @@
+#include <memory>
+
 #include "L1Trigger/CSCTriggerPrimitives/interface/CSCGEMMotherboardME21.h"
 
 CSCGEMMotherboardME21::CSCGEMMotherboardME21(unsigned endcap,
@@ -11,21 +13,37 @@ CSCGEMMotherboardME21::CSCGEMMotherboardME21(unsigned endcap,
       dropLowQualityALCTsNoGEMs_(tmbParams_.getParameter<bool>("dropLowQualityALCTsNoGEMs")),
       buildLCTfromALCTandGEM_(tmbParams_.getParameter<bool>("buildLCTfromALCTandGEM")),
       buildLCTfromCLCTandGEM_(tmbParams_.getParameter<bool>("buildLCTfromCLCTandGEM")) {
-  if (!isSLHC_ or !runME21ILT_)
-    edm::LogError("CSCGEMMotherboardME21|ConfigError")
-        << "+++ Upgrade CSCGEMMotherboardME21 constructed while isSLHC is not set! +++\n";
+  if (!isSLHC_) {
+    edm::LogError("CSCGEMMotherboardME21|SetupError") << "+++ TMB constructed while isSLHC is not set! +++\n";
+  }
+
+  if (!runME21ILT_) {
+    edm::LogError("CSCGEMMotherboardME21|SetupError") << "+++ TMB constructed while runME21ILT_ is not set! +++\n";
+  }
 
   // set LUTs
-  tmbLUT_.reset(new CSCGEMMotherboardLUTME21());
+  tmbLUT_ = std::make_unique<CSCGEMMotherboardLUTME21>();
 }
 
 CSCGEMMotherboardME21::CSCGEMMotherboardME21() : CSCGEMMotherboard() {
-  if (!isSLHC_ or !runME21ILT_)
-    edm::LogError("CSCGEMMotherboardME21|ConfigError")
-        << "+++ Upgrade CSCGEMMotherboardME21 constructed while isSLHC is not set! +++\n";
+  if (!isSLHC_) {
+    edm::LogError("CSCGEMMotherboardME21|SetupError") << "+++ TMB constructed while isSLHC is not set! +++\n";
+  }
+
+  if (!runME21ILT_) {
+    edm::LogError("CSCGEMMotherboardME21|SetupError") << "+++ TMB constructed while runME21ILT_ is not set! +++\n";
+  }
 }
 
 CSCGEMMotherboardME21::~CSCGEMMotherboardME21() {}
+
+void CSCGEMMotherboardME21::run(const CSCWireDigiCollection* wiredc,
+                                const CSCComparatorDigiCollection* compdc,
+                                const GEMPadDigiClusterCollection* gemClusters) {
+  std::unique_ptr<GEMPadDigiCollection> gemPads(new GEMPadDigiCollection());
+  coPadProcessor->declusterize(gemClusters, *gemPads);
+  run(wiredc, compdc, gemPads.get());
+}
 
 void CSCGEMMotherboardME21::run(const CSCWireDigiCollection* wiredc,
                                 const CSCComparatorDigiCollection* compdc,
@@ -34,7 +52,9 @@ void CSCGEMMotherboardME21::run(const CSCWireDigiCollection* wiredc,
   setupGeometry();
   debugLUTs();
 
-  //  generator_->generateLUTs(theEndcap, theStation, theSector, theSubsector, theTrigChamber);
+  // encode high multiplicity bits
+  unsigned alctBits = alctProc->getHighMultiplictyBits();
+  encodeHighMultiplicityBits(alctBits);
 
   if (gem_g != nullptr) {
     if (infoV >= 0)
@@ -44,17 +64,15 @@ void CSCGEMMotherboardME21::run(const CSCWireDigiCollection* wiredc,
 
   // check for GEM geometry
   if (not gemGeometryAvailable) {
-    if (infoV >= 0)
-      edm::LogError("CSCGEMMotherboardME21|SetupError")
-          << "+++ run() called for GEM-CSC integrated trigger without valid GEM geometry! +++ \n";
+    edm::LogError("CSCGEMMotherboardME21|SetupError")
+        << "+++ run() called for GEM-CSC integrated trigger without valid GEM geometry! +++ \n";
     return;
   }
   gemCoPadV = coPadProcessor->run(gemPads);  // run copad processor in GE1/1
 
   if (!(alctProc and clctProc)) {
-    if (infoV >= 0)
-      edm::LogError("CSCGEMMotherboardME21|SetupError")
-          << "+++ run() called for non-existing ALCT/CLCT processor! +++ \n";
+    edm::LogError("CSCGEMMotherboardME21|SetupError")
+        << "+++ run() called for non-existing ALCT/CLCT processor! +++ \n";
     return;
   }
 
@@ -96,6 +114,8 @@ void CSCGEMMotherboardME21::run(const CSCWireDigiCollection* wiredc,
       const int bx_clct_stop(bx_alct + match_trig_window_size / 2 - alctClctOffset_);
       const int bx_copad_start(bx_alct - maxDeltaBXCoPad_);
       const int bx_copad_stop(bx_alct + maxDeltaBXCoPad_);
+
+      const int quality(alctProc->getBestALCT(bx_alct).getQuality());
 
       if (debug_matching) {
         LogTrace("CSCGEMMotherboardME21")
@@ -204,7 +224,8 @@ void CSCGEMMotherboardME21::run(const CSCWireDigiCollection* wiredc,
 
       // ALCT-to-GEM matching
       int nGoodGEMMatches = 0;
-      if (nGoodMatches == 0 and buildLCTfromALCTandGEM_) {
+      // only use high-quality stubs
+      if (nGoodMatches == 0 and buildLCTfromALCTandGEM_ and quality >= 1) {
         if (debug_matching)
           LogTrace("CSCGEMMotherboardME21") << "++No valid ALCT-CLCT matches in ME21" << std::endl;
         for (int bx_gem = bx_copad_start; bx_gem <= bx_copad_stop; bx_gem++) {
@@ -426,6 +447,13 @@ std::vector<CSCCorrelatedLCTDigi> CSCGEMMotherboardME21::readoutLCTs() const {
     CSCUpgradeMotherboard::sortLCTs(result, CSCUpgradeMotherboard::sortLCTsByQuality);
   if (tmb_cross_bx_algo == 3)
     CSCUpgradeMotherboard::sortLCTs(result, CSCUpgradeMotherboard::sortLCTsByGEMDphi);
+
+  // do a final check on the LCTs in readout
+  qualityControl_->checkMultiplicityBX(result);
+  for (const auto& lct : result) {
+    qualityControl_->checkValid(lct);
+  }
+
   return result;
 }
 
@@ -437,9 +465,9 @@ void CSCGEMMotherboardME21::correlateLCTsGEM(const CSCALCTDigi& bALCT,
                                              const GEMCoPadDigiIds& copads,
                                              CSCCorrelatedLCTDigi& lct1,
                                              CSCCorrelatedLCTDigi& lct2) const {
-  CSCALCTDigi bestALCT = bALCT;
+  const CSCALCTDigi& bestALCT = bALCT;
   CSCALCTDigi secondALCT = sALCT;
-  CSCCLCTDigi bestCLCT = bCLCT;
+  const CSCCLCTDigi& bestCLCT = bCLCT;
   CSCCLCTDigi secondCLCT = sCLCT;
 
   // assume that always anodeBestValid and cathodeBestValid

@@ -106,14 +106,14 @@ def filesFromList(fileName,s=None):
         if line.count(".root")>=2:
             #two files solution...
             entries=line.replace("\n","").split()
-            if not entries[0] in prim:
-                prim.append(entries[0])
-            if not entries[1] in sec:
-                sec.append(entries[1])
+            prim.append(entries[0])
+            sec.append(entries[1])
         elif (line.find(".root")!=-1):
             entry=line.replace("\n","")
-            if not entry in prim:
-                prim.append(entry)
+            prim.append(entry)
+    # remove any duplicates
+    prim = sorted(list(set(prim)))
+    sec = sorted(list(set(sec)))
     if s:
         if not hasattr(s,"fileNames"):
             s.fileNames=cms.untracked.vstring(prim)
@@ -156,14 +156,14 @@ def filesFromDASQuery(query,option="",s=None):
         if line.count(".root")>=2:
             #two files solution...
             entries=line.replace("\n","").split()
-            if not entries[0] in prim:
-                prim.append(entries[0])
-            if not entries[1] in sec:
-                sec.append(entries[1])
+            prim.append(entries[0])
+            sec.append(entries[1])
         elif (line.find(".root")!=-1):
             entry=line.replace("\n","")
-            if not entry in prim:
-                prim.append(entry)
+            prim.append(entry)
+    # remove any duplicates
+    prim = sorted(list(set(prim)))
+    sec = sorted(list(set(sec)))
     if s:
         if not hasattr(s,"fileNames"):
             s.fileNames=cms.untracked.vstring(prim)
@@ -451,13 +451,13 @@ class ConfigBuilder(object):
                 self.process.source.processingMode = cms.untracked.string("RunsAndLumis")
 
         ##drop LHEXMLStringProduct on input to save memory if appropriate
-        if 'GEN' in self.stepMap.keys():
+        if 'GEN' in self.stepMap.keys() and not self._options.filetype == "LHE":
             if self._options.inputCommands:
                 self._options.inputCommands+=',drop LHEXMLStringProduct_*_*_*,'
             else:
                 self._options.inputCommands='keep *, drop LHEXMLStringProduct_*_*_*,'
 
-        if self.process.source and self._options.inputCommands:
+        if self.process.source and self._options.inputCommands and not self._options.filetype == "LHE":
             if not hasattr(self.process.source,'inputCommands'): self.process.source.inputCommands=cms.untracked.vstring()
             for command in self._options.inputCommands.split(','):
                 # remove whitespace around the keep/drop statements
@@ -787,7 +787,6 @@ class ConfigBuilder(object):
                             iec.remove(item)
                         count+=1
 
-
             ## allow comma separated input eventcontent
             if not hasattr(self.process.source,'inputCommands'): self.process.source.inputCommands=cms.untracked.vstring()
             for evct in self._options.inputEventContent.split(','):
@@ -938,6 +937,7 @@ class ConfigBuilder(object):
         self.RECOSIMDefaultCFF="Configuration/StandardSequences/RecoSim_cff"
         self.PATDefaultCFF="Configuration/StandardSequences/PAT_cff"
         self.NANODefaultCFF="PhysicsTools/NanoAOD/nano_cff"
+        self.NANOGENDefaultCFF="PhysicsTools/NanoAOD/nanogen_cff"
         self.EIDefaultCFF=None
         self.SKIMDefaultCFF="Configuration/StandardSequences/Skims_cff"
         self.POSTRECODefaultCFF="Configuration/StandardSequences/PostRecoGenerator_cff"
@@ -987,6 +987,8 @@ class ConfigBuilder(object):
         self.REPACKDefaultSeq='DigiToRawRepack'
         self.PATDefaultSeq='miniAOD'
         self.PATGENDefaultSeq='miniGEN'
+        #TODO: Check based of file input
+        self.NANOGENDefaultSeq='nanogenSequence'
         self.NANODefaultSeq='nanoSequence'
 
         self.EVTCONTDefaultCFF="Configuration/EventContent/EventContent_cff"
@@ -1048,10 +1050,6 @@ class ConfigBuilder(object):
         self.USERDefaultCFF=None
 
         # the magnetic field
-        if self._options.isData:
-            if self._options.magField==defaultOptions.magField:
-                print("magnetic field option forced to: AutoFromDBCurrent")
-            self._options.magField='AutoFromDBCurrent'
         self.magFieldCFF = 'Configuration/StandardSequences/MagneticField_'+self._options.magField.replace('.','')+'_cff'
         self.magFieldCFF = self.magFieldCFF.replace("__",'_')
 
@@ -1380,6 +1378,8 @@ class ConfigBuilder(object):
             if self._options.scenario == 'HeavyIons':
                 if self._options.pileup=='HiMixGEN':
                     self.loadAndRemember("Configuration/StandardSequences/GeneratorMix_cff")
+                elif self._options.pileup=='HiMixEmbGEN':
+                    self.loadAndRemember("Configuration/StandardSequences/GeneratorEmbMix_cff")
                 else:
                     self.loadAndRemember("Configuration/StandardSequences/GeneratorHI_cff")
 
@@ -1425,7 +1425,7 @@ class ConfigBuilder(object):
         if sequence == 'pdigi_valid' or sequence == 'pdigi_hi':
             self.executeAndRemember("process.mix.digitizers = cms.PSet(process.theDigitizersValid)")
 
-        if sequence != 'pdigi_nogen' and sequence != 'pdigi_valid_nogen' and sequence != 'pdigi_hi_nogen' and not self.process.source.type_()=='EmptySource':
+        if sequence != 'pdigi_nogen' and sequence != 'pdigi_valid_nogen' and sequence != 'pdigi_hi_nogen' and not self.process.source.type_()=='EmptySource' and not self._options.filetype == "LHE":
             if self._options.inputEventContent=='':
                 self._options.inputEventContent='REGEN'
             else:
@@ -1645,8 +1645,6 @@ class ConfigBuilder(object):
         self.prepare_PATFILTER(self)
         self.loadDefaultOrSpecifiedCFF(sequence,self.PATDefaultCFF)
         self.labelsToAssociate.append('patTask')
-        if not self._options.runUnscheduled:
-            raise Exception("MiniAOD production can only run in unscheduled mode, please run cmsDriver with --runUnscheduled")
         if self._options.isData:
             self._options.customisation_file_unsch.insert(0,"PhysicsTools/PatAlgos/slimming/miniAOD_tools.miniAOD_customizeAllData")
         else:
@@ -1670,8 +1668,6 @@ class ConfigBuilder(object):
         ''' Enrich the schedule with PATGEN '''
         self.loadDefaultOrSpecifiedCFF(sequence,self.PATGENDefaultCFF) #this is unscheduled
         self.labelsToAssociate.append('patGENTask')
-        if not self._options.runUnscheduled:
-            raise Exception("MiniGEN production can only run in unscheduled mode, please run cmsDriver with --runUnscheduled")
         if self._options.isData:
             raise Exception("PATGEN step can only run on MC")
         return
@@ -1681,15 +1677,23 @@ class ConfigBuilder(object):
         self.loadDefaultOrSpecifiedCFF(sequence,self.NANODefaultCFF)
         self.scheduleSequence(sequence.split('.')[-1],'nanoAOD_step')
         custom = "nanoAOD_customizeData" if self._options.isData else "nanoAOD_customizeMC"
-        if self._options.runUnscheduled:
-            self._options.customisation_file_unsch.insert(0,"PhysicsTools/NanoAOD/nano_cff."+custom)
-        else:
-            self._options.customisation_file.insert(0,"PhysicsTools/NanoAOD/nano_cff."+custom)
+        self._options.customisation_file.insert(0,"PhysicsTools/NanoAOD/nano_cff."+custom)
         if self._options.hltProcess:
             if len(self._options.customise_commands) > 1:
                 self._options.customise_commands = self._options.customise_commands + " \n"
             self._options.customise_commands = self._options.customise_commands + "process.unpackedPatTrigger.triggerResults= cms.InputTag( 'TriggerResults::"+self._options.hltProcess+"' )\n"
 
+    def prepare_NANOGEN(self, sequence = "nanoAOD"):
+        ''' Enrich the schedule with NANOGEN '''
+        # TODO: Need to modify this based on the input file type
+        fromGen = any([x in self.stepMap for x in ['LHE', 'GEN', 'AOD']])
+        self.loadDefaultOrSpecifiedCFF(sequence,self.NANOGENDefaultCFF)
+        self.scheduleSequence(sequence.split('.')[-1],'nanoAOD_step')
+        custom = "customizeNanoGEN" if fromGen else "customizeNanoGENFromMini"
+        if self._options.runUnscheduled:
+            self._options.customisation_file_unsch.insert(0, '.'.join([self.NANOGENDefaultCFF, custom]))
+        else:
+            self._options.customisation_file.insert(0, '.'.join([self.NANOGENDefaultCFF, custom]))
 
     def prepare_EI(self, sequence = None):
         ''' Enrich the schedule with event interpretation '''
@@ -2000,6 +2004,8 @@ class ConfigBuilder(object):
         for name in harvestingList:
             if not name in harvestingConfig.__dict__:
                 print(name,"is not a possible harvesting type. Available are",harvestingConfig.__dict__.keys())
+                # trigger hard error, like for other sequence types
+                getattr(self.process, name)
                 continue
             harvestingstream = getattr(harvestingConfig,name)
             if isinstance(harvestingstream,cms.Path):
@@ -2181,6 +2187,9 @@ class ConfigBuilder(object):
                 self.pythonCfgCode +='\n'
                 self.pythonCfgCode +=dumpPython(self.process,object)
 
+        if self._options.pileup=='HiMixEmbGEN':
+            self.pythonCfgCode += "\nprocess.generator.embeddingMode=cms.bool(True)\n"
+
         # dump all paths
         self.pythonCfgCode += "\n# Path and EndPath definitions\n"
         for path in self.process.paths:
@@ -2232,6 +2241,8 @@ class ConfigBuilder(object):
             self.pythonCfgCode +="process.options.numberOfThreads=cms.untracked.uint32("+self._options.nThreads+")\n"
             self.pythonCfgCode +="process.options.numberOfStreams=cms.untracked.uint32("+self._options.nStreams+")\n"
             self.pythonCfgCode +="process.options.numberOfConcurrentLuminosityBlocks=cms.untracked.uint32("+self._options.nConcurrentLumis+")\n"
+            if int(self._options.nConcurrentLumis) > 1:
+              self.pythonCfgCode +="if hasattr(process, 'DQMStore'): process.DQMStore.assertLegacySafe=cms.untracked.bool(False)\n"
             self.process.options.numberOfThreads=cms.untracked.uint32(int(self._options.nThreads))
             self.process.options.numberOfStreams=cms.untracked.uint32(int(self._options.nStreams))
             self.process.options.numberOfConcurrentLuminosityBlocks=cms.untracked.uint32(int(self._options.nConcurrentLumis))
@@ -2243,7 +2254,7 @@ class ConfigBuilder(object):
             MassReplaceInputTag(self.process, new="rawDataMapperByLabel", old="rawDataCollector")
 
         # special treatment in case of production filter sequence 2/2
-        if self.productionFilterSequence:
+        if self.productionFilterSequence and not (self._options.pileup=='HiMixEmbGEN'):
             self.pythonCfgCode +='# filter all path with the production filter sequence\n'
             self.pythonCfgCode +='for path in process.paths:\n'
             if len(self.conditionalPaths):
@@ -2262,16 +2273,12 @@ class ConfigBuilder(object):
         self.pythonCfgCode += self.addCustomise()
 
         if self._options.runUnscheduled:
-            # prune and delete paths
-            #this is not supporting the blacklist at this point since I do not understand it
-            self.pythonCfgCode+="#do not add changes to your config after this point (unless you know what you are doing)\n"
-            self.pythonCfgCode+="from FWCore.ParameterSet.Utilities import convertToUnscheduled\n"
-            self.pythonCfgCode+="process=convertToUnscheduled(process)\n"
-
-            from FWCore.ParameterSet.Utilities import convertToUnscheduled
-            self.process=convertToUnscheduled(self.process)
-
-            self.pythonCfgCode += self.addCustomise(1)
+            print("--runUnscheduled is deprecated and not necessary anymore, and will be removed soon. Please update your command line.")
+        # Keep the "unscheduled customise functions" separate for now,
+        # there are customize functions given by users (in our unit
+        # tests) that need to be run before the "unscheduled customise
+        # functions"
+        self.pythonCfgCode += self.addCustomise(1)
 
         self.pythonCfgCode += self.addCustomiseCmdLine()
 
@@ -2293,6 +2300,14 @@ class ConfigBuilder(object):
         self.pythonCfgCode += "# End adding early deletion\n"
         from Configuration.StandardSequences.earlyDeleteSettings_cff import customiseEarlyDelete
         self.process = customiseEarlyDelete(self.process)
+
+        imports = cms.specialImportRegistry.getSpecialImports()
+        if len(imports) > 0:
+            #need to inject this at the top
+            index = self.pythonCfgCode.find("import FWCore.ParameterSet.Config")
+            #now find the end of line
+            index = self.pythonCfgCode.find("\n",index)
+            self.pythonCfgCode = self.pythonCfgCode[:index]+ "\n" + "\n".join(imports)+"\n" +self.pythonCfgCode[index:]
 
 
         # make the .io file

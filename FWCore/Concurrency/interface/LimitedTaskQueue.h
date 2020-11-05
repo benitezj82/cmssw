@@ -30,6 +30,7 @@
 #include <memory>
 
 #include "FWCore/Concurrency/interface/SerialTaskQueue.h"
+#include "FWCore/Utilities/interface/thread_safety_macros.h"
 
 // user include files
 
@@ -38,6 +39,8 @@ namespace edm {
   class LimitedTaskQueue {
   public:
     LimitedTaskQueue(unsigned int iLimit) : m_queues{iLimit} {}
+    LimitedTaskQueue(const LimitedTaskQueue&) = delete;
+    const LimitedTaskQueue& operator=(const LimitedTaskQueue&) = delete;
 
     // ---------- member functions ---------------------------
 
@@ -115,9 +118,6 @@ namespace edm {
     unsigned int concurrencyLimit() const { return m_queues.size(); }
 
   private:
-    LimitedTaskQueue(const LimitedTaskQueue&) = delete;
-    const LimitedTaskQueue& operator=(const LimitedTaskQueue&) = delete;
-
     // ---------- member data --------------------------------
     std::vector<SerialTaskQueue> m_queues;
   };
@@ -144,9 +144,8 @@ namespace edm {
       q.push([set_to_run, waitTask, iAction]() mutable {
         bool expected = false;
         if (set_to_run->compare_exchange_strong(expected, true)) {
-          try {
-            iAction();
-          } catch (...) {
+          // Exception needs to be caught in order to decrease the waitTask reference count at the end. The user of SerialTaskQueue should handle exceptions within iAction.
+          CMS_SA_ALLOW try { iAction(); } catch (...) {
           }
           waitTask->decrement_ref_count();
         }

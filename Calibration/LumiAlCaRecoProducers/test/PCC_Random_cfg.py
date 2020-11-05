@@ -21,12 +21,9 @@ process.OutALCARECOPromptCalibProdPCC = cms.PSet(
 )
 #Make sure that variables match in producer.cc and .h
 process.alcaPCCProducer = cms.EDProducer("AlcaPCCProducer",
-    AlcaPCCProducerParameters = cms.PSet(
-        WriteToDB = cms.bool(False),
-        pixelClusterLabel = cms.InputTag("siPixelClustersForLumi"),
-        #Mod factor to count lumi and the string to specify output 
-        trigstring = cms.untracked.string("alcaPCCRand") 
-    ),
+    pixelClusterLabel = cms.InputTag("siPixelClustersForLumi"),
+    #Mod factor to count lumi and the string to specify output 
+    trigstring = cms.untracked.string("alcaPCCRand") 
 )
 
 process.OutALCARECOLumiPixels = cms.PSet(
@@ -119,16 +116,6 @@ process.pathALCARECOLumiPixels = cms.Path(process.seqALCARECOLumiPixels)
 process.ALCARECOStreamPromptCalibProdOutPath = cms.EndPath(process.ALCARECOStreamPromptCalibProdPCC)
 
 process.MessageLogger = cms.Service("MessageLogger",
-    FrameworkJobReport = cms.untracked.PSet(
-        FwkJob = cms.untracked.PSet(
-            limit = cms.untracked.int32(10000000),
-            optionalPSet = cms.untracked.bool(True)
-        ),
-        default = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-        ),
-        optionalPSet = cms.untracked.bool(True)
-    ),
     categories = cms.untracked.vstring('FwkJob', 
         'FwkReport', 
         'FwkSummary', 
@@ -186,7 +173,6 @@ process.MessageLogger = cms.Service("MessageLogger",
     errors = cms.untracked.PSet(
         placeholder = cms.untracked.bool(True)
     ),
-    fwkJobReports = cms.untracked.vstring('FrameworkJobReport'),
     infos = cms.untracked.PSet(
         Root_NoDictionary = cms.untracked.PSet(
             limit = cms.untracked.int32(0),

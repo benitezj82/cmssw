@@ -19,7 +19,6 @@ public:
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 protected:
-  void dqmBeginRun(const edm::Run&, const edm::EventSetup&) override;
   void bookHistograms(DQMStore::IBooker&, const edm::Run&, const edm::EventSetup&) override;
   void analyze(const edm::Event&, const edm::EventSetup&) override;
 
@@ -96,7 +95,7 @@ private:
   MonitorElement* muColl1TrkAddrSize;
   MonitorElement* muColl1TrkAddr;
   MonitorElement* muColl1hwDXY;
-  MonitorElement* muColl1hwPt2;
+  MonitorElement* muColl1hwPtUnconstrained;
 
   MonitorElement* muColl2BxRange;
   MonitorElement* muColl2nMu;
@@ -113,7 +112,7 @@ private:
   MonitorElement* muColl2TrkAddrSize;
   MonitorElement* muColl2TrkAddr;
   MonitorElement* muColl2hwDXY;
-  MonitorElement* muColl2hwPt2;
+  MonitorElement* muColl2hwPtUnconstrained;
 };
 
 #endif

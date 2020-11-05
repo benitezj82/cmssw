@@ -46,7 +46,7 @@ def synchronizeHCALHLTofflineRun3on2018data(process):
     # this function bring back the Run3 menu to a Run2-2018 like meny, for testing in data 2018
 
     #----------------------------------------------------------------------------------------------------------
-    # adapt threshold for HB  - in 2018 only one depth 
+    # adapt threshold for HB  - in 2018 only one depth
 
     for producer in producers_by_type(process, "PFClusterProducer"):
         if producer.seedFinder.thresholdsByDetector[0].detector.value() == 'HCAL_BARREL1':
@@ -75,6 +75,12 @@ def synchronizeHCALHLTofflineRun3on2018data(process):
         producer.processQIE8 = cms.bool( True )
         producer.setNoiseFlagsQIE8 = cms.bool( True )
         producer.setPulseShapeFlagsQIE8 = cms.bool( True )
+
+    #----------------------------------------------------------
+    # Use 1+8p fit (PR29617) and apply HB- correction (PR26177)
+    for producer in producers_by_type(process, "HBHEPhase1Reconstructor"):
+        producer.algorithm.applyLegacyHBMCorrection = cms.bool( True )
+        producer.algorithm.chiSqSwitch = cms.double(15.0)
 
     return process
 
@@ -164,10 +170,57 @@ def customiseFor2017DtUnpacking(process):
 
     return process
 
+def customisePixelGainForRun2Input(process):
+    """Customise the HLT to run on Run 2 data/MC using the old definition of the pixel calibrations
+
+    Up to 11.0.x, the pixel calibarations were fully specified in the configuration:
+        VCaltoElectronGain      =   47
+        VCaltoElectronGain_L1   =   50
+        VCaltoElectronOffset    =  -60
+        VCaltoElectronOffset_L1 = -670
+
+    Starting with 11.1.x, the calibrations for Run 3 were moved to the conditions, leaving in the configuration only:
+        VCaltoElectronGain      =    1
+        VCaltoElectronGain_L1   =    1
+        VCaltoElectronOffset    =    0
+        VCaltoElectronOffset_L1 =    0
+
+    Since the conditions for Run 2 have not been updated to the new scheme, the HLT configuration needs to be reverted.
+    """
+    # revert the Pixel parameters to be compatible with the Run 2 conditions
+    for producer in producers_by_type(process, "SiPixelClusterProducer"):
+        producer.VCaltoElectronGain      =   47
+        producer.VCaltoElectronGain_L1   =   50
+        producer.VCaltoElectronOffset    =  -60
+        producer.VCaltoElectronOffset_L1 = -670
+
+    return process
+
+
+def customiseFor2018Input(process):
+    """Customise the HLT to run on Run 2 data/MC"""
+    process = customisePixelGainForRun2Input(process)
+    process = synchronizeHCALHLTofflineRun3on2018data(process)
+
+
+def customizeToDropObsoleteMessageLoggerOptions(process):
+    if 'MessageLogger' in process.__dict__:
+        if not hasattr(process.MessageLogger, "fwkJobReports"):
+            return process
+        for config in process.MessageLogger.fwkJobReports.value():
+            if hasattr(process.MessageLogger, config):
+                delattr(process.MessageLogger, config)
+        delattr(process.MessageLogger, "fwkJobReports")
+    return process
+
+
 # CMSSW version specific customizations
 def customizeHLTforCMSSW(process, menuType="GRun"):
 
     # add call to action function in proper order: newest last!
     # process = customiseFor12718(process)
+
+    #introduced in pull request #31859
+    process = customizeToDropObsoleteMessageLoggerOptions(process)
 
     return process

@@ -6,6 +6,9 @@ from RecoParticleFlow.PFProducer.pfLinker_cff import particleFlowPtrs
 from CommonTools.ParticleFlow.pfPileUp_cfi import *
 from CommonTools.ParticleFlow.TopProjectors.pfNoPileUp_cfi import *
 pfPileUpIsoPFBRECO = pfPileUp.clone( PFCandidates = 'particleFlowPtrs' )
+from Configuration.ProcessModifiers.pp_on_AA_cff import pp_on_AA
+pp_on_AA.toModify(pfPileUpIsoPFBRECO, Enable = False)
+
 pfNoPileUpIsoPFBRECO = pfNoPileUp.clone( topCollection = 'pfPileUpIsoPFBRECO',
                                          bottomCollection = 'particleFlowPtrs')
 pfNoPileUpIsoPFBRECOTask = cms.Task(
@@ -122,7 +125,7 @@ pfJetPFBRECOSequence = cms.Sequence(
 from CommonTools.ParticleFlow.pfTaus_cff import *
 
 from CommonTools.ParticleFlow.pfMET_cfi import *
-pfMETPFBRECO = pfMET.clone( jets = 'pfJetsPFBRECO' )
+pfMETPFBRECO = pfMET.clone( srcJets = 'pfJetsPFBRECO' )
 
 ##delta beta weighting
 #from CommonTools.ParticleFlow.deltaBetaWeights_cfi import *

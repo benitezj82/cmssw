@@ -7,6 +7,7 @@ import FWCore.ParameterSet.Config as cms
 # PLEASE DO NOT USE THIS DIRECTLY
 # Always use the standard sequence Configuration.StandardSequences.MagneticField_cff
 
+
 magfield = cms.ESSource("XMLIdealGeometryESSource",
     geomXMLFiles = cms.vstring('Geometry/CMSCommonData/data/normal/cmsextent.xml', 
         'Geometry/CMSCommonData/data/cms.xml', 
@@ -30,14 +31,13 @@ ParametrizedMagneticFieldProducer = cms.ESProducer("ParametrizedMagneticFieldPro
 )
 
 
-VolumeBasedMagneticFieldESProducer = cms.ESProducer("VolumeBasedMagneticFieldESProducer",
+VBFConfig_160812 = cms.PSet (
     useParametrizedTrackerField = cms.bool(True),
     label = cms.untracked.string(''),
     paramLabel = cms.string('parametrizedField'),
     version = cms.string('grid_160812_3_8t'),
     geometryVersion = cms.int32(160812),
     debugBuilder = cms.untracked.bool(False),
-    cacheLastVolume = cms.untracked.bool(True),
     scalingVolumes = cms.vint32(),
     scalingFactors = cms.vdouble(),
 
@@ -74,6 +74,11 @@ VolumeBasedMagneticFieldESProducer = cms.ESProducer("VolumeBasedMagneticFieldESP
                 path      = cms.string('s01/grid.[v].bin'),
            ),
       )
+)
+
+
+VolumeBasedMagneticFieldESProducer = cms.ESProducer("VolumeBasedMagneticFieldESProducer",
+    VBFConfig_160812,
 )
 
 

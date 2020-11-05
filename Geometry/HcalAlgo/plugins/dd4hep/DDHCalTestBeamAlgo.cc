@@ -6,10 +6,7 @@
 //#define EDM_ML_DEBUG
 using namespace geant_units::operators;
 
-static long algorithm(dd4hep::Detector& /* description */,
-                      cms::DDParsingContext& ctxt,
-                      xml_h e,
-                      dd4hep::SensitiveDetector& /* sens */) {
+static long algorithm(dd4hep::Detector& /* description */, cms::DDParsingContext& ctxt, xml_h e) {
   cms::DDNamespace ns(ctxt, e, true);
   cms::DDAlgoArguments args(ctxt, e);
   // Header section
@@ -61,8 +58,7 @@ static long algorithm(dd4hep::Detector& /* description */,
   double zpos = dist * cos(theta);
   dd4hep::Position tran(xpos, ypos, zpos);
 
-  if (strchr(childName.c_str(), NAMESPACE_SEP) == nullptr)
-    childName = ns.name() + childName;
+  childName = ns.prepend(childName);
   dd4hep::Volume child = ns.volume(childName);
   parent.placeVolume(child, copyNumber, dd4hep::Transform3D(rotation, tran));
 #ifdef EDM_ML_DEBUG

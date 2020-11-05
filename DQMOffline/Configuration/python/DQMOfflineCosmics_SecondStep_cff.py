@@ -1,7 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
 from DQMServices.Components.DQMMessageLoggerClient_cff import *
-from DQMServices.Components.DQMDcsInfoClient_cfi import *
 from DQMServices.Components.DQMFastTimerServiceClient_cfi import *
 
 from DQMOffline.Ecal.ecal_dqm_client_offline_cosmic_cff import *
@@ -12,9 +11,10 @@ from DQM.SiPixelCommon.SiPixelOfflineDQM_client_cff import *
 from DQM.DTMonitorClient.dtDQMOfflineClients_Cosmics_cff import *
 from DQM.RPCMonitorClient.RPCTier0Client_cff import *
 from DQM.CSCMonitorModule.csc_dqm_offlineclient_cosmics_cff import *
+from DQMOffline.Muon.gem_dqm_offline_client_cff import *
 from DQMServices.Components.DQMFEDIntegrityClient_cff import *
 
-DQMOfflineCosmics_SecondStepDCS = cms.Sequence( dqmDcsInfoClient )
+DQMNone = cms.Sequence()
 
 DQMOfflineCosmics_SecondStepEcal = cms.Sequence( ecal_dqm_client_offline *
 						es_dqm_client_offline )
@@ -28,9 +28,15 @@ DQMOfflineCosmics_SecondStepTrackerPixel = cms.Sequence( PixelOfflineDQMClientNo
 DQMOfflineCosmics_SecondStepMuonDPG = cms.Sequence( dtClientsCosmics *
                                                     rpcTier0Client *
                                                     cscOfflineCosmicsClients )
+
+from Configuration.Eras.Modifier_run3_GEM_cff import run3_GEM
+_run3_GEM_DQMOfflineCosmics_SecondStepMuonDPG = DQMOfflineCosmics_SecondStepMuonDPG.copy()
+_run3_GEM_DQMOfflineCosmics_SecondStepMuonDPG += gemClients
+run3_GEM.toReplaceWith(DQMOfflineCosmics_SecondStepMuonDPG, _run3_GEM_DQMOfflineCosmics_SecondStepMuonDPG)
+
 DQMOfflineCosmics_SecondStepFED = cms.Sequence( dqmFEDIntegrityClient )
 
-DQMOfflineCosmics_SecondStep_PreDPG = cms.Sequence( DQMOfflineCosmics_SecondStepDCS * 
+DQMOfflineCosmics_SecondStep_PreDPG = cms.Sequence( 
                                                     DQMOfflineCosmics_SecondStepEcal *
                                                     DQMOfflineCosmics_SecondStepHcal *
                                                     DQMOfflineCosmics_SecondStepTrackerStrip *

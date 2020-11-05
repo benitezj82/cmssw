@@ -58,7 +58,6 @@ protected:
   std::shared_ptr<totemds::Cache> globalBeginLuminosityBlock(const edm::LuminosityBlock &,
                                                              const edm::EventSetup &) const override;
   void globalEndLuminosityBlock(const edm::LuminosityBlock &, const edm::EventSetup &) override;
-  void dqmEndRun(const edm::Run &, const edm::EventSetup &) override;
 
 private:
   // Constants
@@ -432,11 +431,11 @@ void TotemTimingDQMSource::dqmBeginRun(const edm::Run &iRun, const edm::EventSet
   {
     const DetGeomDesc *det_top = geom->sensorNoThrow(detid_top);
     if (det_top) {
-      verticalShiftTop_ = det_top->translation().y() + det_top->params().at(1);
+      verticalShiftTop_ = det_top->translation().y() + det_top->getDiamondDimensions().yHalfWidth;
     }
     const DetGeomDesc *det_bot = geom->sensorNoThrow(detid_bot);
     if (det_bot)
-      verticalShiftBot_ = det_bot->translation().y() + det_bot->params().at(1);
+      verticalShiftBot_ = det_bot->translation().y() + det_bot->getDiamondDimensions().yHalfWidth;
   }
 }
 
@@ -778,11 +777,5 @@ void TotemTimingDQMSource::globalEndLuminosityBlock(const edm::LuminosityBlock &
     }
   }
 }
-
-//----------------------------------------------------------------------------------------------------
-
-void TotemTimingDQMSource::dqmEndRun(const edm::Run &, const edm::EventSetup &) {}
-
-//----------------------------------------------------------------------------------------------------
 
 DEFINE_FWK_MODULE(TotemTimingDQMSource);

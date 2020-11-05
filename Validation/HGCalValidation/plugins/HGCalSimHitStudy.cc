@@ -27,7 +27,6 @@
 #include "FWCore/Utilities/interface/InputTag.h"
 
 #include "Geometry/HcalCommonData/interface/HcalHitRelabeller.h"
-#include "Geometry/HGCalCommonData/interface/HGCalGeometryMode.h"
 #include "Geometry/Records/interface/IdealGeometryRecord.h"
 #include "Geometry/HGCalCommonData/interface/HGCalDDDConstants.h"
 #include "Geometry/HcalCommonData/interface/HcalDDDRecConstants.h"
@@ -76,6 +75,8 @@ private:
   const double etamin_, etamax_;
   const int nbinR_, nbinZ_, nbinEta_, nLayers_, verbosity_;
   const bool ifNose_, ifLayer_;
+  edm::ESGetToken<HcalDDDRecConstants, HcalRecNumberingRecord> tok_hrndc_;
+  std::vector<edm::ESGetToken<HGCalDDDConstants, IdealGeometryRecord> > tok_hgcGeom_;
   std::vector<const HGCalDDDConstants*> hgcons_;
   const HcalDDDRecConstants* hcons_;
   std::vector<bool> heRebuild_;
@@ -102,15 +103,21 @@ HGCalSimHitStudy::HGCalSimHitStudy(const edm::ParameterSet& iConfig)
       nbinEta_(iConfig.getUntrackedParameter<int>("nBinEta", 200)),
       nLayers_(iConfig.getUntrackedParameter<int>("layers", 50)),
       verbosity_(iConfig.getUntrackedParameter<int>("verbosity", 0)),
-      ifNose_(iConfig.getUntrackedParameter<bool>("ifNose", false)), 
+      ifNose_(iConfig.getUntrackedParameter<bool>("ifNose", false)),
       ifLayer_(iConfig.getUntrackedParameter<bool>("ifLayer", false)) {
   usesResource(TFileService::kSharedResource);
 
   for (auto const& name : nameDetectors_) {
-    if (name == "HCal")
+    if (name == "HCal") {
       heRebuild_.emplace_back(true);
-    else
+      tok_hrndc_ = esConsumes<HcalDDDRecConstants, HcalRecNumberingRecord, edm::Transition::BeginRun>();
+      tok_hgcGeom_.emplace_back(esConsumes<HGCalDDDConstants, IdealGeometryRecord, edm::Transition::BeginRun>(
+          edm::ESInputTag{"", "HGCalHEScintillatorSensitive"}));
+    } else {
       heRebuild_.emplace_back(false);
+      tok_hgcGeom_.emplace_back(
+          esConsumes<HGCalDDDConstants, IdealGeometryRecord, edm::Transition::BeginRun>(edm::ESInputTag{"", name}));
+    }
   }
   for (auto const& source : caloHitSources_) {
     tok_hits_.emplace_back(consumes<edm::PCaloHitContainer>(edm::InputTag("g4SimHits", source)));
@@ -119,8 +126,8 @@ HGCalSimHitStudy::HGCalSimHitStudy(const edm::ParameterSet& iConfig)
 
 void HGCalSimHitStudy::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
-  std::vector<std::string> names = {"HGCalEESensitive", "HGCalHESiliconSensitive", "Hcal"};
-  std::vector<std::string> sources = {"HGCHitsEE", "HGCHitsHEfront", "HcalHits"};
+  std::vector<std::string> names = {"HGCalEESensitive", "HGCalHESiliconSensitive", "HGCalHEScintillatorSensitive"};
+  std::vector<std::string> sources = {"HGCHitsEE", "HGCHitsHEfront", "HGCHitsHEback"};
   desc.add<std::vector<std::string> >("detectorNames", names);
   desc.add<std::vector<std::string> >("caloHitSources", sources);
   desc.addUntracked<double>("rMin", 0.0);
@@ -216,8 +223,7 @@ void HGCalSimHitStudy::analyzeHits(int ih, std::string const& name, std::vector<
         h_W2_[ih]->Fill(sector2);
         h_C2_[ih]->Fill(cell2);
 
-      } else if ((hgcons_[ih]->geomMode() == HGCalGeometryMode::Hexagon8) ||
-                 (hgcons_[ih]->geomMode() == HGCalGeometryMode::Hexagon8Full)) {
+      } else if (hgcons_[ih]->waferHexagon8()) {
         HGCSiliconDetId detId = HGCSiliconDetId(id);
         subdet = static_cast<int>(detId.det());
         cell = detId.cellU();
@@ -230,7 +236,7 @@ void HGCalSimHitStudy::analyzeHits(int ih, std::string const& name, std::vector<
         xy = hgcons_[ih]->locateCell(layer, sector, sector2, cell, cell2, false, true);
         h_W2_[ih]->Fill(sector2);
         h_C2_[ih]->Fill(cell2);
-      } else if (hgcons_[ih]->geomMode() == HGCalGeometryMode::Trapezoid) {
+      } else if (hgcons_[ih]->tileTrapezoid()) {
         HGCScintillatorDetId detId = HGCScintillatorDetId(id);
         subdet = static_cast<int>(detId.det());
         sector = detId.ieta();
@@ -280,7 +286,7 @@ void HGCalSimHitStudy::analyzeHits(int ih, std::string const& name, std::vector<
     h_RZ_[ih + 1]->Fill(std::abs(gcoord.z()), gcoord.rho());
     if (ifLayer_) {
       if (hinfo.layer <= static_cast<int>(h_XY_.size()))
-	h_XY_[hinfo.layer-1]->Fill(gcoord.x(), gcoord.y());
+        h_XY_[hinfo.layer - 1]->Fill(gcoord.x(), gcoord.y());
     } else {
       h_EtaPhi_[0]->Fill(std::abs(hinfo.eta), hinfo.phi);
       h_EtaPhi_[ih + 1]->Fill(std::abs(hinfo.eta), hinfo.phi);
@@ -305,15 +311,15 @@ void HGCalSimHitStudy::analyzeHits(int ih, std::string const& name, std::vector<
     h_T_[ih + 1]->Fill(hinfo.time);
     if (hinfo.eta > 0) {
       if (!ifLayer_) {
-	h_EtFiZp_[0]->Fill(std::abs(hinfo.eta), hinfo.phi, hinfo.energy);
-	h_EtFiZp_[ih + 1]->Fill(std::abs(hinfo.eta), hinfo.phi, hinfo.energy);
+        h_EtFiZp_[0]->Fill(std::abs(hinfo.eta), hinfo.phi, hinfo.energy);
+        h_EtFiZp_[ih + 1]->Fill(std::abs(hinfo.eta), hinfo.phi, hinfo.energy);
       }
       h_LayerZp_[0]->Fill(hinfo.layer, hinfo.energy);
       h_LayerZp_[ih + 1]->Fill(hinfo.layer, hinfo.energy);
     } else {
       if (!ifLayer_) {
-	h_EtFiZm_[0]->Fill(std::abs(hinfo.eta), hinfo.phi, hinfo.energy);
-	h_EtFiZm_[ih + 1]->Fill(std::abs(hinfo.eta), hinfo.phi, hinfo.energy);
+        h_EtFiZm_[0]->Fill(std::abs(hinfo.eta), hinfo.phi, hinfo.energy);
+        h_EtFiZm_[ih + 1]->Fill(std::abs(hinfo.eta), hinfo.phi, hinfo.energy);
       }
       h_LayerZm_[0]->Fill(hinfo.layer, hinfo.energy);
       h_LayerZm_[ih + 1]->Fill(hinfo.layer, hinfo.energy);
@@ -325,16 +331,14 @@ void HGCalSimHitStudy::analyzeHits(int ih, std::string const& name, std::vector<
 void HGCalSimHitStudy::beginRun(const edm::Run&, const edm::EventSetup& iSetup) {
   for (unsigned int k = 0; k < nameDetectors_.size(); ++k) {
     if (heRebuild_[k]) {
-      edm::ESHandle<HcalDDDRecConstants> pHRNDC;
-      iSetup.get<HcalRecNumberingRecord>().get(pHRNDC);
-      hcons_ = &(*pHRNDC);
+      edm::ESHandle<HcalDDDRecConstants> pHRNDC = iSetup.getHandle(tok_hrndc_);
+      hcons_ = pHRNDC.product();
       layers_.emplace_back(hcons_->getMaxDepth(1));
       hgcons_.emplace_back(nullptr);
       layerFront_.emplace_back(40);
     } else {
-      edm::ESHandle<HGCalDDDConstants> pHGDC;
-      iSetup.get<IdealGeometryRecord>().get(nameDetectors_[k], pHGDC);
-      hgcons_.emplace_back(&(*pHGDC));
+      edm::ESHandle<HGCalDDDConstants> pHGDC = iSetup.getHandle(tok_hgcGeom_[k]);
+      hgcons_.emplace_back(pHGDC.product());
       layers_.emplace_back(hgcons_.back()->layers(false));
       if (k == 0)
         layerFront_.emplace_back(0);
@@ -365,49 +369,49 @@ void HGCalSimHitStudy::beginJob() {
         fs->make<TH2D>(name.str().c_str(), title.str().c_str(), nbinZ_, zmin_, zmax_, nbinR_, rmin_, rmax_));
     if (ifLayer_) {
       if (ih == 0) {
-	for (int ly = 0; ly < nLayers_; ++ly) {
-	  name.str("");
-	  title.str("");
-	  name << "XY_L" << (ly + 1);
-	  title << "Y vs X at Layer " << (ly + 1);
-	  h_XY_.emplace_back(
-        fs->make<TH2D>(name.str().c_str(), title.str().c_str(), nbinR_, -rmax_, rmax_, nbinR_, -rmax_, rmax_));
-	}
+        for (int ly = 0; ly < nLayers_; ++ly) {
+          name.str("");
+          title.str("");
+          name << "XY_L" << (ly + 1);
+          title << "Y vs X at Layer " << (ly + 1);
+          h_XY_.emplace_back(
+              fs->make<TH2D>(name.str().c_str(), title.str().c_str(), nbinR_, -rmax_, rmax_, nbinR_, -rmax_, rmax_));
+        }
       }
     } else {
       name.str("");
       title.str("");
       if (ih == 0) {
-	name << "EtaPhi_AllDetectors";
-	title << "#phi vs #eta for All Detectors";
+        name << "EtaPhi_AllDetectors";
+        title << "#phi vs #eta for All Detectors";
       } else {
-	name << "EtaPhi_" << nameDetectors_[ih - 1];
-	title << "#phi vs #eta for " << nameDetectors_[ih - 1];
+        name << "EtaPhi_" << nameDetectors_[ih - 1];
+        title << "#phi vs #eta for " << nameDetectors_[ih - 1];
       }
       h_EtaPhi_.emplace_back(
-        fs->make<TH2D>(name.str().c_str(), title.str().c_str(), nbinEta_, etamin_, etamax_, 200, -M_PI, M_PI));
+          fs->make<TH2D>(name.str().c_str(), title.str().c_str(), nbinEta_, etamin_, etamax_, 200, -M_PI, M_PI));
       name.str("");
       title.str("");
       if (ih == 0) {
-	name << "EtFiZp_AllDetectors";
-	title << "#phi vs #eta (+z) for All Detectors";
+        name << "EtFiZp_AllDetectors";
+        title << "#phi vs #eta (+z) for All Detectors";
       } else {
-	name << "EtFiZp_" << nameDetectors_[ih - 1];
-	title << "#phi vs #eta (+z) for " << nameDetectors_[ih - 1];
+        name << "EtFiZp_" << nameDetectors_[ih - 1];
+        title << "#phi vs #eta (+z) for " << nameDetectors_[ih - 1];
       }
       h_EtFiZp_.emplace_back(
-        fs->make<TH2D>(name.str().c_str(), title.str().c_str(), nbinEta_, etamin_, etamax_, 200, -M_PI, M_PI));
+          fs->make<TH2D>(name.str().c_str(), title.str().c_str(), nbinEta_, etamin_, etamax_, 200, -M_PI, M_PI));
       name.str("");
       title.str("");
       if (ih == 0) {
-	name << "EtFiZm_AllDetectors";
-	title << "#phi vs #eta (-z) for All Detectors";
+        name << "EtFiZm_AllDetectors";
+        title << "#phi vs #eta (-z) for All Detectors";
       } else {
-	name << "EtFiZm_" << nameDetectors_[ih - 1];
-	title << "#phi vs #eta (-z) for " << nameDetectors_[ih - 1];
+        name << "EtFiZm_" << nameDetectors_[ih - 1];
+        title << "#phi vs #eta (-z) for " << nameDetectors_[ih - 1];
       }
       h_EtFiZm_.emplace_back(
-        fs->make<TH2D>(name.str().c_str(), title.str().c_str(), nbinEta_, etamin_, etamax_, 200, -M_PI, M_PI));
+          fs->make<TH2D>(name.str().c_str(), title.str().c_str(), nbinEta_, etamin_, etamax_, 200, -M_PI, M_PI));
     }
     name.str("");
     title.str("");

@@ -5,7 +5,6 @@
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
-#include "DQMServices/Core/interface/QReport.h"
 #include "DQMServices/Core/interface/DQMStore.h"
 #include <cstdio>
 #include <sstream>
@@ -58,9 +57,6 @@ protected:
 
   /// EndRun
   void endRun(const edm::Run& r, const edm::EventSetup& c);
-
-  /// Endjob
-  void endJob();
 
 private:
 
@@ -252,6 +248,3 @@ void DQMOfflineHLTEventInfoClient::endRun(const Run& r, const EventSetup& contex
   CertificationSummaryMap_->setBinContent(1, 5, 1);              //BJet
   CertificationSummaryMap_->setBinContent(1, 6, tauValue);       //Tau
 }
-
-//--------------------------------------------------------
-void DQMOfflineHLTEventInfoClient::endJob() {}

@@ -5,10 +5,14 @@
 */
 
 #include "DataFormats/Provenance/interface/ModuleDescription.h"
+#include "FWCore/Framework/interface/EventPrincipal.h"
 #include "FWCore/Framework/interface/ExceptionActions.h"
 #include "FWCore/Framework/interface/ExceptionHelpers.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
+#include "FWCore/Framework/interface/LuminosityBlockPrincipal.h"
 #include "FWCore/Framework/interface/OccurrenceTraits.h"
+#include "FWCore/Framework/interface/ProcessBlockPrincipal.h"
+#include "FWCore/Framework/interface/RunPrincipal.h"
 #include "FWCore/Framework/interface/WorkerManager.h"
 #include "FWCore/Framework/src/Worker.h"
 #include "FWCore/Framework/src/WorkerRegistry.h"
@@ -21,6 +25,7 @@
 #include "FWCore/Utilities/interface/StreamID.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
 #include "FWCore/Concurrency/interface/WaitingTaskHolder.h"
+#include "FWCore/Utilities/interface/thread_safety_macros.h"
 
 #include <map>
 #include <memory>
@@ -42,7 +47,8 @@ namespace edm {
           T::preScheduleSignal(a_, context_);
       }
       ~GlobalScheduleSignalSentry() noexcept(false) {
-        try {
+        // Caught exception is rethrown
+        CMS_SA_ALLOW try {
           if (a_)
             T::postScheduleSignal(a_, context_);
         } catch (...) {
@@ -63,7 +69,6 @@ namespace edm {
   }  // namespace
 
   class ActivityRegistry;
-  class EventSetupImpl;
   class ExceptionCollector;
   class ProcessContext;
   class PreallocationConfiguration;
@@ -95,8 +100,7 @@ namespace edm {
 
     template <typename T>
     void processOneGlobalAsync(WaitingTaskHolder holder,
-                               typename T::MyPrincipal& principal,
-                               EventSetupImpl const& eventSetup,
+                               typename T::TransitionInfoType&,
                                ServiceToken const& token,
                                bool cleaningUpAfterException = false);
 
@@ -110,10 +114,6 @@ namespace edm {
     /// *** passed to the caller. Do not call delete on these
     /// *** pointers!
     std::vector<ModuleDescription const*> getAllModuleDescriptions() const;
-
-    /// Return the trigger report information on paths,
-    /// modules-in-path, modules-in-endpath, and modules.
-    void getTriggerReport(TriggerReport& rep) const;
 
     /// Return whether each output module has reached its maximum count.
     bool terminate() const;
@@ -156,13 +156,15 @@ namespace edm {
 
   template <typename T>
   void GlobalSchedule::processOneGlobalAsync(WaitingTaskHolder iHolder,
-                                             typename T::MyPrincipal& ep,
-                                             EventSetupImpl const& es,
+                                             typename T::TransitionInfoType& transitionInfo,
                                              ServiceToken const& token,
                                              bool cleaningUpAfterException) {
-    try {
+    auto const& principal = transitionInfo.principal();
+
+    // Caught exception is propagated via WaitingTaskHolder
+    CMS_SA_ALLOW try {
       //need the doneTask to own the memory
-      auto globalContext = std::make_shared<GlobalContext>(T::makeGlobalContext(ep, processContext_));
+      auto globalContext = std::make_shared<GlobalContext>(T::makeGlobalContext(principal, processContext_));
 
       if (actReg_) {
         //Services may depend upon each other
@@ -195,7 +197,8 @@ namespace edm {
               }
             }
             if (actReg_) {
-              try {
+              // Caught exception is propagated via WaitingTaskHolder
+              CMS_SA_ALLOW try {
                 ServiceRegistry::Operate op(token);
                 T::postScheduleSignal(actReg_.get(), globalContext.get());
               } catch (...) {
@@ -206,19 +209,20 @@ namespace edm {
             }
             iHolder.doneWaiting(excpt);
           });
-      workerManagers_[ep.index()].resetAll();
+      WorkerManager& workerManager = workerManagers_[principal.index()];
+      workerManager.resetAll();
 
       ParentContext parentContext(globalContext.get());
       //make sure the ProductResolvers know about their
       // workers to allow proper data dependency handling
-      workerManagers_[ep.index()].setupOnDemandSystem(ep, es);
+      workerManager.setupResolvers(transitionInfo.principal());
 
       //make sure the task doesn't get run until all workers have beens started
       WaitingTaskHolder holdForLoop(doneTask);
-      auto& aw = workerManagers_[ep.index()].allWorkers();
+      auto& aw = workerManager.allWorkers();
       for (Worker* worker : boost::adaptors::reverse(aw)) {
         worker->doWorkAsync<T>(
-            doneTask, ep, es, token, StreamID::invalidStreamID(), parentContext, globalContext.get());
+            doneTask, transitionInfo, token, StreamID::invalidStreamID(), parentContext, globalContext.get());
       }
     } catch (...) {
       iHolder.doneWaiting(std::current_exception());

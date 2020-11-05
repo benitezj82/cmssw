@@ -12,6 +12,7 @@
 #include <memory>
 
 // user include files
+#include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/EDProducer.h"
 #include "FWCore/Utilities/interface/isFinite.h"
@@ -27,12 +28,13 @@
 GlobalTrackQualityProducer::GlobalTrackQualityProducer(const edm::ParameterSet& iConfig)
     : inputCollection_(iConfig.getParameter<edm::InputTag>("InputCollection")),
       inputLinksCollection_(iConfig.getParameter<edm::InputTag>("InputLinksCollection")),
+      tTopoToken_(esConsumes()),
       theService(nullptr),
       theGlbRefitter(nullptr),
       theGlbMatcher(nullptr) {
   // service parameters
   edm::ParameterSet serviceParameters = iConfig.getParameter<edm::ParameterSet>("ServiceParameters");
-  theService = new MuonServiceProxy(serviceParameters);
+  theService = new MuonServiceProxy(serviceParameters, consumesCollector());
 
   // TrackRefitter parameters
   edm::ConsumesCollector iC = consumesCollector();
@@ -80,9 +82,7 @@ void GlobalTrackQualityProducer::produce(edm::Event& iEvent, const edm::EventSet
   iEvent.getByToken(linkCollectionToken, linkCollectionHandle);
 
   //Retrieve tracker topology from geometry
-  edm::ESHandle<TrackerTopology> tTopoHand;
-  iSetup.get<TrackerTopologyRcd>().get(tTopoHand);
-  const TrackerTopology* tTopo = tTopoHand.product();
+  const TrackerTopology* tTopo = &iSetup.getData(tTopoToken_);
 
   // reserve some space
   std::vector<reco::MuonQuality> valuesQual;

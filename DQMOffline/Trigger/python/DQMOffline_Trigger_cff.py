@@ -3,8 +3,15 @@ import FWCore.ParameterSet.Config as cms
 # online trigger objects monitoring
 from DQM.HLTEvF.HLTObjectsMonitor_cfi import *
 
-# HLT path monitoring (per PD)
-from DQMOffline.Trigger.HLTGeneralOffline_cfi import *
+# monitoring of efficiencies of HLT paths and filters
+from DQMOffline.Trigger.hltFiltersDQMonitor_cfi import *
+hltFiltersDQM = hltFiltersDQMonitor.clone(
+  folderName = 'HLT/Filters',
+  efficPlotNamePrefix = 'effic_',
+  triggerResults = 'TriggerResults::HLT',
+  triggerSummaryAOD = 'hltTriggerSummaryAOD::HLT',
+  triggerSummaryRAW = 'hltTriggerSummaryRAW::HLT',
+)
 
 # Lumi
 from DQMOffline.Trigger.DQMOffline_LumiMontiroring_cff import *
@@ -33,6 +40,8 @@ from DQMOffline.Trigger.PrimaryVertexMonitoring_cff import *
 # tracking
 from DQMOffline.Trigger.TrackingMonitoring_cff import *
 from DQMOffline.Trigger.TrackingMonitoringPA_cff import*
+from DQMOffline.Trigger.TrackToTrackMonitoring_cff import *
+
 
 # hcal
 from DQMOffline.Trigger.HCALMonitoring_cff import *
@@ -102,8 +111,8 @@ offlineHLTSourceOnMiniAOD = cms.Sequence(
 ## on AOD (w/o the need of the RECO step on-the-fly)
 ## ADD here sequences/modules which rely ONLY on collections stored in the AOD format
 offlineHLTSourceOnAOD = cms.Sequence(
-    dqmEnvHLT
-    * hltResults
+      dqmEnvHLT
+    * hltFiltersDQM
     * lumiMonitorHLTsequence
     * muonFullOfflineDQM
     * HLTTauDQMOffline
@@ -127,7 +136,7 @@ offlineHLTSourceOnAOD = cms.Sequence(
 
 ## w/ the RECO step on-the-fly (to be added to offlineHLTSourceOnAOD which should run anyhow)
 offlineHLTSourceWithRECO = cms.Sequence(
-    hltResults
+      hltFiltersDQM
     * egHLTOffDQMSource       ## NEEDED in VALIDATION, not really in MONITORING
     * egHLTOffDQMSource_HEP17 ## NEEDED in VALIDATION, not really in MONITORING
     * jetMETHLTOfflineAnalyzer
@@ -176,9 +185,11 @@ offlineHLTSource4HLTMonitorPD = cms.Sequence(
     sistripMonitorHLTsequence *       # strip
     sipixelMonitorHLTsequence *       # pixel
     BTVHLTOfflineSource *             # BTV
+    bTagHLTTrackMonitoringSequence *  # BTV relative track efficeicies
     trackingMonitorHLT *              # tracking
     trackingMonitorHLTDisplacedJet*   # EXO : DisplacedJet Tracking 
     egmTrackingMonitorHLT *           # EGM tracking
+    hltToOfflineTrackValidatorSequence *  # Relative Online to Offline performace
     vertexingMonitorHLT               # vertexing
 )
 

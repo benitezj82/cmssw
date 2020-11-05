@@ -22,6 +22,7 @@ hcalSimParameters = cms.PSet(
         doSiPMSmearing = cms.bool(False),
         sipmTau = cms.double(0.),
         threshold_currentTDC = cms.double(-999.),
+        delayQIE = cms.int32(-999),
     ),
     hf2 = cms.PSet(
         readoutFrameSize = cms.int32(4),
@@ -35,6 +36,7 @@ hcalSimParameters = cms.PSet(
         doSiPMSmearing = cms.bool(False),
         sipmTau = cms.double(0.),
         threshold_currentTDC = cms.double(-999.),
+        delayQIE = cms.int32(-999),
     ),
     ho = cms.PSet(
         readoutFrameSize = cms.int32(10),
@@ -53,6 +55,7 @@ hcalSimParameters = cms.PSet(
         doSiPMSmearing = cms.bool(False),
         sipmTau = cms.double(5.),
         threshold_currentTDC = cms.double(-999.),
+        delayQIE = cms.int32(-999),
     ),
     hb = cms.PSet(
         readoutFrameSize = cms.int32(10),
@@ -71,6 +74,7 @@ hcalSimParameters = cms.PSet(
         doSiPMSmearing = cms.bool(False),
         sipmTau = cms.double(0.),
         threshold_currentTDC = cms.double(-999.),
+        delayQIE = cms.int32(-999),
     ),
     he = cms.PSet(
         readoutFrameSize = cms.int32(10),
@@ -88,6 +92,7 @@ hcalSimParameters = cms.PSet(
         doSiPMSmearing = cms.bool(False),
         sipmTau = cms.double(0.),
         threshold_currentTDC = cms.double(-999.),
+        delayQIE = cms.int32(-999),
     ),
     zdc = cms.PSet(
         readoutFrameSize = cms.int32(10),
@@ -101,6 +106,7 @@ hcalSimParameters = cms.PSet(
         doSiPMSmearing = cms.bool(False),
         sipmTau = cms.double(0.),
         threshold_currentTDC = cms.double(-999.),
+        delayQIE = cms.int32(-999),
     ),
 )
 
@@ -163,6 +169,19 @@ run3_HB.toModify( hcalSimParameters,
         sipmTau = cms.double(10.),
     )
 )
+
+from Configuration.Eras.Modifier_run3_common_cff import run3_common
+run3_common.toModify( hcalSimParameters, 
+    hb = dict(
+               readoutFrameSize = cms.int32(10), 
+               binOfMaximum     = cms.int32(6)
+              ),
+    he = dict(
+               readoutFrameSize = cms.int32(10), 
+               binOfMaximum     = cms.int32(6)
+              )
+) 
+
 
 _newFactors = cms.vdouble(
     210.55, 197.93, 186.12, 189.64, 189.63,

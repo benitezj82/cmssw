@@ -1,5 +1,4 @@
 #include "RecoVertex/PrimaryVertexProducer/interface/PrimaryVertexProducer.h"
-
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
 #include "DataFormats/Common/interface/Handle.h"
@@ -116,6 +115,19 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf) : th
     algorithms.push_back(algorithm);
     produces<reco::VertexCollection>(algorithm.label);
   }
+
+  //check if this is a recovery iteration
+  fRecoveryIteration = conf.getParameter<bool>("isRecoveryIteration");
+  if (fRecoveryIteration) {
+    if (algorithms.empty()) {
+      throw VertexException("PrimaryVertexProducerAlgorithm: No algorithm specified. ");
+    } else if (algorithms.size() > 1) {
+      throw VertexException(
+          "PrimaryVertexProducerAlgorithm: Running in Recovery mode and more than one algorithm specified.  Please "
+          "only one algorithm.");
+    }
+    recoveryVtxToken = consumes<reco::VertexCollection>(conf.getParameter<edm::InputTag>("recoveryVtxCollection"));
+  }
 }
 
 PrimaryVertexProducer::~PrimaryVertexProducer() {
@@ -148,6 +160,22 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
       (beamVertexState.error().czz() <= 0.)) {
     validBS = false;
     edm::LogError("UnusableBeamSpot") << "Beamspot with invalid errors " << beamVertexState.error().matrix();
+  }
+
+  //if this is a recovery iteration, check if we already have a valid PV
+  if (fRecoveryIteration) {
+    auto const& oldVertices = iEvent.get(recoveryVtxToken);
+    //look for the first valid (not-BeamSpot) vertex
+    for (auto const& old : oldVertices) {
+      if (!(old.isFake())) {
+        //found a valid vertex, write the first one to the collection and return
+        //otherwise continue with regular vertexing procedure
+        auto result = std::make_unique<reco::VertexCollection>();
+        result->push_back(old);
+        iEvent.put(std::move(result), algorithms.begin()->label);
+        return;
+      }
+    }
   }
 
   // get RECO tracks from the event
@@ -322,6 +350,103 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
 
     iEvent.put(std::move(result), algorithm->label);
   }
+}
+
+void PrimaryVertexProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  // offlinePrimaryVertices
+  edm::ParameterSetDescription desc;
+  {
+    edm::ParameterSetDescription vpsd1;
+    vpsd1.add<double>("maxDistanceToBeam", 1.0);
+    vpsd1.add<std::string>("algorithm", "AdaptiveVertexFitter");
+    vpsd1.add<bool>("useBeamConstraint", false);
+    vpsd1.add<std::string>("label", "");
+    vpsd1.add<double>("chi2cutoff", 2.5);
+    vpsd1.add<double>("minNdof", 0.0);
+    std::vector<edm::ParameterSet> temp1;
+    temp1.reserve(2);
+    {
+      edm::ParameterSet temp2;
+      temp2.addParameter<double>("maxDistanceToBeam", 1.0);
+      temp2.addParameter<std::string>("algorithm", "AdaptiveVertexFitter");
+      temp2.addParameter<bool>("useBeamConstraint", false);
+      temp2.addParameter<std::string>("label", "");
+      temp2.addParameter<double>("chi2cutoff", 2.5);
+      temp2.addParameter<double>("minNdof", 0.0);
+      temp1.push_back(temp2);
+    }
+    {
+      edm::ParameterSet temp2;
+      temp2.addParameter<double>("maxDistanceToBeam", 1.0);
+      temp2.addParameter<std::string>("algorithm", "AdaptiveVertexFitter");
+      temp2.addParameter<bool>("useBeamConstraint", true);
+      temp2.addParameter<std::string>("label", "WithBS");
+      temp2.addParameter<double>("chi2cutoff", 2.5);
+      temp2.addParameter<double>("minNdof", 2.0);
+      temp1.push_back(temp2);
+    }
+    desc.addVPSet("vertexCollections", vpsd1, temp1);
+  }
+  desc.addUntracked<bool>("verbose", false);
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<double>("maxNormalizedChi2", 10.0);
+    psd0.add<double>("minPt", 0.0);
+    psd0.add<std::string>("algorithm", "filter");
+    psd0.add<double>("maxEta", 2.4);
+    psd0.add<double>("maxD0Significance", 4.0);
+    psd0.add<double>("maxD0Error", 1.0);
+    psd0.add<double>("maxDzError", 1.0);
+    psd0.add<std::string>("trackQuality", "any");
+    psd0.add<int>("minPixelLayersWithHits", 2);
+    psd0.add<int>("minSiliconLayersWithHits", 5);
+    psd0.add<int>("numTracksThreshold", 0);  // HI only
+    desc.add<edm::ParameterSetDescription>("TkFilterParameters", psd0);
+  }
+  desc.add<edm::InputTag>("beamSpotLabel", edm::InputTag("offlineBeamSpot"));
+  desc.add<edm::InputTag>("TrackLabel", edm::InputTag("generalTracks"));
+  desc.add<edm::InputTag>("TrackTimeResosLabel", edm::InputTag("dummy_default"));  // 4D only
+  desc.add<edm::InputTag>("TrackTimesLabel", edm::InputTag("dummy_default"));      // 4D only
+  {
+    edm::ParameterSetDescription psd0;
+    {
+      edm::ParameterSetDescription psd1;
+      psd1.addUntracked<bool>("verbose", false);
+      psd1.addUntracked<double>("zdumpcenter", 0.);
+      psd1.addUntracked<double>("zdumpwidth", 20.);
+      psd1.addUntracked<bool>("use_vdt", false);  // obsolete, appears in HLT configs
+      psd1.add<double>("d0CutOff", 3.0);
+      psd1.add<double>("Tmin", 2.0);
+      psd1.add<double>("delta_lowT", 0.001);
+      psd1.add<double>("zmerge", 0.01);
+      psd1.add<double>("dzCutOff", 3.0);
+      psd1.add<double>("Tpurge", 2.0);
+      psd1.add<int>("convergence_mode", 0);
+      psd1.add<double>("delta_highT", 0.01);
+      psd1.add<double>("Tstop", 0.5);
+      psd1.add<double>("coolingFactor", 0.6);
+      psd1.add<double>("vertexSize", 0.006);
+      psd1.add<double>("uniquetrkweight", 0.8);
+      psd1.add<double>("zrange", 4.0);
+
+      psd1.add<double>("tmerge", 0.01);           // 4D only
+      psd1.add<double>("dtCutOff", 4.);           // 4D only
+      psd1.add<double>("t0Max", 1.0);             // 4D only
+      psd1.add<double>("vertexSizeTime", 0.008);  // 4D only
+
+      psd0.add<edm::ParameterSetDescription>("TkDAClusParameters", psd1);
+
+      edm::ParameterSetDescription psd2;
+      psd2.add<double>("zSeparation", 1.0);
+      psd0.add<edm::ParameterSetDescription>("TkGapClusParameters", psd2);
+    }
+    psd0.add<std::string>("algorithm", "DA_vect");
+    desc.add<edm::ParameterSetDescription>("TkClusParameters", psd0);
+  }
+  desc.add<bool>("isRecoveryIteration", false);
+  desc.add<edm::InputTag>("recoveryVtxCollection", {""});
+
+  descriptions.add("primaryVertexProducer", desc);
 }
 
 //define this as a plug-in

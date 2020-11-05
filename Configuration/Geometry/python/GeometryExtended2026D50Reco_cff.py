@@ -6,9 +6,9 @@ import FWCore.ParameterSet.Config as cms
 from Configuration.Geometry.GeometryExtended2026D50_cff import *
 
 # tracker
-from Geometry.CommonDetUnit.globalTrackingGeometry_cfi import *
+from Geometry.CommonTopologies.globalTrackingGeometry_cfi import *
 from RecoTracker.GeometryESProducer.TrackerRecoGeometryESProducer_cfi import *
-from Geometry.TrackerGeometryBuilder.trackerParameters_cfi import *
+from Geometry.TrackerGeometryBuilder.trackerParameters_cff import *
 from Geometry.TrackerNumberingBuilder.trackerTopology_cfi import *
 from Geometry.TrackerGeometryBuilder.idealForDigiTrackerGeometry_cff import *
 trackerGeometry.applyAlignment = cms.bool(False)
@@ -51,8 +51,8 @@ from Geometry.ForwardGeometry.ForwardGeometry_cfi import *
 
 # timing
 from RecoMTD.DetLayers.mtdDetLayerGeometry_cfi import *
-from Geometry.MTDGeometryBuilder.mtdParameters_cfi import *
-from Geometry.MTDNumberingBuilder.mtdNumberingGeometry_cfi import *
+from Geometry.MTDGeometryBuilder.mtdParameters_cff import *
+from Geometry.MTDNumberingBuilder.mtdNumberingGeometry_cff import *
 from Geometry.MTDNumberingBuilder.mtdTopology_cfi import *
 from Geometry.MTDGeometryBuilder.mtdGeometry_cfi import *
 from Geometry.MTDGeometryBuilder.idealForDigiMTDGeometry_cff import *

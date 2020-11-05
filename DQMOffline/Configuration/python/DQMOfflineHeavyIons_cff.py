@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 
 from DQMServices.Components.DQMMessageLogger_cfi import *
-from DQMServices.Components.DQMDcsInfo_cfi import *
+from DQMServices.Components.DQMProvInfo_cfi import *
 from DQMServices.Components.DQMFastTimerService_cff import *
 
 from DQMOffline.L1Trigger.L1TriggerDqmOffline_cff import *
@@ -13,9 +13,13 @@ from DQM.SiPixelCommon.SiPixelOfflineDQM_source_cff import *
 from DQM.DTMonitorModule.dtDQMOfflineSources_HI_cff import *
 from DQM.RPCMonitorClient.RPCTier0Source_cff import *
 from DQM.CSCMonitorModule.csc_dqm_sourceclient_offline_cff import *
+from DQMOffline.Muon.gem_dqm_offline_source_cff import *
 from DQM.BeamMonitor.AlcaBeamMonitorHeavyIons_cff import *
 
-DQMOfflineHeavyIonsDCS = cms.Sequence( dqmDcsInfo )
+DQMNone = cms.Sequence()
+
+dqmProvInfo.runType = "hi_run"
+DQMOfflineHeavyIonsDCS = cms.Sequence( dqmProvInfo )
 
 # L1 trigger sequences
 DQMOfflineHeavyIonsL1T = cms.Sequence( l1TriggerDqmOffline ) # L1 emulator is run within this sequence for real data
@@ -33,6 +37,11 @@ DQMOfflineHeavyIonsTrackerPixel = cms.Sequence( siPixelOfflineDQM_heavyions_sour
 DQMOfflineHeavyIonsMuonDPG = cms.Sequence( dtSources *
                                   rpcTier0Source *
                                   cscSources )
+
+from Configuration.Eras.Modifier_run3_GEM_cff import run3_GEM
+_run3_GEM_DQMOfflineHeavyIonsMuonDPG = DQMOfflineHeavyIonsMuonDPG.copy()
+_run3_GEM_DQMOfflineHeavyIonsMuonDPG += gemSources
+run3_GEM.toReplaceWith(DQMOfflineHeavyIonsMuonDPG, _run3_GEM_DQMOfflineHeavyIonsMuonDPG)
 
 DQMOfflineHeavyIonsPreDPG = cms.Sequence( DQMOfflineHeavyIonsDCS *
 					  DQMOfflineHeavyIonsL1T *
@@ -95,8 +104,7 @@ dqmElectronTagProbeAnalysis.ElectronCollection = cms.InputTag("gedGsfElectronsTm
 stdPhotonAnalysis.isHeavyIon = True
 stdPhotonAnalysis.barrelRecHitProducer = cms.InputTag("ecalRecHit", "EcalRecHitsEB")
 stdPhotonAnalysis.endcapRecHitProducer = cms.InputTag("ecalRecHit", "EcalRecHitsEE")
-hltResults.RecHitsEBTag = cms.untracked.InputTag("ecalRecHit", "EcalRecHitsEB")
-hltResults.RecHitsEETag = cms.untracked.InputTag("ecalRecHit", "EcalRecHitsEE")
+
 #disabled, until an appropriate configuration is set
 hltTauOfflineMonitor_PFTaus.Matching.doMatching = False
 

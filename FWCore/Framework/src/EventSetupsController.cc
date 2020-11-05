@@ -16,12 +16,13 @@
 #include "FWCore/Concurrency/interface/WaitingTaskList.h"
 #include "FWCore/Framework/interface/DataKey.h"
 #include "FWCore/Framework/interface/DataProxy.h"
-#include "FWCore/Framework/interface/EventSetupProviderMaker.h"
+#include "FWCore/Framework/src/EventSetupProviderMaker.h"
 #include "FWCore/Framework/interface/EventSetupProvider.h"
 #include "FWCore/Framework/interface/EventSetupRecordKey.h"
 #include "FWCore/Framework/interface/ParameterSetIDHolder.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/EDMException.h"
+#include "FWCore/Utilities/interface/thread_safety_macros.h"
 
 #include <algorithm>
 #include <iostream>
@@ -143,8 +144,8 @@ namespace edm {
 
       {
         WaitingTaskHolder waitingTaskHolder(waitUntilIOVInitializationCompletes.get());
-
-        try {
+        // Caught exception is propagated via WaitingTaskHolder
+        CMS_SA_ALLOW try {
           // All the real work is done here.
           eventSetupForInstance(syncValue, waitingTaskHolder, dummyWaitingTaskList, dummyEventSetupImpls);
           dummyWaitingTaskList.doneWaiting(std::exception_ptr{});

@@ -6,10 +6,10 @@
 #include "DataFormats/GeometryVector/interface/GlobalPoint.h"
 #include "DataFormats/L1Trigger/interface/L1Candidate.h"
 #include "DataFormats/L1THGCal/interface/HGCalTriggerCell.h"
-#include "DataFormats/L1THGCal/interface/ClusterShapes.h"
 #include "DataFormats/ForwardDetId/interface/ForwardSubdetector.h"
 #include "DataFormats/HcalDetId/interface/HcalSubdetector.h"
 #include "DataFormats/ForwardDetId/interface/HGCalTriggerDetId.h"
+#include "DataFormats/ForwardDetId/interface/HFNoseTriggerDetId.h"
 
 /* ROOT */
 #include "Math/Vector3D.h"
@@ -101,9 +101,6 @@ namespace l1t {
     const GlobalPoint& centre() const { return centre_; }
     const GlobalPoint& centreProj() const { return centreProj_; }
 
-    // FIXME: will need to fix places where the shapes are directly accessed
-    // Right now keep shapes() getter as non-const
-    ClusterShapes& shapes() { return shapes_; }
     double hOverE() const {
       double pt_em = 0.;
       double pt_had = 0.;
@@ -115,13 +112,22 @@ namespace l1t {
         double fraction = (id_fraction != constituentsFraction_.end() ? id_fraction->second : 1.);
         if ((id.det() == DetId::Forward && id.subdetId() == HGCEE) || (id.det() == DetId::HGCalEE) ||
             (id.det() == DetId::HGCalTrigger &&
-             HGCalTriggerDetId(id).subdet() == HGCalTriggerSubdetector::HGCalEETrigger)) {
+             HGCalTriggerDetId(id).subdet() == HGCalTriggerSubdetector::HGCalEETrigger) ||
+            (id.det() == DetId::Forward && id.subdetId() == ForwardSubdetector::HFNose && HFNoseDetId(id).isEE()) ||
+            (id.det() == DetId::HGCalTrigger &&
+             HGCalTriggerDetId(id).subdet() == HGCalTriggerSubdetector::HFNoseTrigger &&
+             HFNoseTriggerDetId(id).isEE())) {
           pt_em += id_constituent.second->pt() * fraction;
         } else if ((id.det() == DetId::Forward && id.subdetId() == HGCHEF) ||
                    (id.det() == DetId::Hcal && id.subdetId() == HcalEndcap) || (id.det() == DetId::HGCalHSi) ||
                    (id.det() == DetId::HGCalHSc) ||
                    (id.det() == DetId::HGCalTrigger &&
-                    HGCalTriggerDetId(id).subdet() == HGCalTriggerSubdetector::HGCalHSiTrigger)) {
+                    HGCalTriggerDetId(id).subdet() == HGCalTriggerSubdetector::HGCalHSiTrigger) ||
+                   (id.det() == DetId::Forward && id.subdetId() == ForwardSubdetector::HFNose &&
+                    HFNoseDetId(id).isHE()) ||
+                   (id.det() == DetId::HGCalTrigger &&
+                    HGCalTriggerDetId(id).subdet() == HGCalTriggerSubdetector::HFNoseTrigger &&
+                    HFNoseTriggerDetId(id).isHSilicon())) {
           pt_had += id_constituent.second->pt() * fraction;
         }
       }
@@ -217,8 +223,6 @@ namespace l1t {
     float layer90percent_ = 0.;
     float triggerCells67percent_ = 0.;
     float triggerCells90percent_ = 0.;
-
-    ClusterShapes shapes_;
 
     void updateP4AndPosition(const edm::Ptr<C>& c, bool updateCentre = true, float fraction = 1.) {
       double cMipt = c->mipPt() * fraction;

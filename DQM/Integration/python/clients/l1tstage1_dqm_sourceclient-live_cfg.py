@@ -16,9 +16,11 @@ process = cms.Process("DQM")
 #
 # for live online DQM in P5
 process.load("DQM.Integration.config.inputsource_cfi")
+from DQM.Integration.config.inputsource_cfi import options
 #
 # for testing in lxplus
 #process.load("DQM.Integration.config.fileinputsource_cfi")
+#from DQM.Integration.config.fileinputsource_cfi import options
 
 #----------------------------
 # DQM Environment
@@ -27,10 +29,12 @@ process.load("DQM.Integration.config.inputsource_cfi")
 process.load("DQM.Integration.config.environment_cfi")
 process.dqmEnv.subSystemFolder = 'L1TStage1'
 process.dqmSaver.tag = 'L1TStage1'
+process.dqmSaver.runNumber = options.runNumber
+process.dqmSaverPB.tag = 'L1TStage1'
+process.dqmSaverPB.runNumber = options.runNumber
 
 #
 # references needed
-process.DQMStore.referenceFileName = "/dqmdata/dqm/reference/l1t_reference.root"
 
 # Condition for P5 cluster
 process.load("DQM.Integration.config.FrontierCondition_GT_cfi")
@@ -102,7 +106,8 @@ process.l1tMonitorClientEndPath = cms.EndPath(process.l1tMonitorClientEndPathSeq
 #
 process.dqmEndPath = cms.EndPath(
                                  process.dqmEnv *
-                                 process.dqmSaver
+                                 process.dqmSaver *
+                                 process.dqmSaverPB
                                  )
 
 #

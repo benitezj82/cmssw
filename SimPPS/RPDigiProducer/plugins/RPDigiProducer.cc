@@ -26,7 +26,7 @@
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "FWCore/Utilities/interface/RandomNumberGenerator.h"
 
-#include "CondFormats/CTPPSReadoutObjects/interface/TotemAnalysisMask.h"
+#include "CondFormats/PPSObjects/interface/TotemAnalysisMask.h"
 #include "CondFormats/DataRecord/interface/TotemReadoutRcd.h"
 #include "SimPPS/RPDigiProducer/interface/RPSimTypes.h"
 #include "SimPPS/RPDigiProducer/plugins/RPDetDigitizer.h"
@@ -173,8 +173,7 @@ void RPDigiProducer::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) 
     edm::DetSet<TotemRPDigi> digi_collector(it->first);
 
     if (theAlgoMap.find(it->first) == theAlgoMap.end()) {
-      theAlgoMap[it->first] =
-          std::unique_ptr<RPDetDigitizer>(new RPDetDigitizer(conf_, *rndEngine_, it->first, iSetup));
+      theAlgoMap[it->first] = std::make_unique<RPDetDigitizer>(conf_, *rndEngine_, it->first, iSetup);
     }
 
     std::vector<int> input_links;

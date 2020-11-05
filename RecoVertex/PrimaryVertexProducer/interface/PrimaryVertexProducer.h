@@ -58,6 +58,8 @@ public:
 
   void produce(edm::Event&, const edm::EventSetup&) override;
 
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+
   // access to config
   edm::ParameterSet config() const { return theConfig; }
 
@@ -79,6 +81,9 @@ private:
 
   edm::ParameterSet theConfig;
   bool fVerbose;
+
+  bool fRecoveryIteration;
+  edm::EDGetTokenT<reco::VertexCollection> recoveryVtxToken;
 
   edm::EDGetTokenT<reco::BeamSpot> bsToken;
   edm::EDGetTokenT<reco::TrackCollection> trkToken;

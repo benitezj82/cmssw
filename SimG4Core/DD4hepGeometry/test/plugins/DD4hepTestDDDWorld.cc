@@ -3,17 +3,18 @@
 #include "FWCore/Framework/interface/ESTransientHandle.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "DataFormats/Math/interface/GeantUnits.h"
 #include "DetectorDescription/DDCMS/interface/DDDetector.h"
 #include "DetectorDescription/DDCMS/interface/DDVectorRegistry.h"
-#include "DetectorDescription/DDCMS/interface/DDSpecParRegistry.h"
-#include "DetectorDescription/DDCMS/interface/Filter.h"
 #include "Geometry/Records/interface/DDVectorRegistryRcd.h"
 #include "Geometry/Records/interface/IdealGeometryRecord.h"
 #include "Geometry/Records/interface/DDSpecParRegistryRcd.h"
 #include "SimG4Core/DD4hepGeometry/interface/DD4hep_DDDWorld.h"
-#include "DDG4/Geant4Converter.h"
-#include "DD4hep/Detector.h"
-#include "DD4hep/Handle.h"
+#include <DDG4/Geant4Converter.h>
+#include <DD4hep/Detector.h>
+#include <DD4hep/Handle.h>
+#include <DD4hep/Filter.h>
+#include <DD4hep/SpecParRegistry.h>
 #include "G4LogicalVolume.hh"
 #include "G4MTRunManagerKernel.hh"
 #include "G4ProductionCuts.hh"
@@ -27,17 +28,11 @@ using namespace std;
 using namespace cms;
 using namespace edm;
 using namespace dd4hep;
+using geant_units::operators::convertCmToMm;
 
 namespace {
-  string_view noNamespace(string_view input) {
-    string_view v = input;
-    auto first = v.find_first_of(":");
-    v.remove_prefix(min(first + 1, v.size()));
-    return v;
-  }
-
-  bool sortByName(const std::pair<G4LogicalVolume*, const DDSpecPar*>& p1,
-                  const std::pair<G4LogicalVolume*, const DDSpecPar*>& p2) {
+  bool sortByName(const std::pair<G4LogicalVolume*, const dd4hep::SpecPar*>& p1,
+                  const std::pair<G4LogicalVolume*, const dd4hep::SpecPar*>& p2) {
     bool result = false;
     if (p1.first->GetName() > p2.first->GetName()) {
       result = true;
@@ -60,18 +55,17 @@ private:
   G4ProductionCuts* getProductionCuts(G4Region* region);
 
   const ESInputTag tag_;
-  const DDSpecParRegistry* specPars_;
+  const dd4hep::SpecParRegistry* specPars_;
   G4MTRunManagerKernel* kernel_;
-  DDSpecParRefs specs_;
-  vector<pair<G4LogicalVolume*, const DDSpecPar*>> vec_;
-  string_view keywordRegion_;
+  dd4hep::SpecParRefs specs_;
+  vector<pair<G4LogicalVolume*, const dd4hep::SpecPar*>> vec_;
+  const string keywordRegion_;
   unique_ptr<DDDWorld> world_;
   int verbosity_;
 };
 
 DD4hepTestDDDWorld::DD4hepTestDDDWorld(const ParameterSet& iConfig)
-    : tag_(iConfig.getParameter<ESInputTag>("DDDetector")) {
-  keywordRegion_ = "CMSCutsRegion";
+    : tag_(iConfig.getParameter<ESInputTag>("DDDetector")), keywordRegion_("CMSCutsRegion") {
   verbosity_ = iConfig.getUntrackedParameter<int>("Verbosity", 1);
   kernel_ = new G4MTRunManagerKernel();
 }
@@ -88,7 +82,7 @@ void DD4hepTestDDDWorld::analyze(const Event&, const EventSetup& iEventSetup) {
   ddRecord.get(tag_, ddd);
 
   const DDSpecParRegistryRcd& specParRecord = iEventSetup.get<DDSpecParRegistryRcd>();
-  ESTransientHandle<DDSpecParRegistry> registry;
+  ESTransientHandle<dd4hep::SpecParRegistry> registry;
   specParRecord.get(tag_, registry);
   specPars_ = registry.product();
 
@@ -114,14 +108,14 @@ void DD4hepTestDDDWorld::initialize(const dd4hep::sim::Geant4GeometryMaps::Volum
   LogVerbatim("Geometry").log([&](auto& log) {
     for (auto const& it : vmap) {
       for (auto const& fit : specs_) {
-        for (auto const& sit : fit->spars) {
+        for (auto const& sit : fit.second->spars) {
           log << sit.first << " =  " << sit.second[0] << "\n";
         }
-        for (auto const& pit : fit->paths) {
-          log << cms::dd::realTopName(pit) << "\n";
-          log << "   compare equal to " << noNamespace(it.first.name()) << " ... ";
-          if (cms::dd::compareEqual(noNamespace(it.first.name()), cms::dd::realTopName(pit))) {
-            vec_.emplace_back(std::make_pair<G4LogicalVolume*, const cms::DDSpecPar*>(&*it.second, &*fit));
+        for (auto const& pit : fit.second->paths) {
+          log << dd4hep::dd::realTopName(pit) << "\n";
+          log << "   compare equal to " << dd4hep::dd::noNamespace(it.first.name()) << " ... ";
+          if (dd4hep::dd::compareEqual(dd4hep::dd::noNamespace(it.first.name()), dd4hep::dd::realTopName(pit))) {
+            vec_.emplace_back(std::make_pair<G4LogicalVolume*, const dd4hep::SpecPar*>(&*it.second, &*fit.second));
             log << "   are equal!\n";
           } else
             log << "   nope.\n";
@@ -135,10 +129,10 @@ void DD4hepTestDDDWorld::initialize(const dd4hep::sim::Geant4GeometryMaps::Volum
 
   // Now generate all the regions
   for (auto const& it : vec_) {
-    auto regName = it.second->strValue(keywordRegion_.data());
+    auto regName = it.second->strValue(keywordRegion_);
     G4Region* region = G4RegionStore::GetInstance()->FindOrCreateRegion({regName.data(), regName.size()});
     region->AddRootLogicalVolume(it.first);
-    LogVerbatim("Geometry") << it.first->GetName() << ": " << it.second->strValue(keywordRegion_.data());
+    LogVerbatim("Geometry") << it.first->GetName() << ": " << it.second->strValue(keywordRegion_);
     LogVerbatim("Geometry") << " MakeRegions: added " << it.first->GetName() << " to region " << region->GetName();
   }
 }
@@ -160,7 +154,7 @@ void DD4hepTestDDDWorld::update() {
   });
   // Loop over all DDLP and provide the cuts for each region
   for (auto const& it : vec_) {
-    auto regName = it.second->strValue(keywordRegion_.data());
+    auto regName = it.second->strValue(keywordRegion_);
     G4Region* region = G4RegionStore::GetInstance()->FindOrCreateRegion({regName.data(), regName.size()});
 
     //
@@ -168,18 +162,20 @@ void DD4hepTestDDDWorld::update() {
     // you must have four of them: e+ e- gamma proton
     //
     auto gammacutStr = it.second->strValue("ProdCutsForGamma");
-    double gammacut = dd4hep::_toDouble({gammacutStr.data(), gammacutStr.size()});
+
+    // Geant4 expects mm units. DD4hep returns cm, so must convert to mm.
+    double gammacut = convertCmToMm(dd4hep::_toDouble({gammacutStr.data(), gammacutStr.size()}));
 
     auto electroncutStr = it.second->strValue("ProdCutsForElectrons");
-    double electroncut = dd4hep::_toDouble({electroncutStr.data(), electroncutStr.size()});
+    double electroncut = convertCmToMm(dd4hep::_toDouble({electroncutStr.data(), electroncutStr.size()}));
 
     auto positroncutStr = it.second->strValue("ProdCutsForPositrons");
-    double positroncut = dd4hep::_toDouble({positroncutStr.data(), positroncutStr.size()});
+    double positroncut = convertCmToMm(dd4hep::_toDouble({positroncutStr.data(), positroncutStr.size()}));
 
     double protoncut = 0.0;
     auto protoncutStr = it.second->strValue("ProdCutsForProtons");
     if (it.second->hasValue("ProdCutsForProtons")) {
-      protoncut = dd4hep::_toDouble({protoncutStr.data(), protoncutStr.size()});
+      protoncut = convertCmToMm(dd4hep::_toDouble({protoncutStr.data(), protoncutStr.size()}));
     } else {
       protoncut = electroncut;
     }

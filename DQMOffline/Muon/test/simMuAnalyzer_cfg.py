@@ -14,7 +14,7 @@ process.load("Geometry.CMSCommonData.cmsIdealGeometryXML_cff")
 
 process.load("MagneticField.Engine.volumeBasedMagneticField_cfi")
 
-process.load("Geometry.CommonDetUnit.globalTrackingGeometry_cfi")
+process.load("Geometry.CommonTopologies.globalTrackingGeometry_cfi")
 
 process.load("RecoMuon.DetLayers.muonDetLayerGeometry_cfi")
 
@@ -74,9 +74,6 @@ process.MessageLogger = cms.Service("MessageLogger",
         noLineBreaks = cms.untracked.bool(True),
         trackResidualsTest = cms.untracked.PSet(
             limit = cms.untracked.int32(10000000)
-        ),
-        FwkJob = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
         ),
         threshold = cms.untracked.string('DEBUG'),
         muRecoAnalyzer = cms.untracked.PSet(

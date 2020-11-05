@@ -14,8 +14,8 @@
 #include "FWCore/Framework/src/WorkerT.h"
 #include "FWCore/Framework/src/ModuleHolder.h"
 #include "FWCore/Framework/src/PreallocationConfiguration.h"
+#include "FWCore/Framework/src/TransitionInfoTypes.h"
 #include "FWCore/Framework/interface/OccurrenceTraits.h"
-#include "DataFormats/Provenance/interface/ProcessHistoryRegistry.h"
 #include "DataFormats/Provenance/interface/ProductRegistry.h"
 #include "DataFormats/Provenance/interface/BranchIDListHelper.h"
 #include "DataFormats/Provenance/interface/ThinnedAssociationsHelper.h"
@@ -400,8 +400,7 @@ testLimitedFilter::testLimitedFilter()
   edm::EventAuxiliary eventAux(eventID, uuid, now, true);
 
   m_ep.reset(new edm::EventPrincipal(m_prodReg, m_idHelper, m_associationsHelper, m_procConfig, nullptr));
-  edm::ProcessHistoryRegistry phr;
-  m_ep->fillEventPrincipal(eventAux, phr);
+  m_ep->fillEventPrincipal(eventAux, nullptr);
   m_ep->setLuminosityBlockPrincipal(m_lbp.get());
   m_actReg.reset(new edm::ActivityRegistry);
 
@@ -414,23 +413,27 @@ testLimitedFilter::testLimitedFilter()
   m_transToFunc[Trans::kGlobalBeginRun] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionGlobalBegin> Traits;
     edm::ParentContext nullParentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, s_streamID0, nullParentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, nullParentContext, nullptr);
   };
   m_transToFunc[Trans::kStreamBeginRun] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionStreamBegin> Traits;
     edm::ParentContext nullParentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, s_streamID0, nullParentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, nullParentContext, nullptr);
   };
 
   m_transToFunc[Trans::kGlobalBeginLuminosityBlock] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionGlobalBegin> Traits;
     edm::ParentContext nullParentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, s_streamID0, nullParentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, nullParentContext, nullptr);
   };
   m_transToFunc[Trans::kStreamBeginLuminosityBlock] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionStreamBegin> Traits;
     edm::ParentContext nullParentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, s_streamID0, nullParentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, nullParentContext, nullptr);
   };
 
   m_transToFunc[Trans::kEvent] = [this](edm::Worker* iBase) {
@@ -438,29 +441,34 @@ testLimitedFilter::testLimitedFilter()
     edm::StreamContext streamContext(s_streamID0, nullptr);
     edm::ParentContext nullParentContext(&streamContext);
     iBase->setActivityRegistry(m_actReg);
-    iBase->doWork<Traits>(*m_ep, *m_es, s_streamID0, nullParentContext, nullptr);
+    edm::EventTransitionInfo info(*m_ep, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, nullParentContext, nullptr);
   };
 
   m_transToFunc[Trans::kStreamEndLuminosityBlock] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionStreamEnd> Traits;
     edm::ParentContext nullParentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, s_streamID0, nullParentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, nullParentContext, nullptr);
   };
   m_transToFunc[Trans::kGlobalEndLuminosityBlock] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::LuminosityBlockPrincipal, edm::BranchActionGlobalEnd> Traits;
     edm::ParentContext nullParentContext;
-    iBase->doWork<Traits>(*m_lbp, *m_es, s_streamID0, nullParentContext, nullptr);
+    edm::LumiTransitionInfo info(*m_lbp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, nullParentContext, nullptr);
   };
 
   m_transToFunc[Trans::kStreamEndRun] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionStreamEnd> Traits;
     edm::ParentContext nullParentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, s_streamID0, nullParentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, nullParentContext, nullptr);
   };
   m_transToFunc[Trans::kGlobalEndRun] = [this](edm::Worker* iBase) {
     typedef edm::OccurrenceTraits<edm::RunPrincipal, edm::BranchActionGlobalEnd> Traits;
     edm::ParentContext nullParentContext;
-    iBase->doWork<Traits>(*m_rp, *m_es, s_streamID0, nullParentContext, nullptr);
+    edm::RunTransitionInfo info(*m_rp, *m_es);
+    iBase->doWork<Traits>(info, s_streamID0, nullParentContext, nullptr);
   };
 
   m_transToFunc[Trans::kEndStream] = [](edm::Worker* iBase) {
