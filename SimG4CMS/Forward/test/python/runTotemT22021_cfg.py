@@ -14,10 +14,10 @@ from Configuration.AlCa.autoCond import autoCond
 process.GlobalTag.globaltag = autoCond['phase2_realistic']
 
 if hasattr(process,'MessageLogger'):
-    process.MessageLogger.categories.append('ForwardGeom')
-    process.MessageLogger.categories.append('ForwardSim')
-    process.MessageLogger.categories.append('CaloSim')
-#   process.MessageLogger.categories.append('SimG4CoreGeometry')
+    process.MessageLogger.ForwardGeom=dict()
+    process.MessageLogger.ForwardSim=dict()
+    process.MessageLogger.CaloSim=dict()
+#   process.MessageLogger.SimG4CoreGeometry=dict()
 
 process.load("IOMC.RandomEngine.IOMC_cff")
 process.RandomNumberGeneratorService.generator.initialSeed = 456789
@@ -59,6 +59,7 @@ process.simulation_step = cms.Path(process.psim)
 process.out_step = cms.EndPath(process.output)
 
 process.g4SimHits.Physics.type = 'SimG4Core/Physics/FTFP_BERT_EMM'
+process.g4SimHits.OnlySDs = ['TotemT2ScintSensitiveDetector']
 
 # Schedule definition
 process.schedule = cms.Schedule(process.generation_step,

@@ -8,6 +8,7 @@ process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load("IOMC.EventVertexGenerators.VtxSmearedGauss_cfi")
 process.load("Configuration.Geometry.GeometryExtended2018NoSD_cff")
+process.load("Geometry.HcalCommonData.hcalDDDRecConstants_cfi")
 process.load("Configuration.StandardSequences.MagneticField_cff")
 process.load("Configuration.EventContent.EventContent_cff")
 process.load('Configuration.StandardSequences.Generator_cff')
@@ -19,10 +20,10 @@ from Configuration.AlCa.autoCond import autoCond
 process.GlobalTag.globaltag = autoCond['run2_mc']
 
 if 'MessageLogger' in process.__dict__:
-    process.MessageLogger.categories.append('G4cerr')
-    process.MessageLogger.categories.append('Step')
-    process.MessageLogger.categories.append('HCalGeom')
-    process.MessageLogger.categories.append('HcalSim')
+    process.MessageLogger.G4cerr=dict()
+    process.MessageLogger.Step=dict()
+    process.MessageLogger.HCalGeom=dict()
+    process.MessageLogger.HcalSim=dict()
 
 process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32(10000)

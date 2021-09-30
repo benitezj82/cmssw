@@ -23,6 +23,7 @@ cmsRun --parameter-set ${LOCAL_TEST_DIR}/PoolInputTest_cfg.py || die 'Failure us
 cmsRun  ${LOCAL_TEST_DIR}/PoolInputTest_noDelay_cfg.py >& ${LOCAL_TMP_DIR}/PoolInputTest_noDelay_cfg.txt || die 'Failure using PoolInputTest_noDelay_cfg.py' $?
 grep 'event delayed read from source' ${LOCAL_TMP_DIR}/PoolInputTest_noDelay_cfg.txt && die 'Failure in PoolInputTest_noDelay_cfg.py, found delay reads from source' 1
 cmsRun --parameter-set ${LOCAL_TEST_DIR}/PoolInputTest_skip_with_failure_cfg.py || die 'Failure using PoolInputTest_skip_with_failure_cfg.py' $?
+cmsRun --parameter-set ${LOCAL_TEST_DIR}/PoolInputTest_skipBadFiles_cfg.py  || die 'Failure using PoolInputTest_skipBadFiles_cfg.py ' $?
 
 cmsRun ${LOCAL_TEST_DIR}/PrePool2FileInputTest_cfg.py || die 'Failure using PrePool2FileInputTest_cfg.py' $?
 cmsRun ${LOCAL_TEST_DIR}/Pool2FileInputTest_cfg.py || die 'Failure using Pool2FileInputTest_cfg.py' $?
@@ -63,7 +64,7 @@ cmsRun ${LOCAL_TEST_DIR}/RunPerLumiTest_cfg.py 25 >& ${LOCAL_TMP_DIR}/RunPerLumi
 grep 'record' ${LOCAL_TMP_DIR}/RunPerLumiTest.txt | cut -d ' ' -f 4-11 > ${LOCAL_TMP_DIR}/RunPerLumiTest.filtered.txt
 diff ${LOCAL_TEST_DIR}/unit_test_outputs/RunPerLumiTest.filtered.txt ${LOCAL_TMP_DIR}/RunPerLumiTest.filtered.txt || die 'incorrect output using RunPerLumiTest_cfg.py' $? 
 
-cmsRun ${LOCAL_TEST_DIR}/RunPerLumiTest_cfg.py 50 >& ${LOCAL_TMP_DIR}/tooManyLumis.txt && die 'RunPerLumiTest_cfg.py should have failed but did not' $?
+cmsRun ${LOCAL_TEST_DIR}/RunPerLumiTest_cfg.py 50 >& ${LOCAL_TMP_DIR}/tooManyLumis.txt && die 'RunPerLumiTest_cfg.py should have failed but did not' 1
 grep "MismatchedInputFiles" ${LOCAL_TMP_DIR}/tooManyLumis.txt || die  'RunPerLumiTest_cfg.py should have failed but did not' $?
 
 cmsRun ${LOCAL_TEST_DIR}/firstLuminosityBlockForEachRunTest_cfg.py 'file:RunPerLumiTest.root' 25 1 25 1 5 || die 'Failure using firstLuminosityBlockForEachRunTest_cfg.py' $?

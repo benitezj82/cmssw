@@ -63,6 +63,21 @@ namespace edm {
     rootFile()->readRun_(runPrincipal);
   }
 
+  void RootInputFileSequence::fillProcessBlockHelper_() {
+    assert(rootFile());
+    return rootFile()->fillProcessBlockHelper_();
+  }
+
+  bool RootInputFileSequence::nextProcessBlock_(ProcessBlockPrincipal& processBlockPrincipal) {
+    assert(rootFile());
+    return rootFile()->nextProcessBlock_(processBlockPrincipal);
+  }
+
+  void RootInputFileSequence::readProcessBlock_(ProcessBlockPrincipal& processBlockPrincipal) {
+    assert(rootFile());
+    rootFile()->readProcessBlock_(processBlockPrincipal);
+  }
+
   void RootInputFileSequence::readLuminosityBlock_(LuminosityBlockPrincipal& lumiPrincipal) {
     assert(rootFile());
     rootFile()->readLuminosityBlock_(lumiPrincipal);
@@ -81,9 +96,9 @@ namespace edm {
   //  when it is asked to do so.
   //
 
-  void RootInputFileSequence::readEvent(EventPrincipal& eventPrincipal) {
+  bool RootInputFileSequence::readEvent(EventPrincipal& eventPrincipal) {
     assert(rootFile());
-    rootFile()->readEvent(eventPrincipal);
+    return rootFile()->readEvent(eventPrincipal);
   }
 
   bool RootInputFileSequence::containedInCurrentFile(RunNumber_t run,
@@ -253,10 +268,10 @@ namespace edm {
     if (filePtr) {
       size_t currentIndexIntoFile = fileIter_ - fileIterBegin_;
       rootFile_ = makeRootFile(filePtr);
+      assert(rootFile_);
       if (input) {
         rootFile_->setSignals(&(input->preEventReadFromSourceSignal_), &(input->postEventReadFromSourceSignal_));
       }
-      assert(rootFile_);
       fileIterLastOpened_ = fileIter_;
       setIndexIntoFile(currentIndexIntoFile);
       rootFile_->reportOpened(inputTypeName);

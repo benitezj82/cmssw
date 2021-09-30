@@ -15,8 +15,11 @@ public:
 
   REGISTER_PROXYBUILDER_METHODS();
 
+  FWCaloClusterProxyBuilder(const FWCaloClusterProxyBuilder &) = delete;                   // stop default
+  const FWCaloClusterProxyBuilder &operator=(const FWCaloClusterProxyBuilder &) = delete;  // stop default
+
 private:
-  edm::Handle<edm::ValueMap<float>> TimeValueMapHandle;
+  edm::Handle<edm::ValueMap<std::pair<float, float>>> TimeValueMapHandle;
   double timeLowerBound, timeUpperBound;
   long layer;
   double saturation_energy;
@@ -24,9 +27,6 @@ private:
   bool z_plus;
   bool z_minus;
   bool enableTimeFilter;
-
-  FWCaloClusterProxyBuilder(const FWCaloClusterProxyBuilder &) = delete;                   // stop default
-  const FWCaloClusterProxyBuilder &operator=(const FWCaloClusterProxyBuilder &) = delete;  // stop default
 
   void setItem(const FWEventItem *iItem) override;
 
@@ -73,7 +73,7 @@ void FWCaloClusterProxyBuilder::build(const reco::CaloCluster &iData,
                                       TEveElement &oItemHolder,
                                       const FWViewContext *) {
   if (enableTimeFilter && TimeValueMapHandle.isValid()) {
-    const float time = TimeValueMapHandle->get(iIndex);
+    const float time = TimeValueMapHandle->get(iIndex).first;
     if (time < timeLowerBound || time > timeUpperBound)
       return;
   }

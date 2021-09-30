@@ -11,6 +11,7 @@ options.register ("reconstruct", False, VarParsing.multiplicity.singleton, VarPa
 options.register ("view", True, VarParsing.multiplicity.singleton, VarParsing.varType.bool)
 options.register ("validate", False, VarParsing.multiplicity.singleton, VarParsing.varType.bool)
 options.register ("mc", False, VarParsing.multiplicity.singleton, VarParsing.varType.bool)
+options.register ("useB904Data", False, VarParsing.multiplicity.singleton, VarParsing.varType.bool)
 options.parseArguments()
 
 ## process def
@@ -48,11 +49,14 @@ else:
 process.DQMStore = cms.Service("DQMStore")
 
 # customize messagelogger
-process.MessageLogger.destinations = cms.untracked.vstring('cout')
+process.MessageLogger.cerr.enable = False
 process.MessageLogger.debugModules = cms.untracked.vstring('muonCSCDigis')
 ## categories: 'CSCDCCUnpacker|CSCRawToDigi', 'StatusDigis', 'StatusDigi', 'CSCRawToDigi', 'CSCDCCUnpacker', 'EventInfo',
-process.MessageLogger.categories = cms.untracked.vstring("CSCDDUEventData|CSCRawToDigi", 'badData')
+process.MessageLogger.CSCDDUEventData = dict()
+process.MessageLogger.CSCRawToDigi = dict()
+process.MessageLogger.badData = dict()
 process.MessageLogger.cout = cms.untracked.PSet(
+      enable = cms.untracked.bool(True),
       INFO = cms.untracked.PSet(
             limit = cms.untracked.int32(0)
       ),
@@ -124,9 +128,14 @@ else:
       pack.preTriggerTag = cms.InputTag("simCscTriggerPrimitiveDigis")
       pack.correlatedLCTDigiTag = cms.InputTag("muonCSCDigis","MuonCSCCorrelatedLCTDigi")
 
+if options.useB904Data:
+      process.muonCSCDigis.DisableMappingCheck = True
+      process.muonCSCDigis.B904Setup = True
+
 process.out = cms.OutputModule(
       "PoolOutputModule",
       fileName = cms.untracked.string('output.root'),
+      outputCommands = cms.untracked.vstring("keep *")
 )
 
 ## schedule and path definition

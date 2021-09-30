@@ -1,6 +1,7 @@
 import FWCore.ParameterSet.Config as cms
+from Configuration.Eras.Era_Phase2C11_cff import Phase2C11
 
-process = cms.Process("PROD")
+process = cms.Process("PROD",Phase2C11)
 process.load("SimGeneral.HepPDTESSource.pdt_cfi")
 process.load("Geometry.HGCalCommonData.testHGCalV14XML_cfi")
 process.load("Geometry.HGCalCommonData.hgcalParametersInitialization_cfi")
@@ -11,7 +12,7 @@ process.load("Geometry.HGCalGeometry.hgcalEEWaferInFileCheck_cfi")
 
 process.load('FWCore.MessageService.MessageLogger_cfi')
 if hasattr(process,'MessageLogger'):
-    process.MessageLogger.categories.append('HGCalGeom')
+    process.MessageLogger.HGCalGeom=dict()
 
 process.load("IOMC.RandomEngine.IOMC_cff")
 process.RandomNumberGeneratorService.generator.initialSeed = 456789

@@ -7,7 +7,6 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "PatternRecognitionbyCA.h"
-#include "RecoLocalCalo/HGCalRecProducers/interface/ComputeClusterTime.h"
 
 #include "TrackstersPCA.h"
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
@@ -17,8 +16,11 @@
 using namespace ticl;
 
 template <typename TILES>
-PatternRecognitionbyCA<TILES>::PatternRecognitionbyCA(const edm::ParameterSet &conf, const CacheBase *cache)
-    : PatternRecognitionAlgoBaseT<TILES>(conf, cache),
+PatternRecognitionbyCA<TILES>::PatternRecognitionbyCA(const edm::ParameterSet &conf,
+                                                      const CacheBase *cache,
+                                                      edm::ConsumesCollector iC)
+    : PatternRecognitionAlgoBaseT<TILES>(conf, cache, iC),
+      caloGeomToken_(iC.esConsumes<CaloGeometry, CaloGeometryRecord>()),
       theGraph_(std::make_unique<HGCGraphT<TILES>>()),
       oneTracksterPerTrackSeed_(conf.getParameter<bool>("oneTracksterPerTrackSeed")),
       promoteEmptyRegionToTrackster_(conf.getParameter<bool>("promoteEmptyRegionToTrackster")),
@@ -68,10 +70,9 @@ void PatternRecognitionbyCA<TILES>::makeTracksters(
   if (input.regions.empty())
     return;
 
-  edm::ESHandle<CaloGeometry> geom;
   edm::EventSetup const &es = input.es;
-  es.get<CaloGeometryRecord>().get(geom);
-  rhtools_.setGeometry(*geom);
+  const CaloGeometry &geom = es.getData(caloGeomToken_);
+  rhtools_.setGeometry(geom);
 
   theGraph_->setVerbosity(PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_);
   theGraph_->clear();
@@ -117,32 +118,13 @@ void PatternRecognitionbyCA<TILES>::makeTracksters(
     tracksterId++;
 
     std::set<unsigned int> effective_cluster_idx;
-    std::pair<std::set<unsigned int>::iterator, bool> retVal;
-
-    std::vector<float> times;
-    std::vector<float> timeErrors;
 
     for (auto const &doublet : ntuplet) {
       auto innerCluster = doublets[doublet].innerClusterId();
       auto outerCluster = doublets[doublet].outerClusterId();
 
-      retVal = effective_cluster_idx.insert(innerCluster);
-      if (retVal.second) {
-        float time = input.layerClustersTime.get(innerCluster).first;
-        if (time > -99) {
-          times.push_back(time);
-          timeErrors.push_back(1. / pow(input.layerClustersTime.get(innerCluster).second, 2));
-        }
-      }
-
-      retVal = effective_cluster_idx.insert(outerCluster);
-      if (retVal.second) {
-        float time = input.layerClustersTime.get(outerCluster).first;
-        if (time > -99) {
-          times.push_back(time);
-          timeErrors.push_back(1. / pow(input.layerClustersTime.get(outerCluster).second, 2));
-        }
-      }
+      effective_cluster_idx.insert(innerCluster);
+      effective_cluster_idx.insert(outerCluster);
 
       if (PatternRecognitionAlgoBaseT<TILES>::algo_verbosity_ > PatternRecognitionAlgoBaseT<TILES>::Advanced) {
         LogDebug("HGCPatternRecoByCA") << " New doublet " << doublet << " for trackster: " << result.size()
@@ -201,16 +183,14 @@ void PatternRecognitionbyCA<TILES>::makeTracksters(
       //if a seeding region does not lead to any trackster
       tmp.setSeed(input.regions[0].collectionID, seedIndices[tracksterId]);
 
-      std::pair<float, float> timeTrackster(-99., -1.);
-      hgcalsimclustertime::ComputeClusterTime timeEstimator;
-      timeTrackster = timeEstimator.fixSizeHighestDensity(times, timeErrors);
-      tmp.setTimeAndError(timeTrackster.first, timeTrackster.second);
       std::copy(std::begin(effective_cluster_idx), std::end(effective_cluster_idx), std::back_inserter(tmp.vertices()));
       tmpTracksters.push_back(tmp);
     }
   }
-  ticl::assignPCAtoTracksters(
-      tmpTracksters, input.layerClusters, rhtools_.getPositionLayer(rhtools_.lastLayerEE(type)).z());
+  ticl::assignPCAtoTracksters(tmpTracksters,
+                              input.layerClusters,
+                              input.layerClustersTime,
+                              rhtools_.getPositionLayer(rhtools_.lastLayerEE(type), type).z());
 
   // run energy regression and ID
   energyRegressionAndID(input.layerClusters, tmpTracksters);
@@ -268,7 +248,11 @@ void PatternRecognitionbyCA<TILES>::makeTracksters(
     tmp.swap(result);
   }
 
-  ticl::assignPCAtoTracksters(result, input.layerClusters, rhtools_.getPositionLayer(rhtools_.lastLayerEE(type)).z());
+  ticl::assignPCAtoTracksters(result,
+                              input.layerClusters,
+                              input.layerClustersTime,
+                              rhtools_.getPositionLayer(rhtools_.lastLayerEE(type), type).z());
+
   // run energy regression and ID
   energyRegressionAndID(input.layerClusters, result);
 
@@ -482,6 +466,35 @@ void PatternRecognitionbyCA<TILES>::energyRegressionAndID(const std::vector<reco
       probs += tracksters[i].id_probabilities().size();
     }
   }
+}
+
+template <typename TILES>
+void PatternRecognitionbyCA<TILES>::fillPSetDescription(edm::ParameterSetDescription &iDesc) {
+  iDesc.add<int>("algo_verbosity", 0);
+  iDesc.add<bool>("oneTracksterPerTrackSeed", false);
+  iDesc.add<bool>("promoteEmptyRegionToTrackster", false);
+  iDesc.add<bool>("out_in_dfs", true);
+  iDesc.add<int>("max_out_in_hops", 10);
+  iDesc.add<double>("min_cos_theta", 0.915);
+  iDesc.add<double>("min_cos_pointing", -1.);
+  iDesc.add<double>("root_doublet_max_distance_from_seed_squared", 9999);
+  iDesc.add<double>("etaLimitIncreaseWindow", 2.1);
+  iDesc.add<int>("skip_layers", 0);
+  iDesc.add<int>("max_missing_layers_in_trackster", 9999);
+  iDesc.add<int>("shower_start_max_layer", 9999)->setComment("make default such that no filtering is applied");
+  iDesc.add<int>("min_layers_per_trackster", 10);
+  iDesc.add<std::vector<int>>("filter_on_categories", {0});
+  iDesc.add<double>("pid_threshold", 0.)->setComment("make default such that no filtering is applied");
+  iDesc.add<double>("energy_em_over_total_threshold", -1.)
+      ->setComment("make default such that no filtering is applied");
+  iDesc.add<double>("max_longitudinal_sigmaPCA", 9999);
+  iDesc.add<double>("max_delta_time", 3.)->setComment("nsigma");
+  iDesc.add<std::string>("eid_input_name", "input");
+  iDesc.add<std::string>("eid_output_name_energy", "output/regressed_energy");
+  iDesc.add<std::string>("eid_output_name_id", "output/id_probabilities");
+  iDesc.add<double>("eid_min_cluster_energy", 1.);
+  iDesc.add<int>("eid_n_layers", 50);
+  iDesc.add<int>("eid_n_clusters", 10);
 }
 
 template class ticl::PatternRecognitionbyCA<TICLLayerTiles>;

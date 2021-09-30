@@ -75,6 +75,10 @@ namespace edmplugin {
             << "'\n but was not there.  This means the plugin cache is incorrect.  Please run 'EdmPluginRefresh " << lib
             << "'";
       }
+      //The item in the container can still be under construction so wait until the m_ptr has been set since that is done last
+      auto const& value = itFound->second.front();
+      while (value.m_ptr.load(std::memory_order_acquire) == nullptr) {
+      }
     } else {
       //The item in the container can still be under construction so wait until the m_ptr has been set since that is done last
       auto const& value = itFound->second.front();
@@ -145,7 +149,12 @@ namespace edmplugin {
 
   void PluginFactoryBase::registerPMaker(void* iPMaker, const std::string& iName) {
     assert(nullptr != iPMaker);
-    m_plugins[iName].push_back(PluginMakerInfo(iPMaker, PluginManager::loadingFile()));
+    PMakers newMakers;
+    newMakers.emplace_back(iPMaker, PluginManager::loadingFile());
+    if (not m_plugins.emplace(iName, std::move(newMakers)).second) {
+      //the item was already added
+      m_plugins[iName].push_back(PluginMakerInfo(iPMaker, PluginManager::loadingFile()));
+    }
     newPlugin(iName);
   }
 

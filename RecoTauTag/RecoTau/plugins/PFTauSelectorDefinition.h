@@ -70,7 +70,7 @@ struct PFTauSelectorDefinition {
 
     // Build a string cut if desired
     if (cfg.exists("cut")) {
-      cut_.reset(new StringCutObjectSelector<reco::PFTau>(cfg.getParameter<std::string>("cut")));
+      cut_ = std::make_unique<StringCutObjectSelector<reco::PFTau>>(cfg.getParameter<std::string>("cut"));
     }
   }
 
@@ -96,7 +96,7 @@ struct PFTauSelectorDefinition {
     if (phID_ != e.processHistoryID()) {
       phID_ = e.processHistoryID();
       for (auto& disc : discriminatorContainers_) {
-        auto const& psetsFromProvenance = edm::parameterSet(*disc.handle.provenance(), e.processHistory());
+        auto const& psetsFromProvenance = edm::parameterSet(disc.handle.provenance()->stable(), e.processHistory());
         // find raw value indices
         if (psetsFromProvenance.exists("rawValues")) {
           auto const idlist = psetsFromProvenance.getParameter<std::vector<std::string>>("rawValues");

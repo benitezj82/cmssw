@@ -55,7 +55,7 @@ private:
   edm::EDGetTokenT<reco::ForwardProtonCollection> tokenRecoProtonsSingleRP_;
   edm::EDGetTokenT<reco::ForwardProtonCollection> tokenRecoProtonsMultiRP_;
 
-  std::string lhcInfoLabel_;
+  edm::ESGetToken<LHCInfo, LHCInfoRcd> lhcInfoESToken_;
 
   std::string outputFile_;
 
@@ -152,8 +152,8 @@ private:
     std::unique_ptr<TH1D> h_t_sh_minus_vtx_t, h_t_dh_minus_vtx_z;
 
     DoubleArmPlotGroup()
-        : h2_t_sh_vs_vtx_t(new TH2D("", ";vtx_t   (mm);(t_56 + t_45)/2   (mm)", 100, -250., -250., 100, +250., +250.)),
-          h2_t_dh_vs_vtx_z(new TH2D("", ";vtx_z   (mm);(t_56 - t_45)/2   (mm)", 100, -250., -250., 100, +250., +250.)),
+        : h2_t_sh_vs_vtx_t(new TH2D("", ";vtx_t   (mm);(t_56 + t_45)/2   (mm)", 100, -250., +250., 100, -250., +250.)),
+          h2_t_dh_vs_vtx_z(new TH2D("", ";vtx_z   (mm);(t_56 - t_45)/2   (mm)", 100, -250., +250., 100, -250., +250.)),
           h_t_sh_minus_vtx_t(new TH1D("", ";(t_56 + t_45)/2 - vtx_t   (mm)", 100, -100., +100.)),
           h_t_dh_minus_vtx_z(new TH1D("", ";(t_56 - t_45)/2 - vtx_z   (mm)", 100, -100., +100.)) {}
 
@@ -161,10 +161,10 @@ private:
       const double t_sum_half = (time_56 + time_45) / 2. * CLHEP::c_light;
       const double t_dif_half = (time_56 - time_45) / 2. * CLHEP::c_light;
 
-      h2_t_sh_vs_vtx_t->Fill(t_sum_half, vtx_t);
+      h2_t_sh_vs_vtx_t->Fill(vtx_t, t_sum_half);
       h_t_sh_minus_vtx_t->Fill(t_sum_half - vtx_t);
 
-      h2_t_dh_vs_vtx_z->Fill(t_dif_half, vtx_z);
+      h2_t_dh_vs_vtx_z->Fill(vtx_z, t_dif_half);
       h_t_dh_minus_vtx_z->Fill(t_dif_half - vtx_z);
     }
 
@@ -198,15 +198,14 @@ CTPPSProtonReconstructionSimulationValidator::CTPPSProtonReconstructionSimulatio
           consumes<reco::ForwardProtonCollection>(iConfig.getParameter<InputTag>("tagRecoProtonsSingleRP"))),
       tokenRecoProtonsMultiRP_(
           consumes<reco::ForwardProtonCollection>(iConfig.getParameter<InputTag>("tagRecoProtonsMultiRP"))),
-      lhcInfoLabel_(iConfig.getParameter<std::string>("lhcInfoLabel")),
+      lhcInfoESToken_(esConsumes(ESInputTag("", iConfig.getParameter<std::string>("lhcInfoLabel")))),
       outputFile_(iConfig.getParameter<string>("outputFile")) {}
 
 //----------------------------------------------------------------------------------------------------
 
 void CTPPSProtonReconstructionSimulationValidator::analyze(const edm::Event &iEvent, const edm::EventSetup &iSetup) {
   // get conditions
-  edm::ESHandle<LHCInfo> hLHCInfo;
-  iSetup.get<LHCInfoRcd>().get(lhcInfoLabel_, hLHCInfo);
+  const auto &lhcInfo = iSetup.getData(lhcInfoESToken_);
 
   // get input
   edm::Handle<edm::HepMCProduct> hHepMCBeforeSmearing;
@@ -317,7 +316,7 @@ void CTPPSProtonReconstructionSimulationValidator::analyze(const edm::Event &iEv
       if (rec_pr.method() == reco::ForwardProton::ReconstructionMethod::multiRP)
         meth_idx = 1;
 
-      fillPlots(meth_idx, idx, rec_pr, vtx, mom, *hLHCInfo);
+      fillPlots(meth_idx, idx, rec_pr, vtx, mom, lhcInfo);
     }
   }
 

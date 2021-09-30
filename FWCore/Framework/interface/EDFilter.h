@@ -16,8 +16,10 @@ These products should be informational products about the filter decision.
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/SharedResourcesAcquirer.h"
 
+#include "FWCore/Concurrency/interface/WaitingTaskHolder.h"
 #include "FWCore/ParameterSet/interface/ParameterSetfwd.h"
 #include "DataFormats/Provenance/interface/ModuleDescription.h"
+#include "FWCore/Utilities/interface/deprecated_macro.h"
 
 #include <string>
 #include <vector>
@@ -33,9 +35,8 @@ namespace edm {
   class PreallocationConfiguration;
   class ActivityRegistry;
   class ThinnedAssociationsHelper;
-  class WaitingTask;
 
-  class EDFilter : public ProducerBase, public EDConsumerBase {
+  class CMS_DEPRECATED EDFilter : public ProducerBase, public EDConsumerBase {
   public:
     template <typename T>
     friend class maker::ModuleHolderT;
@@ -67,7 +68,7 @@ namespace edm {
   private:
     bool doEvent(EventTransitionInfo const&, ActivityRegistry*, ModuleCallingContext const*);
     //Needed by WorkerT but not supported
-    void preActionBeforeRunEventAsync(WaitingTask*, ModuleCallingContext const&, Principal const&) const {}
+    void preActionBeforeRunEventAsync(WaitingTaskHolder, ModuleCallingContext const&, Principal const&) const {}
 
     void doPreallocate(PreallocationConfiguration const&) {}
     void doBeginJob();
@@ -81,6 +82,7 @@ namespace edm {
     void doEndLuminosityBlock(LumiTransitionInfo const&, ModuleCallingContext const*);
     void doRespondToOpenInputFile(FileBlock const& fb);
     void doRespondToCloseInputFile(FileBlock const& fb);
+    void doRespondToCloseOutputFile() {}
     void doRegisterThinnedAssociations(ProductRegistry const&, ThinnedAssociationsHelper&) {}
 
     void registerProductsAndCallbacks(EDFilter* module, ProductRegistry* reg) {

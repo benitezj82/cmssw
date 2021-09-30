@@ -63,6 +63,7 @@ HcaluLUTTPGCoder::HcaluLUTTPGCoder()
       allLinear_{},
       contain1TSHB_{},
       contain1TSHE_{},
+      applyFixPCC_{},
       linearLSB_QIE8_{},
       linearLSB_QIE11_{},
       linearLSB_QIE11Overlap_{} {}
@@ -78,10 +79,11 @@ void HcaluLUTTPGCoder::init(const HcalTopology* top, const HcalTimeSlew* delay) 
   allLinear_ = false;
   contain1TSHB_ = false;
   contain1TSHE_ = false;
+  applyFixPCC_ = false;
   linearLSB_QIE8_ = 1.;
   linearLSB_QIE11_ = 1.;
   linearLSB_QIE11Overlap_ = 1.;
-  pulseCorr_ = std::make_unique<HcalPulseContainmentManager>(MaximumFractionalError);
+  pulseCorr_ = std::make_unique<HcalPulseContainmentManager>(MaximumFractionalError, false);
   firstHBEta_ = topo_->firstHBRing();
   lastHBEta_ = topo_->lastHBRing();
   nHBEta_ = (lastHBEta_ - firstHBEta_ + 1);
@@ -333,9 +335,53 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
   assert(metadata != nullptr);
   float nominalgain_ = metadata->getNominalGain();
 
+  pulseCorr_ = std::make_unique<HcalPulseContainmentManager>(MaximumFractionalError, applyFixPCC_);
   pulseCorr_->beginRun(&conditions, delay_);
 
   make_cosh_ieta_map();
+
+  // Here we will determine if we are using new version of TPs (1TS)
+  // i.e. are we using a new pulse filter scheme.
+  const HcalElectronicsMap* emap = conditions.getHcalMapping();
+
+  int lastHBRing = topo_->lastHBRing();
+  int lastHERing = topo_->lastHERing();
+
+  // First, determine if we should configure for the filter scheme
+  // Check the tp version to make this determination
+  bool foundHB = false;
+  bool foundHE = false;
+  bool newHBtp = false;
+  bool newHEtp = false;
+  std::vector<HcalElectronicsId> vIds = emap->allElectronicsIdTrigger();
+  for (std::vector<HcalElectronicsId>::const_iterator eId = vIds.begin(); eId != vIds.end(); eId++) {
+    // The first HB or HE id is enough to tell whether to use new scheme in HB or HE
+    if (foundHB and foundHE)
+      break;
+
+    HcalTrigTowerDetId hcalTTDetId(emap->lookupTrigger(*eId));
+    if (hcalTTDetId.null())
+      continue;
+
+    int aieta = abs(hcalTTDetId.ieta());
+
+    // The absence of TT channels in the HcalTPChannelParameters
+    // is intepreted as to not use the new filter
+    int weight = -1.0;
+    auto tpParam = conditions.getHcalTPChannelParameter(hcalTTDetId, false);
+    if (tpParam)
+      weight = tpParam->getauxi1();
+
+    if (aieta <= lastHBRing) {
+      foundHB = true;
+      if (weight != -1.0)
+        newHBtp = true;
+    } else if (aieta > lastHBRing and aieta < lastHERing) {
+      foundHE = true;
+      if (weight != -1.0)
+        newHEtp = true;
+    }
+  }
 
   for (const auto& id : metadata->getAllChannels()) {
     if (not(id.det() == DetId::Hcal and topo_->valid(id)))
@@ -419,11 +465,10 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
 
       double correctionPhaseNS = conditions.getHcalRecoParam(cell)->correctionPhaseNS();
 
-      // When containPhaseNS is not -999.0, and for QIE11 only, override from configuration
       if (qieType == QIE11) {
-        if (containPhaseNSHB_ != -999.0 and cell.ietaAbs() <= topo_->lastHBRing())
+        if (overrideDBweightsAndFilterHB_ and cell.ietaAbs() <= lastHBRing)
           correctionPhaseNS = containPhaseNSHB_;
-        else if (containPhaseNSHE_ != -999.0 and cell.ietaAbs() > topo_->lastHBRing())
+        else if (overrideDBweightsAndFilterHE_ and cell.ietaAbs() > lastHBRing)
           correctionPhaseNS = containPhaseNSHE_;
       }
       for (unsigned int adc = 0; adc < SIZE; ++adc) {
@@ -444,8 +489,8 @@ void HcaluLUTTPGCoder::update(const HcalDbService& conditions) {
                 pulseCorr_->correction(cell, 2, correctionPhaseNS, correctedCharge);
             if (qieType == QIE11) {
               // When contain1TS_ is set, it should still only apply for QIE11-related things
-              if ((contain1TSHB_ and cell.ietaAbs() <= topo_->lastHBRing()) or
-                  (contain1TSHE_ and cell.ietaAbs() > topo_->lastHBRing())) {
+              if ((((contain1TSHB_ and overrideDBweightsAndFilterHB_) or newHBtp) and cell.ietaAbs() <= lastHBRing) or
+                  (((contain1TSHE_ and overrideDBweightsAndFilterHE_) or newHEtp) and cell.ietaAbs() > lastHBRing)) {
                 containmentCorrection = containmentCorrection1TS;
               } else {
                 containmentCorrection = containmentCorrection2TSCorrected;

@@ -552,6 +552,9 @@ const std::vector<double> DDFilteredView::parameters() const {
 
 const cms::DDSolidShape DDFilteredView::shape() const {
   assert(node_);
+  if ((volume().volume())->IsAssembly()) {
+    return (cms::DDSolidShape::ddbox);  // Needs to be box to match DDFilteredView::solid()
+  }
   return cms::dd::value(cms::DDSolidShapeMap, std::string(node_->GetVolume()->GetShape()->GetTitle()));
 }
 
@@ -770,8 +773,9 @@ const int DDFilteredView::nodeCopyNoAt(int level) const {
 // Compare if name matches a selection pattern that
 // may or may not be defined as a regular expression
 bool DDFilteredView::compareEqualName(const std::string_view selection, const std::string_view name) const {
-  return (!(dd4hep::dd::isRegex(selection)) ? dd4hep::dd::compareEqual(name, selection)
-                                            : regex_match(name.begin(), name.end(), regex(std::string(selection))));
+  return (!(dd4hep::dd::isRegex(selection))
+              ? dd4hep::dd::compareEqual(name, selection)
+              : regex_match(name.begin(), name.end(), regex(selection.begin(), selection.end())));
 }
 
 // Check if both name and it's selection pattern
@@ -841,14 +845,9 @@ double DDFilteredView::getNextValue(const std::string& key) const {
   double result(0.0);
 
   if (currentSpecPar_ != nullptr) {
-    std::string_view svalue = currentSpecPar_->strValue(key);
-    if (!svalue.empty()) {
-      result = dd4hep::_toDouble({svalue.data(), svalue.size()});
-    } else if (currentSpecPar_->hasValue(key)) {
-      auto const& nitem = currentSpecPar_->numpars.find(key);
-      if (nitem != end(currentSpecPar_->numpars)) {
-        result = nitem->second[0];
-      }
+    auto const& nitem = currentSpecPar_->numpars.find(key);
+    if (nitem != end(currentSpecPar_->numpars)) {
+      result = nitem->second[0];
     }
   }
 
@@ -863,7 +862,14 @@ std::string_view DDFilteredView::fullName() const {
   return (node_ == nullptr ? std::string_view() : (volume().volume().name()));
 }
 
-dd4hep::Solid DDFilteredView::solid() const { return (volume().volume().solid()); }
+dd4hep::Solid DDFilteredView::solid() const {
+  if ((volume().volume())->IsAssembly()) {
+    std::string solName(name());
+    // Valid solid is needed, use a dummy box
+    return (dd4hep::Box(solName, 1., 1., 1.));
+  }
+  return (volume().volume().solid());
+}
 
 unsigned short DDFilteredView::copyNum() const { return (volume().copyNumber()); }
 

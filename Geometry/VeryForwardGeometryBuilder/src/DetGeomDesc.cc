@@ -1,8 +1,8 @@
 /****************************************************************************
 *
 * This is a part of the TOTEM offline software.
-* Authors: 
-*	Jan Kašpar (jan.kaspar@gmail.com) 
+* Authors:
+*	Jan Kašpar (jan.kaspar@gmail.com)
 *	CMSSW developers (based on GeometricDet class)
 *
 ****************************************************************************/
@@ -20,13 +20,13 @@
 #include "DataFormats/CTPPSDetId/interface/TotemTimingDetId.h"
 #include "DataFormats/CTPPSDetId/interface/CTPPSPixelDetId.h"
 #include "DataFormats/CTPPSDetId/interface/CTPPSDiamondDetId.h"
-#include "DataFormats/Math/interface/GeantUnits.h"
+#include <DD4hep/DD4hepUnits.h>
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 /*
  *  Constructor from old DD DDFilteredView, also using the SpecPars to access 2x2 wafers info.
  */
-DetGeomDesc::DetGeomDesc(const DDFilteredView& fv)
+DetGeomDesc::DetGeomDesc(const DDFilteredView& fv, const bool isRun2)
     : m_name(computeNameWithNoNamespace(fv.name())),
       m_copy(fv.copyno()),
       m_isDD4hep(false),
@@ -36,25 +36,25 @@ DetGeomDesc::DetGeomDesc(const DDFilteredView& fv)
       m_isABox(fv.shape() == DDSolidShape::ddbox),
       m_diamondBoxParams(computeDiamondDimensions(m_isABox, m_isDD4hep, m_params)),  // mm (legacy)
       m_sensorType(computeSensorType(fv.logicalPart().name().fullname())),
-      m_geographicalID(computeDetID(m_name, fv.copyNumbers(), fv.copyno())),
+      m_geographicalID(computeDetID(m_name, fv.copyNumbers(), fv.copyno(), isRun2)),
       m_z(fv.translation().z())  // mm (legacy)
 {}
 
 /*
  *  Constructor from DD4Hep DDFilteredView, also using the SpecPars to access 2x2 wafers info.
  */
-DetGeomDesc::DetGeomDesc(const cms::DDFilteredView& fv)
+DetGeomDesc::DetGeomDesc(const cms::DDFilteredView& fv, const bool isRun2)
     : m_name(computeNameWithNoNamespace(fv.name())),
       m_copy(fv.copyNum()),
       m_isDD4hep(true),
-      m_trans(geant_units::operators::convertCmToMm(fv.translation())),  // converted from cm (DD4hep) to mm
+      m_trans(fv.translation() / dd4hep::mm),  // converted from DD4hep unit to mm
       m_rot(fv.rotation()),
-      m_params(computeParameters(fv)),  // default unit from DD4hep (cm)
+      m_params(computeParameters(fv)),  // default unit from DD4hep
       m_isABox(dd4hep::isA<dd4hep::Box>(fv.solid())),
-      m_diamondBoxParams(computeDiamondDimensions(m_isABox, m_isDD4hep, m_params)),  // converted from cm (DD4hep) to mm
+      m_diamondBoxParams(computeDiamondDimensions(m_isABox, m_isDD4hep, m_params)),  // converted from DD4hep unit to mm
       m_sensorType(computeSensorType(fv.name())),
-      m_geographicalID(computeDetIDFromDD4hep(m_name, fv.copyNos(), fv.copyNum())),
-      m_z(geant_units::operators::convertCmToMm(fv.translation().z()))  // converted from cm (DD4hep) to mm
+      m_geographicalID(computeDetIDFromDD4hep(m_name, fv.copyNos(), fv.copyNum(), isRun2)),
+      m_z(fv.translation().z() / dd4hep::mm)  // converted from DD4hep unit to mm
 {}
 
 DetGeomDesc::DetGeomDesc(const DetGeomDesc& ref, CopyMode cm) {
@@ -73,6 +73,38 @@ DetGeomDesc::DetGeomDesc(const DetGeomDesc& ref, CopyMode cm) {
     m_container = ref.m_container;
 
   m_z = ref.m_z;
+}
+
+// Constructor from DB object PDetGeomDesc::Item
+DetGeomDesc::DetGeomDesc(const PDetGeomDesc::Item& item)
+    : m_name(item.name_),
+      m_copy(item.copy_),
+      m_isDD4hep(true),
+      m_params(item.params_),  // default unit from DD4hep
+      m_sensorType(item.sensorType_),
+      m_geographicalID(item.geographicalID_),
+      m_z(item.z_)  // converted from DD4hep to mm
+{
+  Translation trans(item.dx_, item.dy_, item.dz_);
+  m_trans = trans;
+  RotationMatrix rot(item.axx_, item.axy_, item.axz_, item.ayx_, item.ayy_, item.ayz_, item.azx_, item.azy_, item.azz_);
+  m_rot = rot;
+  // Set the m_isABox flag for the box shaped sensors, so that m_params are properly set
+  if ((m_name == DDD_CTPPS_PIXELS_SENSOR_NAME || m_name == DDD_CTPPS_PIXELS_SENSOR_NAME_2x2 ||
+       m_name == DDD_CTPPS_DIAMONDS_SEGMENT_NAME || m_name == DDD_CTPPS_UFSD_SEGMENT_NAME ||
+       m_name.substr(0, 7) == DDD_TOTEM_TIMING_SENSOR_TMPL.substr(0, 7)) &&
+      m_params.size() > 2)
+    m_isABox = true;
+  else
+    m_isABox = false;
+  m_diamondBoxParams = computeDiamondDimensions(m_isABox, m_isDD4hep, m_params);
+}
+
+DetGeomDesc::DetGeomDesc(const PDetGeomDesc& pd) {
+  for (const auto& i : pd.container_) {
+    DetGeomDesc* gd = new DetGeomDesc(i);
+    this->addComponent(gd);
+  }
 }
 
 DetGeomDesc::~DetGeomDesc() { deepDeleteComponents(); }
@@ -122,7 +154,7 @@ void DetGeomDesc::deepDeleteComponents() {
 }
 
 std::string DetGeomDesc::computeNameWithNoNamespace(std::string_view nameFromView) const {
-  const auto& semiColonPos = nameFromView.find(":");
+  const auto& semiColonPos = nameFromView.find(':');
   const std::string name{(semiColonPos != std::string::npos ? nameFromView.substr(semiColonPos + 1) : nameFromView)};
   return name;
 }
@@ -139,8 +171,8 @@ std::vector<double> DetGeomDesc::computeParameters(const cms::DDFilteredView& fv
 /*
  * Compute diamond dimensions.
  * The diamond sensors are represented by the Box shape parameters.
- * oldDD: params are already in mm. 
- * DD4hep: convert params from cm (DD4hep) to mm (legacy expected by PPS reco software).
+ * oldDD: params are already in mm.
+ * DD4hep: convert params from DD4hep unit to mm (mm is legacy expected by PPS reco software).
  */
 DiamondDimensions DetGeomDesc::computeDiamondDimensions(const bool isABox,
                                                         const bool isDD4hep,
@@ -148,13 +180,11 @@ DiamondDimensions DetGeomDesc::computeDiamondDimensions(const bool isABox,
   DiamondDimensions boxShapeParameters{};
   if (isABox) {
     if (!isDD4hep) {
-      // mm (legacy)
+      // mm (old DD)
       boxShapeParameters = {params.at(0), params.at(1), params.at(2)};
     } else {
-      // convert cm (DD4hep) to mm (legacy expected by PPS reco software)
-      boxShapeParameters = {geant_units::operators::convertCmToMm(params.at(0)),
-                            geant_units::operators::convertCmToMm(params.at(1)),
-                            geant_units::operators::convertCmToMm(params.at(2))};
+      // convert from DD4hep unit to mm (mm is legacy expected by PPS reco software)
+      boxShapeParameters = {params.at(0) / dd4hep::mm, params.at(1) / dd4hep::mm, params.at(2) / dd4hep::mm};
     }
   }
   return boxShapeParameters;
@@ -164,14 +194,17 @@ DiamondDimensions DetGeomDesc::computeDiamondDimensions(const bool isABox,
  * old DD DetId computation.
  * Relies on name and volumes copy numbers.
  */
-DetId DetGeomDesc::computeDetID(const std::string& name, const std::vector<int>& copyNos, unsigned int copyNum) const {
+DetId DetGeomDesc::computeDetID(const std::string& name,
+                                const std::vector<int>& copyNos,
+                                const unsigned int copyNum,
+                                const bool isRun2) const {
   DetId geoID;
 
   // strip sensors
   if (name == DDD_TOTEM_RP_SENSOR_NAME) {
-    // check size of copy numbers array
+    // check size of copy numbers vector
     if (copyNos.size() < 3)
-      throw cms::Exception("DDDTotemRPContruction")
+      throw cms::Exception("DDDTotemRPConstruction")
           << "size of copyNumbers for strip sensor is " << copyNos.size() << ". It must be >= 3.";
 
     // extract information
@@ -203,9 +236,9 @@ DetId DetGeomDesc::computeDetID(const std::string& name, const std::vector<int>&
   }
 
   else if (std::regex_match(name, std::regex(DDD_TOTEM_TIMING_SENSOR_TMPL))) {
-    // check size of copy numbers array
+    // check size of copy numbers vector
     if (copyNos.size() < 4)
-      throw cms::Exception("DDDTotemRPContruction")
+      throw cms::Exception("DDDTotemRPConstruction")
           << "size of copyNumbers for TOTEM timing sensor is " << copyNos.size() << ". It must be >= 4.";
 
     const unsigned int decRPId = copyNos[copyNos.size() - 4];
@@ -221,9 +254,9 @@ DetId DetGeomDesc::computeDetID(const std::string& name, const std::vector<int>&
 
   // pixel sensors
   else if (name == DDD_CTPPS_PIXELS_SENSOR_NAME || name == DDD_CTPPS_PIXELS_SENSOR_NAME_2x2) {
-    // check size of copy numbers array
+    // check size of copy numbers vector
     if (copyNos.size() < 4)
-      throw cms::Exception("DDDTotemRPContruction")
+      throw cms::Exception("DDDTotemRPConstruction")
           << "size of copyNumbers for pixel sensor is " << copyNos.size() << ". It must be >= 4.";
 
     // extract information
@@ -237,27 +270,45 @@ DetId DetGeomDesc::computeDetID(const std::string& name, const std::vector<int>&
 
   // diamond/UFSD sensors
   else if (name == DDD_CTPPS_DIAMONDS_SEGMENT_NAME || name == DDD_CTPPS_UFSD_SEGMENT_NAME) {
+    // check size of copy numbers vector
+    if (copyNos.size() < 2)
+      throw cms::Exception("DDDTotemRPConstruction")
+          << "size of copyNumbers for diamond segments is " << copyNos.size() << ". It must be >= 2.";
+    const unsigned int decRPId = copyNos[1];
+    unsigned int arm, station, rp;
+    if (isRun2) {
+      arm = decRPId - 1;
+      station = 1;
+      rp = 6;
+    } else {
+      arm = (decRPId % 1000) / 100;
+      station = (decRPId % 100) / 10;
+      rp = decRPId % 10;
+    }
     const unsigned int id = copyNos[copyNos.size() - 1];
-    const unsigned int arm = copyNos[1] - 1;
-    const unsigned int station = 1;
-    const unsigned int rp = 6;
-    const unsigned int plane = (id / 100);
+    const unsigned int plane = id / 100;
     const unsigned int channel = id % 100;
-
     geoID = CTPPSDiamondDetId(arm, station, rp, plane, channel);
   }
 
   // diamond/UFSD RPs
   else if (name == DDD_CTPPS_DIAMONDS_RP_NAME) {
-    // check size of copy numbers array
+    // check size of copy numbers vector
     if (copyNos.size() < 2)
-      throw cms::Exception("DDDTotemRPContruction")
+      throw cms::Exception("DDDTotemRPConstruction")
           << "size of copyNumbers for diamond RP is " << copyNos.size() << ". It must be >= 2.";
 
-    const unsigned int arm = copyNos[1] - 1;
-    const unsigned int station = 1;
-    const unsigned int rp = 6;
-
+    const unsigned int decRPId = copyNos[1];
+    unsigned int arm, station, rp;
+    if (isRun2) {
+      arm = decRPId - 1;
+      station = 1;
+      rp = 6;
+    } else {
+      arm = (decRPId % 1000) / 100;
+      station = (decRPId % 100) / 10;
+      rp = decRPId % 10;
+    }
     geoID = CTPPSDiamondDetId(arm, station, rp);
   }
 
@@ -269,10 +320,11 @@ DetId DetGeomDesc::computeDetID(const std::string& name, const std::vector<int>&
  */
 DetId DetGeomDesc::computeDetIDFromDD4hep(const std::string& name,
                                           const std::vector<int>& copyNos,
-                                          unsigned int copyNum) const {
+                                          const unsigned int copyNum,
+                                          const bool isRun2) const {
   std::vector<int> copyNosOldDD = {copyNos.rbegin() + 1, copyNos.rend()};
 
-  return computeDetID(name, copyNosOldDD, copyNum);
+  return computeDetID(name, copyNosOldDD, copyNum, isRun2);
 }
 
 /*

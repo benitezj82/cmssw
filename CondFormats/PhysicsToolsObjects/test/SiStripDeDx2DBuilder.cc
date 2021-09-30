@@ -6,7 +6,7 @@
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "CommonTools/ConditionDBWriter/interface/ConditionDBWriter.h"
-#include "FWCore/ParameterSet/interface/FileInPath.h"
+//#include "FWCore/Utilities/interface/FileInPath.h"
 
 #include "CondFormats/PhysicsToolsObjects/interface/Histogram2D.h"
 
@@ -15,7 +15,7 @@
 //#include "CLHEP/Random/RandFlat.h"
 //#include "CLHEP/Random/RandGauss.h"
 
-class SiStripDeDx2DBuilder : public edm::EDAnalyzer {
+class SiStripDeDx2DBuilder : public edm::one::EDAnalyzer<> {
 public:
   explicit SiStripDeDx2DBuilder(const edm::ParameterSet& iConfig);
 
@@ -24,7 +24,7 @@ public:
   virtual void analyze(const edm::Event&, const edm::EventSetup&);
 
 private:
-  edm::FileInPath fp_;
+  //edm::FileInPath fp_;
   bool printdebug_;
 };
 

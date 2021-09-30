@@ -62,6 +62,7 @@ PixelThresholdClusterizer::PixelThresholdClusterizer(edm::ParameterSet const& co
       doMissCalibrate(conf.getParameter<bool>("MissCalibrate")),
       doSplitClusters(conf.getParameter<bool>("SplitClusters")) {
   theBuffer.setSize(theNumOfRows, theNumOfCols);
+  theFakePixels.clear();
 }
 /////////////////////////////////////////////////////////////////////////////
 PixelThresholdClusterizer::~PixelThresholdClusterizer() {}
@@ -110,6 +111,8 @@ bool PixelThresholdClusterizer::setup(const PixelGeomDetUnit* pixDet) {
     theBuffer.setSize(nrows, ncols);  // Modify
   }
 
+  theFakePixels.resize(nrows * ncols, false);
+
   return true;
 }
 //----------------------------------------------------------------------------
@@ -145,7 +148,8 @@ void PixelThresholdClusterizer::clusterizeDetUnitT(const T& input,
 
   //  Copy PixelDigis to the buffer array; select the seed pixels
   //  on the way, and store them in theSeeds.
-  copy_to_buffer(begin, end);
+  if (end > begin)
+    copy_to_buffer(begin, end);
 
   assert(output.empty());
   //  Loop over all seeds.  TO DO: wouldn't using iterators be faster?
@@ -179,6 +183,8 @@ void PixelThresholdClusterizer::clusterizeDetUnitT(const T& input,
 
   //  Need to clean unused pixels from the buffer array.
   clear_buffer(begin, end);
+
+  theFakePixels.clear();
 }
 
 //----------------------------------------------------------------------------
@@ -217,8 +223,15 @@ void PixelThresholdClusterizer::copy_to_buffer(DigiIterator begin, DigiIterator 
     // std::cout << (doMissCalibrate ? "VI from db" : "VI linear") << std::endl;
   }
 #endif
+
+  //If called with empty/invalid DetSet, warn the user
+  if (end <= begin) {
+    edm::LogWarning("PixelThresholdClusterizer") << " copy_to_buffer called with empty or invalid range" << std::endl;
+    return;
+  }
+
   int electron[end - begin];  // pixel charge in electrons
-  memset(electron, 0, sizeof(electron));
+  memset(electron, 0, (end - begin) * sizeof(int));
 
   if (doPhase2Calibration) {
     int i = 0;
@@ -257,7 +270,9 @@ void PixelThresholdClusterizer::copy_to_buffer(DigiIterator begin, DigiIterator 
   for (DigiIterator di = begin; di != end; ++di) {
     int row = di->row();
     int col = di->column();
-    int adc = electron[i++];  // this is in electrons
+    // VV: do not calibrate a fake pixel, it already has a unit of 10e-:
+    int adc = (di->flag() != 0) ? di->adc() * 10 : electron[i];  // this is in electrons
+    i++;
 
 #ifdef PIXELREGRESSION
     int adcOld = calibrate(di->adc(), col, row);
@@ -277,6 +292,9 @@ void PixelThresholdClusterizer::copy_to_buffer(DigiIterator begin, DigiIterator 
 
     if (adc >= thePixelThreshold) {
       theBuffer.set_adc(row, col, adc);
+      // VV: add pixel to the fake list. Only when running on digi collection
+      if (di->flag() != 0)
+        theFakePixels[row * theNumOfCols + col] = true;
       if (adc >= theSeedThreshold)
         theSeeds.push_back(SiPixelCluster::PixelPos(row, col));
     }
@@ -414,8 +432,9 @@ SiPixelCluster PixelThresholdClusterizer::make_cluster(const SiPixelCluster::Pix
   theBuffer.set_adc(pix, 1);
   //  }
 
-  AccretionCluster acluster;
+  AccretionCluster acluster, cldata;
   acluster.add(pix, seed_adc);
+  cldata.add(pix, seed_adc);
 
   //Here we search all pixels adjacent to all pixels in the cluster.
   bool dead_flag = false;
@@ -433,6 +452,10 @@ SiPixelCluster PixelThresholdClusterizer::make_cluster(const SiPixelCluster::Pix
           SiPixelCluster::PixelPos newpix(r, c);
           if (!acluster.add(newpix, theBuffer(r, c)))
             goto endClus;
+          // VV: no fake pixels in cluster, leads to non-contiguous clusters
+          if (!theFakePixels[r * theNumOfCols + c]) {
+            cldata.add(newpix, theBuffer(r, c));
+          }
           theBuffer.set_adc(newpix, 1);
         }
 
@@ -464,7 +487,7 @@ SiPixelCluster PixelThresholdClusterizer::make_cluster(const SiPixelCluster::Pix
 
   }  // while accretion
 endClus:
-  SiPixelCluster cluster(acluster.isize, acluster.adc, acluster.x, acluster.y, acluster.xmin, acluster.ymin);
+  SiPixelCluster cluster(cldata.isize, cldata.adc, cldata.x, cldata.y, cldata.xmin, cldata.ymin);
   //Here we split the cluster, if the flag to do so is set and we have found a dead or noisy pixel.
 
   if (dead_flag && doSplitClusters) {

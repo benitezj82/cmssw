@@ -36,6 +36,11 @@ Module type=IntProducer, Module label=intProducerA, Parameter Set ID=38971365e81
 ++++ finished: constructing module with label 'intVectorProducer' id = 14
 ++ preallocate: 1 concurrent runs, 1 concurrent luminosity sections, 1 streams
 ++ starting: begin job
+The following legacy modules are configured. Support for legacy modules
+is going to end soon. These modules need to be converted to have type
+edm::global, edm::stream, edm::one, or in rare cases edm::limited.
+  IntVectorProducer intVectorProducer
+%MSG
 ++++ starting: begin job for module with label 'intProducerA' id = 9
 Module type=IntProducer, Module label=intProducerA, Parameter Set ID=38971365e8174cb2ccc12430661ba6d4
 ++++ finished: begin job for module with label 'intProducerA' id = 9
@@ -603,8 +608,6 @@ PathContext: pathName = p pathID = 0
     runIndex = 0  luminosityBlockIndex = 0  unixTime = 0 microsecondOffset = 5000001
     ProcessContext: PROD1 be16549dc0c1f4b03231a8b98d235dac
 
-++++++++ starting: prefetching before processing event for module: stream = 0 label = 'TriggerResults' id = 1
-++++++++ finished: prefetching before processing event for module: stream = 0 label = 'TriggerResults' id = 1
 ++++++++ starting: processing event for module: stream = 0 label = 'TriggerResults' id = 1
 ++++++++ finished: processing event for module: stream = 0 label = 'TriggerResults' id = 1
 ++++++++ starting: prefetching before processing event for module: stream = 0 label = 'out' id = 8
@@ -831,8 +834,6 @@ PathContext: pathName = p pathID = 0
     runIndex = 0  luminosityBlockIndex = 0  unixTime = 0 microsecondOffset = 10000001
     ProcessContext: PROD1 be16549dc0c1f4b03231a8b98d235dac
 
-++++++++ starting: prefetching before processing event for module: stream = 0 label = 'TriggerResults' id = 1
-++++++++ finished: prefetching before processing event for module: stream = 0 label = 'TriggerResults' id = 1
 ++++++++ starting: processing event for module: stream = 0 label = 'TriggerResults' id = 1
 ++++++++ finished: processing event for module: stream = 0 label = 'TriggerResults' id = 1
 ++++++++ starting: prefetching before processing event for module: stream = 0 label = 'out' id = 8
@@ -1059,8 +1060,6 @@ PathContext: pathName = p pathID = 0
     runIndex = 0  luminosityBlockIndex = 0  unixTime = 0 microsecondOffset = 15000001
     ProcessContext: PROD1 be16549dc0c1f4b03231a8b98d235dac
 
-++++++++ starting: prefetching before processing event for module: stream = 0 label = 'TriggerResults' id = 1
-++++++++ finished: prefetching before processing event for module: stream = 0 label = 'TriggerResults' id = 1
 ++++++++ starting: processing event for module: stream = 0 label = 'TriggerResults' id = 1
 ++++++++ finished: processing event for module: stream = 0 label = 'TriggerResults' id = 1
 ++++++++ starting: prefetching before processing event for module: stream = 0 label = 'out' id = 8
@@ -1435,6 +1434,34 @@ GlobalContext: transition = EndProcessBlock
     run: 0 luminosityBlock: 0
     runIndex = 4294967295  luminosityBlockIndex = 4294967295  unixTime = 0 microsecondOffset = 0
     ProcessContext: PROD1 be16549dc0c1f4b03231a8b98d235dac
+
+++++ starting: access input process block
+GlobalContext: transition = AccessInputProcessBlock
+    run: 0 luminosityBlock: 0
+    runIndex = 4294967295  luminosityBlockIndex = 4294967295  unixTime = 0 microsecondOffset = 0
+    ProcessContext: COPY 5ea2a17b2b2eaa97af73c630882cd994
+    parent ProcessContext: PROD1 be16549dc0c1f4b03231a8b98d235dac
+
+++++ finished: access input process block
+GlobalContext: transition = AccessInputProcessBlock
+    run: 0 luminosityBlock: 0
+    runIndex = 4294967295  luminosityBlockIndex = 4294967295  unixTime = 0 microsecondOffset = 0
+    ProcessContext: COPY 5ea2a17b2b2eaa97af73c630882cd994
+    parent ProcessContext: PROD1 be16549dc0c1f4b03231a8b98d235dac
+
+++++ starting: write process block
+GlobalContext: transition = WriteProcessBlock
+    run: 0 luminosityBlock: 0
+    runIndex = 4294967295  luminosityBlockIndex = 4294967295  unixTime = 0 microsecondOffset = 0
+    ProcessContext: COPY 5ea2a17b2b2eaa97af73c630882cd994
+    parent ProcessContext: PROD1 be16549dc0c1f4b03231a8b98d235dac
+
+++++ finished: write process block
+GlobalContext: transition = WriteProcessBlock
+    run: 0 luminosityBlock: 0
+    runIndex = 4294967295  luminosityBlockIndex = 4294967295  unixTime = 0 microsecondOffset = 0
+    ProcessContext: COPY 5ea2a17b2b2eaa97af73c630882cd994
+    parent ProcessContext: PROD1 be16549dc0c1f4b03231a8b98d235dac
 
 ++++ starting: end process block
 GlobalContext: transition = EndProcessBlock

@@ -58,6 +58,7 @@ using namespace Pythia8;
 
 #include "GeneratorInterface/Core/interface/GeneratorFilter.h"
 #include "GeneratorInterface/Core/interface/HadronizerFilter.h"
+#include "GeneratorInterface/Core/interface/ConcurrentGeneratorFilter.h"
 #include "GeneratorInterface/Core/interface/ConcurrentHadronizerFilter.h"
 
 #include "GeneratorInterface/Pythia8Interface/plugins/LHAupLesHouches.h"
@@ -446,7 +447,9 @@ bool Pythia8Hadronizer::initializeForInternalPartons() {
   }
 
   if (!(fUserHooksVector->hooks).empty() && !UserHooksSet) {
-    fMasterGen->setUserHooksPtr(fUserHooksVector);
+    for (auto &fUserHook : fUserHooksVector->hooks) {
+      fMasterGen->addUserHooksPtr(fUserHook);
+    }
     UserHooksSet = true;
   }
 
@@ -589,7 +592,9 @@ bool Pythia8Hadronizer::initializeForExternalPartons() {
   }
 
   if (!(fUserHooksVector->hooks).empty() && !UserHooksSet) {
-    fMasterGen->setUserHooksPtr(fUserHooksVector);
+    for (auto &fUserHook : fUserHooksVector->hooks) {
+      fMasterGen->addUserHooksPtr(fUserHook);
+    }
     UserHooksSet = true;
   }
 
@@ -896,6 +901,10 @@ bool Pythia8Hadronizer::residualDecay() {
 void Pythia8Hadronizer::finalizeEvent() {
   bool lhe = lheEvent() != nullptr;
 
+  // protection against empty weight container
+  if ((event()->weights()).empty())
+    (event()->weights()).push_back(1.);
+
   // now create the GenEventInfo product from the GenEvent and fill
   // the missing pieces
   eventInfo() = std::make_unique<GenEventInfoProduct>(event().get());
@@ -1012,6 +1021,10 @@ DEFINE_FWK_MODULE(Pythia8GeneratorFilter);
 
 typedef edm::HadronizerFilter<Pythia8Hadronizer, ExternalDecayDriver> Pythia8HadronizerFilter;
 DEFINE_FWK_MODULE(Pythia8HadronizerFilter);
+
+typedef edm::ConcurrentGeneratorFilter<Pythia8Hadronizer, ConcurrentExternalDecayDriver>
+    Pythia8ConcurrentGeneratorFilter;
+DEFINE_FWK_MODULE(Pythia8ConcurrentGeneratorFilter);
 
 typedef edm::ConcurrentHadronizerFilter<Pythia8Hadronizer, ConcurrentExternalDecayDriver>
     Pythia8ConcurrentHadronizerFilter;

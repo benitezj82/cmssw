@@ -160,26 +160,26 @@ void EGExtraInfoModifierFromValueMaps<MapType, OutputType>::setEvent(const edm::
   ele_idx = pho_idx = 0;
 
   if (!e_conf.tok_electron_src.isUninitialized()) {
-    edm::Handle<edm::View<reco::GsfElectron>> eles;
-    evt.getByToken(e_conf.tok_electron_src, eles);
+    auto eles = evt.getHandle(e_conf.tok_electron_src);
 
     eles_by_oop.resize(eles->size());
     std::copy(eles->ptrs().begin(), eles->ptrs().end(), eles_by_oop.begin());
   }
 
-  for (auto const& itr : e_conf.tok_valuemaps)
-    evt.getByToken(itr.second, ele_vmaps[itr.second.index()]);
+  for (auto const& itr : e_conf.tok_valuemaps) {
+    ele_vmaps[itr.second.index()] = evt.getHandle(itr.second);
+  }
 
   if (!ph_conf.tok_photon_src.isUninitialized()) {
-    edm::Handle<edm::View<reco::Photon>> phos;
-    evt.getByToken(ph_conf.tok_photon_src, phos);
+    auto phos = evt.getHandle(ph_conf.tok_photon_src);
 
     phos_by_oop.resize(phos->size());
     std::copy(phos->ptrs().begin(), phos->ptrs().end(), phos_by_oop.begin());
   }
 
-  for (auto const& itr : ph_conf.tok_valuemaps)
-    evt.getByToken(itr.second, pho_vmaps[itr.second.index()]);
+  for (auto const& itr : ph_conf.tok_valuemaps) {
+    pho_vmaps[itr.second.index()] = evt.getHandle(itr.second);
+  }
 }
 
 namespace {
@@ -281,7 +281,7 @@ void EGXtraModFromVMObjFiller<int>::addValueToObject(
 
 template <>
 template <>
-void EGXtraModFromVMObjFiller<egmodifier::EGID>::addValuesToObject(
+inline void EGXtraModFromVMObjFiller<egmodifier::EGID>::addValuesToObject(
     pat::Electron& obj,
     const edm::Ptr<reco::Candidate>& ptr,
     const std::unordered_map<std::string, edm::EDGetTokenT<edm::ValueMap<float>>>& vmaps_token,
@@ -299,7 +299,7 @@ void EGXtraModFromVMObjFiller<egmodifier::EGID>::addValuesToObject(
 
 template <>
 template <>
-void EGXtraModFromVMObjFiller<egmodifier::EGID>::addValuesToObject(
+inline void EGXtraModFromVMObjFiller<egmodifier::EGID>::addValuesToObject(
     pat::Photon& obj,
     const edm::Ptr<reco::Candidate>& ptr,
     const std::unordered_map<std::string, edm::EDGetTokenT<edm::ValueMap<float>>>& vmaps_token,

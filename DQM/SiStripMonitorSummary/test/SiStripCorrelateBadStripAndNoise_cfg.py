@@ -3,9 +3,14 @@ import FWCore.ParameterSet.Config as cms
 
 process = cms.Process("CALIB")
 process.MessageLogger = cms.Service("MessageLogger",
-                                    cout = cms.untracked.PSet(threshold = cms.untracked.string('INFO')),
-                                    destinations = cms.untracked.vstring('cout')
-                                    )
+    cerr = cms.untracked.PSet(
+        enable = cms.untracked.bool(False)
+    ),
+    cout = cms.untracked.PSet(
+        enable = cms.untracked.bool(True),
+        threshold = cms.untracked.string('INFO')
+    )
+)
 
 process.source = cms.Source("EmptyIOVSource",
                             firstValue = cms.uint64(108597),
@@ -52,12 +57,10 @@ process.SiStripQualityESProducer = cms.ESProducer("SiStripQualityESProducer",
                                                   )
 
 
-from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
-process.stat = DQMEDAnalyzer("SiStripQualityStatistics",
-                             #TkMapFileName = cms.untracked.string('TkMaps/TkMapBadComponents_full.png'),
-                             TkMapFileName = cms.untracked.string(''),
-                             dataLabel = cms.untracked.string('')
-                             )
+from CalibTracker.SiStripQuality.siStripQualityStatistics_cfi import siStripQualityStatistics
+process.stat = siStripQualityStatistics.clone(
+        #TkMapFileName = cms.untracked.string('TkMaps/TkMapBadComponents_full.png'),
+        )
 process.analysis = cms.EDAnalyzer("SiStripCorrelateBadStripAndNoise")
 
 

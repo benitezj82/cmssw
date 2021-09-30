@@ -35,7 +35,7 @@ cceParamThick_ttu800 = [6e+14,   -5.95259e-16, 0.183929]      #300
 # scaling the ddfz curve to match Timo's 800V measuremetn at 3.5E15
 cceParamFine_epi800 = [3.5e+15, -1.4285714e-17, 0.263812]     #120
 #  line+log tdr 600V EPI
-cceParamFine_epi600  = [3.5e+15, -3.428571e-17, 0.263812]     #120 - scaling the ddfz curve to match Timo's 600V measurement at 3.5E15 
+cceParamFine_epi600  = [3.5e+15, -3.428571e-17, 0.263812]     #120 - scaling the ddfz curve to match Timo's 600V measurement at 3.5E15
 cceParamThin_epi600  = [1.5e+15, -3.09878e-16, 0.211207]      #200
 cceParamThick_epi600 = [6e+14,   -7.96539e-16, 0.251751]      #300
 
@@ -53,6 +53,8 @@ HGCAL_noise_fC = cms.PSet(
     doseMap = cms.string(""),
     values = cms.vdouble( [x*fC_per_ele for x in nonAgedNoises] ), #100,200,300 um
     )
+
+HFNose_noise_fC = HGCAL_noise_fC.clone()
 
 HGCAL_noise_heback = cms.PSet(
     scaleByDose = cms.bool(False),
@@ -73,6 +75,7 @@ HGCAL_noises = cms.PSet(
 # ECAL
 hgceeDigitizer = cms.PSet(
     accumulatorType   = cms.string("HGCDigiProducer"),
+    digitizer         = cms.string("HGCEEDigitizer"),
     hitCollection     = cms.string("HGCHitsEE"),
     digiCollection    = cms.string("HGCDigisEE"),
     NoiseGeneration_Method = cms.bool(True),
@@ -80,7 +83,6 @@ hgceeDigitizer = cms.PSet(
     bxTime            = cms.double(25),
     eVPerEleHolePair = cms.double(eV_per_eh_pair),
     tofDelay          = cms.double(5),
-    geometryType      = cms.uint32(1),
     digitizationType  = cms.uint32(0),
     makeDigiSimLinks  = cms.bool(False),
     premixStage1      = cms.bool(False),
@@ -103,13 +105,13 @@ hgceeDigitizer = cms.PSet(
 # HCAL front
 hgchefrontDigitizer = cms.PSet(
     accumulatorType   = cms.string("HGCDigiProducer"),
+    digitizer         = cms.string("HGCHEfrontDigitizer"),
     hitCollection  = cms.string("HGCHitsHEfront"),
     digiCollection = cms.string("HGCDigisHEfront"),
     NoiseGeneration_Method = cms.bool(True),
     maxSimHitsAccTime = cms.uint32(100),
     bxTime            = cms.double(25),
     tofDelay          = cms.double(5),
-    geometryType      = cms.uint32(1),
     digitizationType  = cms.uint32(0),
     makeDigiSimLinks  = cms.bool(False),
     premixStage1      = cms.bool(False),
@@ -132,13 +134,13 @@ hgchefrontDigitizer = cms.PSet(
 # HCAL back
 hgchebackDigitizer = cms.PSet(
     accumulatorType   = cms.string("HGCDigiProducer"),
+    digitizer         = cms.string("HGCHEbackDigitizer"),
     hitCollection = cms.string("HGCHitsHEback"),
     digiCollection = cms.string("HGCDigisHEback"),
     NoiseGeneration_Method = cms.bool(True),
     maxSimHitsAccTime = cms.uint32(100),
     bxTime            = cms.double(25),
     tofDelay          = cms.double(1),
-    geometryType      = cms.uint32(1),
     digitizationType  = cms.uint32(1),
     makeDigiSimLinks  = cms.bool(False),
     premixStage1      = cms.bool(False),
@@ -176,6 +178,7 @@ hgchebackDigitizer = cms.PSet(
 # HFNose
 hfnoseDigitizer = cms.PSet(
     accumulatorType   = cms.string("HGCDigiProducer"),
+    digitizer         = cms.string("HFNoseDigitizer"),
     hitCollection     = cms.string("HFNoseHits"),
     digiCollection    = cms.string("HFNoseDigis"),
     NoiseGeneration_Method = cms.bool(True),
@@ -183,7 +186,6 @@ hfnoseDigitizer = cms.PSet(
     bxTime            = cms.double(25),
     eVPerEleHolePair = cms.double(eV_per_eh_pair),
     tofDelay          = cms.double(5),
-    geometryType      = cms.uint32(1),
     digitizationType  = cms.uint32(0),
     makeDigiSimLinks  = cms.bool(False),
     premixStage1      = cms.bool(False),
@@ -196,7 +198,7 @@ hfnoseDigitizer = cms.PSet(
         ileakParam       = cms.PSet(refToPSet_ = cms.string("HGCAL_ileakParam_toUse")),
         cceParams        = cms.PSet(refToPSet_ = cms.string("HGCAL_cceParams_toUse")),
         chargeCollectionEfficiencies = cms.PSet(refToPSet_ = cms.string("HGCAL_chargeCollectionEfficiencies")),
-        noise_fC         = cms.PSet(refToPSet_ = cms.string("HGCAL_noise_fC")),
+        noise_fC         = cms.PSet(refToPSet_ = cms.string("HFNose_noise_fC")),
         doTimeSamples    = cms.bool(False),
         thresholdFollowsMIP        = cms.bool(thresholdTracksMIP),
         feCfg   = hgcROCSettings.clone()
@@ -299,6 +301,17 @@ def HGCal_setRealisticNoiseSi(process,byDose=True,byDoseAlgo=0,byDoseMap=doseMap
         )
     return process
 
+def HFNose_setRealisticNoiseSi(process,byDose=True,byDoseAlgo=0,byDoseMap=doseMap,byDoseFactor=1):
+    process.HFNose_noise_fC = cms.PSet(
+        scaleByDose = cms.bool(byDose),
+        scaleByDoseAlgo = cms.uint32(byDoseAlgo),
+        scaleByDoseFactor = cms.double(byDoseFactor),
+        doseMap = byDoseMap,
+        values = cms.vdouble( [x*fC_per_ele for x in endOfLifeNoises] ), #100,200,300 um
+        )
+    return process
+
+
 def HGCal_setRealisticNoiseSci(process,byDose=True,byDoseAlgo=0,byDoseMap=doseMap,byDoseFactor=1):
     process.HGCAL_noise_heback = cms.PSet(
         scaleByDose = cms.bool(byDose),
@@ -333,3 +346,11 @@ from Configuration.Eras.Modifier_phase2_hgcalV10_cff import phase2_hgcalV10
 
 phase2_hgcalV10.toModify(HGCAL_noise_fC, values = [x*fC_per_ele for x in nonAgedNoises_v9])
 phase2_hgcalV10.toModify(HGCAL_noises, values = [x for x in nonAgedNoises_v9])
+
+def HFNose_setEndOfLifeNoise(process,byDose=True,byDoseAlgo=0,byDoseFactor=1):
+    """includes all effects from radiation and gain choice"""
+    # byDoseAlgo is used as a collection of bits to toggle: FLUENCE, CCE, NOISE, PULSEPERGAIN, CACHEDOP (from lsb to Msb)
+    process=HFNose_setRealisticNoiseSi(process,byDose=byDose,byDoseAlgo=byDoseAlgo,byDoseMap=doseMapNose,byDoseFactor=byDoseFactor)
+    return process
+
+doseMapNose = cms.string("SimCalorimetry/HGCalSimProducers/data/doseParams_3000fb_fluka_HFNose_3.7.20.12_Eta2.4.txt")

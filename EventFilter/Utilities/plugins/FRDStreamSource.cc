@@ -23,6 +23,7 @@ FRDStreamSource::FRDStreamSource(edm::ParameterSet const& pset, edm::InputSource
       verifyChecksum_(pset.getUntrackedParameter<bool>("verifyChecksum", true)),
       useL1EventID_(pset.getUntrackedParameter<bool>("useL1EventID", false)) {
   itFileName_ = fileNames(0).begin();
+  endFileName_ = fileNames(0).end();
   openFile(*itFileName_);
   produces<FEDRawDataCollection>();
 }
@@ -31,7 +32,7 @@ bool FRDStreamSource::setRunAndEventInfo(edm::EventID& id,
                                          edm::TimeValue_t& theTime,
                                          edm::EventAuxiliary::ExperimentType& eType) {
   if (fin_.peek() == EOF) {
-    if (++itFileName_ == fileNames(0).end()) {
+    if (++itFileName_ == endFileName_) {
       fin_.close();
       return false;
     }
@@ -66,7 +67,7 @@ bool FRDStreamSource::setRunAndEventInfo(edm::EventID& id,
   if (detectedFRDversion_ == 0) {
     fin_.read((char*)&detectedFRDversion_, sizeof(uint16_t));
     fin_.read((char*)&flags_, sizeof(uint16_t));
-    assert(detectedFRDversion_ > 0 && detectedFRDversion_ <= 6);
+    assert(detectedFRDversion_ > 0 && detectedFRDversion_ <= FRDHeaderMaxVersion);
     if (buffer_.size() < FRDHeaderVersionSize[detectedFRDversion_])
       buffer_.resize(FRDHeaderVersionSize[detectedFRDversion_]);
     *((uint32_t*)(&buffer_[0])) = detectedFRDversion_;

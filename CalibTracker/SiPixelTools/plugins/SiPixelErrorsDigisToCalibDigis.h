@@ -14,15 +14,10 @@ Description: Create monitorElements for the Errors in created in the reduction o
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-#include "FWCore/Framework/interface/MakerMacros.h"
-#include "FWCore/Framework/interface/ESHandle.h"
-
-#include "FWCore/Utilities/interface/InputTag.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 #include "DataFormats/Common/interface/DetSetVector.h"
 #include "DataFormats/DetId/interface/DetId.h"
@@ -46,7 +41,7 @@ Description: Create monitorElements for the Errors in created in the reduction o
 // class declaration
 //
 
-class SiPixelErrorsDigisToCalibDigis : public edm::EDAnalyzer {
+class SiPixelErrorsDigisToCalibDigis : public edm::one::EDAnalyzer<> {
 public:
   typedef dqm::legacy::MonitorElement MonitorElement;
   typedef dqm::legacy::DQMStore DQMStore;
@@ -73,8 +68,9 @@ public:
 protected:
   edm::ESHandle<TrackerGeometry> geom_;
 
+  edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> trackerGeomToken_;
+
 private:
-  void beginJob() override;
   void analyze(const edm::Event&, const edm::EventSetup&) override;
   void endJob() override;
 

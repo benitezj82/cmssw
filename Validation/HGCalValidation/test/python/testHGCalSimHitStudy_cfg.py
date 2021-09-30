@@ -15,10 +15,15 @@ import FWCore.ParameterSet.Config as cms
 #process.load('Configuration.Geometry.GeometryExtended2026D70_cff')
 #process.load('Configuration.Geometry.GeometryExtended2026D70Reco_cff')
 
-from Configuration.Eras.Era_Phase2C11_cff import Phase2C11
-process = cms.Process('HGCGeomAnalysis',Phase2C11)
-process.load('Configuration.Geometry.GeometryExtended2026D71_cff')
-process.load('Configuration.Geometry.GeometryExtended2026D71Reco_cff')
+#from Configuration.Eras.Era_Phase2C11I13M9_cff import Phase2C11I13M9
+#process = cms.Process('HGCGeomAnalysis',Phase2C11I13M9)
+#process.load('Configuration.Geometry.GeometryExtended2026D77_cff')
+#process.load('Configuration.Geometry.GeometryExtended2026D77Reco_cff')
+
+from Configuration.Eras.Era_Phase2C11I13M9_cff import Phase2C11I13M9
+process = cms.Process('HGCGeomAnalysis',Phase2C11I13M9)
+process.load('Configuration.Geometry.GeometryExtended2026D83_cff')
+process.load('Configuration.Geometry.GeometryExtended2026D83Reco_cff')
 
 process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
 process.load("IOMC.EventVertexGenerators.VtxSmearedGauss_cfi")
@@ -32,10 +37,10 @@ process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 from Configuration.AlCa.autoCond import autoCond
 process.GlobalTag.globaltag = autoCond['phase2_realistic']
 
-#if hasattr(process,'MessageLogger'):
-#    process.MessageLogger.categories.append('HGCalGeom')
-#    process.MessageLogger.categories.append('HGCSim')
-#    process.MessageLogger.categories.append('HGCalValidation')
+#
+#    
+#    
+#    
 
 process.load("IOMC.RandomEngine.IOMC_cff")
 process.RandomNumberGeneratorService.generator.initialSeed = 456789
@@ -73,7 +78,7 @@ process.output = cms.OutputModule("PoolOutputModule",
 )
 
 process.TFileService = cms.Service("TFileService",
-                                   fileName = cms.string('hgcSimHit62.root'),
+                                   fileName = cms.string('hgcSimHit83.root'),
                                    closeFileFast = cms.untracked.bool(True)
                                    )
 

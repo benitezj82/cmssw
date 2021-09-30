@@ -22,16 +22,10 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
-//#include "FWCore/Framework/interface/EventSetup.h"
-#include "FWCore/Framework/interface/MakerMacros.h"
-#include "FWCore/Framework/interface/ESHandle.h"
-
-#include "FWCore/Utilities/interface/InputTag.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 #include "DataFormats/Common/interface/DetSetVector.h"
 #include "DataFormats/DetId/interface/DetId.h"
@@ -52,6 +46,7 @@
 #include "DQM/SiPixelCommon/interface/SiPixelHistogramId.h"
 #include "DQM/SiPixelCommon/interface/SiPixelFolderOrganizer.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
+#include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "CondFormats/SiPixelObjects/interface/SiPixelFedCablingMap.h"
 
 #include <map>
@@ -62,7 +57,7 @@
 // class decleration
 //
 
-class SiPixelOfflineCalibAnalysisBase : public edm::EDAnalyzer {
+class SiPixelOfflineCalibAnalysisBase : public edm::one::EDAnalyzer<edm::one::WatchRuns> {
 public:
   typedef dqm::legacy::MonitorElement MonitorElement;
   typedef dqm::legacy::DQMStore DQMStore;
@@ -114,6 +109,11 @@ protected:
   edm::ESHandle<TrackerGeometry> geom_;
   edm::ESHandle<SiPixelFedCablingMap> theCablingMap_;
 
+  edm::ESGetToken<SiPixelCalibConfiguration, SiPixelCalibConfigurationRcd> calibTokenBeginRun_;
+  edm::ESGetToken<SiPixelCalibConfiguration, SiPixelCalibConfigurationRcd> calibToken_;
+  edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> trackerGeomToken_;
+  edm::ESGetToken<SiPixelFedCablingMap, SiPixelFedCablingMapRcd> cablingMapToken_;
+
   std::string calibrationMode_;
   short nTriggers_;
   static std::vector<short> vCalValues_;
@@ -141,7 +141,7 @@ private:
   //the beginJob is used to load the calib database.  It then calls the pure
   //virtual calibrationSetup() function.  Derived classes should put beginJob functionality there.
   void beginRun(const edm::Run&, const edm::EventSetup&) override;
-  void beginRun(const edm::EventSetup& iSetup);
+  void endRun(const edm::Run&, const edm::EventSetup&) override;
   void beginJob() override;
 
   //calibrationSetup will be used by derived classes

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 from __future__ import print_function
 __version__ = "$Revision: 1.19 $"
@@ -6,7 +6,6 @@ __source__ = "$Source: /local/reps/CMSSW/CMSSW/Configuration/Applications/python
 
 import FWCore.ParameterSet.Config as cms
 from FWCore.ParameterSet.Modules import _Module
-import six
 # The following import is provided for backward compatibility reasons.
 # The function used to be defined in this file.
 from FWCore.ParameterSet.MassReplace import massReplaceInputTag as MassReplaceInputTag
@@ -82,11 +81,14 @@ defaultOptions.lumiToProcess=None
 defaultOptions.fast=False
 defaultOptions.runsAndWeightsForMC = None
 defaultOptions.runsScenarioForMC = None
+defaultOptions.runsAndWeightsForMCIntegerWeights = None
+defaultOptions.runsScenarioForMCIntegerWeights = None
 defaultOptions.runUnscheduled = False
 defaultOptions.timeoutOutput = False
 defaultOptions.nThreads = '1'
 defaultOptions.nStreams = '0'
-defaultOptions.nConcurrentLumis = '1'
+defaultOptions.nConcurrentLumis = '0'
+defaultOptions.nConcurrentIOVs = '1'
 
 # some helper routines
 def dumpPython(process,name):
@@ -336,9 +338,8 @@ class ConfigBuilder(object):
 
     def addCommon(self):
         if 'HARVESTING' in self.stepMap.keys() or 'ALCAHARVEST' in self.stepMap.keys():
-            self.process.options = cms.untracked.PSet( Rethrow = cms.untracked.vstring('ProductNotFound'),fileMode = cms.untracked.string('FULLMERGE'))
-        else:
-            self.process.options = cms.untracked.PSet( )
+            self.process.options.Rethrow = ['ProductNotFound']
+            self.process.options.fileMode = 'FULLMERGE'
 
         self.addedObjects.append(("","options"))
 
@@ -365,9 +366,9 @@ class ConfigBuilder(object):
 
     def addMaxEvents(self):
         """Here we decide how many evts will be processed"""
-        self.process.maxEvents=cms.untracked.PSet(input=cms.untracked.int32(int(self._options.number)))
+        self.process.maxEvents.input = int(self._options.number)
         if self._options.number_out:
-            self.process.maxEvents.output = cms.untracked.int32(int(self._options.number_out))
+            self.process.maxEvents.output = int(self._options.number_out)
         self.addedObjects.append(("","maxEvents"))
 
     def addSource(self):
@@ -495,6 +496,30 @@ class ConfigBuilder(object):
             ThrowAndSetRandomRun.throwAndSetRandomRun(self.process.source,self.runsAndWeights)
             self.additionalCommands.append('import SimGeneral.Configuration.ThrowAndSetRandomRun as ThrowAndSetRandomRun')
             self.additionalCommands.append('ThrowAndSetRandomRun.throwAndSetRandomRun(process.source,%s)'%(self.runsAndWeights))
+
+        # modify source in case of run-dependent MC (Run-3 method)
+        self.runsAndWeightsInt=None
+        if self._options.runsAndWeightsForMCIntegerWeights or self._options.runsScenarioForMCIntegerWeights:
+            if not self._options.isMC :
+                raise Exception("options --runsAndWeightsForMCIntegerWeights and --runsScenarioForMCIntegerWeights are only valid for MC")
+            if self._options.runsAndWeightsForMCIntegerWeights:
+                self.runsAndWeightsInt = eval(self._options.runsAndWeightsForMCIntegerWeights)
+            else:
+                from Configuration.StandardSequences.RunsAndWeights import RunsAndWeights
+                if isinstance(RunsAndWeights[self._options.runsScenarioForMCIntegerWeights], str):
+                    __import__(RunsAndWeights[self._options.runsScenarioForMCIntegerWeights])
+                    self.runsAndWeightsInt = sys.modules[RunsAndWeights[self._options.runsScenarioForMCIntegerWeights]].runProbabilityDistribution
+                else:
+                    self.runsAndWeightsInt = RunsAndWeights[self._options.runsScenarioForMCIntegerWeights]
+
+        if self.runsAndWeightsInt:
+            if not self._options.relval:
+                raise Exception("--relval option required when using --runsAndWeightsInt")
+            if 'DATAMIX' in self._options.step:
+                from SimGeneral.Configuration.LumiToRun import lumi_to_run
+                total_events, events_per_job  = self._options.relval.split(',')
+                lumi_to_run_mapping = lumi_to_run(self.runsAndWeightsInt, int(total_events), int(events_per_job))
+                self.additionalCommands.append("process.source.firstLuminosityBlockForEachRun = cms.untracked.VLuminosityBlockID(*[cms.LuminosityBlockID(x,y) for x,y in " + str(lumi_to_run_mapping) + "])")
 
         return
 
@@ -737,7 +762,9 @@ class ConfigBuilder(object):
                 if ('SIM' in self.stepMap or 'reSIM' in self.stepMap) and not self._options.fast:
                     self.loadAndRemember(self.SimGeometryCFF)
                     if self.geometryDBLabel:
-                        self.executeAndRemember('process.XMLFromDBSource.label = cms.string("%s")'%(self.geometryDBLabel))
+                        self.executeAndRemember('if hasattr(process, "XMLFromDBSource"): process.XMLFromDBSource.label="%s"'%(self.geometryDBLabel))
+                        self.executeAndRemember('if hasattr(process, "DDDetectorESProducerFromDB"): process.DDDetectorESProducerFromDB.label="%s"'%(self.geometryDBLabel))
+
         except ImportError:
             print("Geometry option",self._options.geometry,"unknown.")
             raise
@@ -1124,9 +1151,9 @@ class ConfigBuilder(object):
         self.REDIGIDefaultSeq=self.DIGIDefaultSeq
 
     # for alca, skims, etc
-    def addExtraStream(self,name,stream,workflow='full'):
+    def addExtraStream(self, name, stream, workflow='full', cppType="PoolOutputModule"):
             # define output module and go from there
-        output = cms.OutputModule("PoolOutputModule")
+        output = cms.OutputModule(cppType)
         if stream.selectEvents.parameters_().__len__()!=0:
             output.SelectEvents = stream.selectEvents
         else:
@@ -1160,8 +1187,9 @@ class ConfigBuilder(object):
         if self._options.filtername:
             output.dataset.filterName= cms.untracked.string(self._options.filtername+"_"+stream.name)
 
-        #add an automatic flushing to limit memory consumption
-        output.eventAutoFlushCompressedSize=cms.untracked.int32(5*1024*1024)
+        if cppType == "PoolOutputModule":
+            #add an automatic flushing to limit memory consumption
+            output.eventAutoFlushCompressedSize=cms.untracked.int32(5*1024*1024)
 
         if workflow in ("producers,full"):
             if isinstance(stream.paths,tuple):
@@ -1248,7 +1276,7 @@ class ConfigBuilder(object):
         # decide which ALCA paths to use
         alcaList = sequence.split("+")
         maxLevel=0
-        from Configuration.AlCa.autoAlca import autoAlca
+        from Configuration.AlCa.autoAlca import autoAlca, AlCaNoConcurrentLumis
         # support @X from autoAlca.py, and recursion support: i.e T0:@Mu+@EG+...
         self.expandMapping(alcaList,autoAlca)
         self.AlCaPaths=[]
@@ -1256,10 +1284,16 @@ class ConfigBuilder(object):
             alcastream = getattr(alcaConfig,name)
             shortName = name.replace('ALCARECOStream','')
             if shortName in alcaList and isinstance(alcastream,cms.FilteredStream):
-                output = self.addExtraStream(name,alcastream, workflow = workflow)
+                if shortName in AlCaNoConcurrentLumis:
+                    print("Setting numberOfConcurrentLuminosityBlocks=1 because of AlCa sequence {}".format(shortName))
+                    self._options.nConcurrentLumis = "1"
+                    self._options.nConcurrentIOVs = "1"
+                isNano = (alcastream.dataTier == "NANOAOD")
+                output = self.addExtraStream(name, alcastream, workflow=workflow,
+                        cppType=("NanoAODOutputModule" if isNano else "PoolOutputModule"))
                 self.executeAndRemember('process.ALCARECOEventContent.outputCommands.extend(process.OutALCARECO'+shortName+'_noDrop.outputCommands)')
                 self.AlCaPaths.append(shortName)
-                if 'DQM' in alcaList:
+                if 'DQM' in alcaList and not isNano:
                     if not self._options.inlineEventContent and hasattr(self.process,name):
                         self.executeAndRemember('process.' + name + '.outputCommands.append("keep *_MEtoEDMConverter_*_*")')
                     else:
@@ -1337,6 +1371,8 @@ class ConfigBuilder(object):
                 raise Exception("Neither gen fragment of input files provided: this is an inconsistent GEN step configuration")
 
         if not loadFailure:
+            from Configuration.Generator.concurrentLumisDisable import noConcurrentLumiGenerators
+
             generatorModule=sys.modules[loadFragment]
             genModules=generatorModule.__dict__
             #remove lhe producer module since this should have been
@@ -1354,6 +1390,10 @@ class ConfigBuilder(object):
                     theObject = getattr(generatorModule,name)
                     if isinstance(theObject, cmstypes._Module):
                         self._options.inlineObjets=name+','+self._options.inlineObjets
+                        if theObject.type_() in noConcurrentLumiGenerators:
+                            print("Setting numberOfConcurrentLuminosityBlocks=1 because of generator {}".format(theObject.type_()))
+                            self._options.nConcurrentLumis = "1"
+                            self._options.nConcurrentIOVs = "1"
                     elif isinstance(theObject, cms.Sequence) or isinstance(theObject, cmstypes.ESProducer):
                         self._options.inlineObjets+=','+name
 
@@ -1512,7 +1552,7 @@ class ConfigBuilder(object):
                 optionsForHLT['type'] = 'HIon'
             else:
                 optionsForHLT['type'] = 'GRun'
-            optionsForHLTConfig = ', '.join('%s=%s' % (key, repr(val)) for (key, val) in six.iteritems(optionsForHLT))
+            optionsForHLTConfig = ', '.join('%s=%s' % (key, repr(val)) for (key, val) in optionsForHLT.items())
             if sequence == 'run,fromSource':
                 if hasattr(self.process.source,'firstRun'):
                     self.executeAndRemember('process.loadHltConfiguration("run:%%d"%%(process.source.firstRun.value()),%s)'%(optionsForHLTConfig))
@@ -1821,7 +1861,7 @@ class ConfigBuilder(object):
             if self._options.restoreRNDSeeds==False and not self._options.restoreRNDSeeds==True:
                 self._options.restoreRNDSeeds=True
 
-        if not 'DIGI' in self.stepMap and not self._options.fast:
+        if not 'DIGI' in self.stepMap and not self._options.isData and not self._options.fast:
             self.executeAndRemember("process.mix.playback = True")
             self.executeAndRemember("process.mix.digitizers = cms.PSet()")
             self.executeAndRemember("for a in process.aliases: delattr(process, a)")
@@ -2235,17 +2275,19 @@ class ConfigBuilder(object):
         self.pythonCfgCode+="from PhysicsTools.PatAlgos.tools.helpers import associatePatAlgosToolsTask\n"
         self.pythonCfgCode+="associatePatAlgosToolsTask(process)\n"
 
-        if self._options.nThreads is not "1":
+        if self._options.nThreads != "1":
             self.pythonCfgCode +="\n"
             self.pythonCfgCode +="#Setup FWK for multithreaded\n"
-            self.pythonCfgCode +="process.options.numberOfThreads=cms.untracked.uint32("+self._options.nThreads+")\n"
-            self.pythonCfgCode +="process.options.numberOfStreams=cms.untracked.uint32("+self._options.nStreams+")\n"
-            self.pythonCfgCode +="process.options.numberOfConcurrentLuminosityBlocks=cms.untracked.uint32("+self._options.nConcurrentLumis+")\n"
+            self.pythonCfgCode +="process.options.numberOfThreads = "+self._options.nThreads+"\n"
+            self.pythonCfgCode +="process.options.numberOfStreams = "+self._options.nStreams+"\n"
+            self.pythonCfgCode +="process.options.numberOfConcurrentLuminosityBlocks = "+self._options.nConcurrentLumis+"\n"
+            self.pythonCfgCode +="process.options.eventSetup.numberOfConcurrentIOVs = "+self._options.nConcurrentIOVs+"\n"
             if int(self._options.nConcurrentLumis) > 1:
               self.pythonCfgCode +="if hasattr(process, 'DQMStore'): process.DQMStore.assertLegacySafe=cms.untracked.bool(False)\n"
-            self.process.options.numberOfThreads=cms.untracked.uint32(int(self._options.nThreads))
-            self.process.options.numberOfStreams=cms.untracked.uint32(int(self._options.nStreams))
-            self.process.options.numberOfConcurrentLuminosityBlocks=cms.untracked.uint32(int(self._options.nConcurrentLumis))
+            self.process.options.numberOfThreads = int(self._options.nThreads)
+            self.process.options.numberOfStreams = int(self._options.nStreams)
+            self.process.options.numberOfConcurrentLuminosityBlocks = int(self._options.nConcurrentLumis)
+            self.process.options.eventSetup.numberOfConcurrentIOVs = int(self._options.nConcurrentIOVs)
         #repacked version
         if self._options.isRepacked:
             self.pythonCfgCode +="\n"

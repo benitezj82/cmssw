@@ -5,6 +5,8 @@ VersionControl::VersionControl(const edm::ParameterSet& iConfig) : config_(iConf
   verbose_ = iConfig.getUntrackedParameter<int>("verbosity");
   useO2O_ = iConfig.getParameter<bool>("FWConfig");
   era_ = iConfig.getParameter<std::string>("Era");
+  // Run 3 CCLUT
+  useRun3CCLUT_ = iConfig.getParameter<bool>("UseRun3CCLUT");
 
   useDT_ = iConfig.getParameter<bool>("DTEnable");
   useCSC_ = iConfig.getParameter<bool>("CSCEnable");
@@ -60,6 +62,7 @@ VersionControl::VersionControl(const edm::ParameterSet& iConfig) : config_(iConf
   bugGMTPhi_ = spPAParams16.getParameter<bool>("BugGMTPhi");
   promoteMode7_ = spPAParams16.getParameter<bool>("PromoteMode7");
   modeQualVer_ = spPAParams16.getParameter<int>("ModeQualVer");
+  pbFileName_ = spPAParams16.getParameter<std::string>("ProtobufFileName");
 }
 
 VersionControl::~VersionControl() {}

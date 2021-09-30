@@ -38,6 +38,7 @@
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 #include "FWCore/ServiceRegistry/interface/GlobalContext.h"
 #include "FWCore/ServiceRegistry/interface/ModuleCallingContext.h"
+#include "FWCore/ServiceRegistry/interface/ESModuleCallingContext.h"
 #include "FWCore/ServiceRegistry/interface/PathContext.h"
 #include "FWCore/ServiceRegistry/interface/ProcessContext.h"
 #include "FWCore/ServiceRegistry/interface/StreamContext.h"
@@ -83,6 +84,9 @@ namespace edm {
 
       void preSourceRun(RunIndex);
       void postSourceRun(RunIndex);
+
+      void preSourceProcessBlock();
+      void postSourceProcessBlock(std::string const&);
 
       void preOpenFile(std::string const&, bool);
       void postOpenFile(std::string const&, bool);
@@ -147,6 +151,9 @@ namespace edm {
       void preModuleConstruction(ModuleDescription const& md);
       void postModuleConstruction(ModuleDescription const& md);
 
+      void preModuleDestruction(ModuleDescription const& md);
+      void postModuleDestruction(ModuleDescription const& md);
+
       void preModuleBeginJob(ModuleDescription const& md);
       void postModuleBeginJob(ModuleDescription const& md);
 
@@ -203,6 +210,11 @@ namespace edm {
       void preSourceConstruction(ModuleDescription const& md);
       void postSourceConstruction(ModuleDescription const& md);
 
+      void preESModulePrefetching(eventsetup::EventSetupRecordKey const&, ESModuleCallingContext const&);
+      void postESModulePrefetching(eventsetup::EventSetupRecordKey const&, ESModuleCallingContext const&);
+      void preESModule(eventsetup::EventSetupRecordKey const&, ESModuleCallingContext const&);
+      void postESModule(eventsetup::EventSetupRecordKey const&, ESModuleCallingContext const&);
+
     private:
       std::string indention_;
       std::set<std::string> dumpContextForLabels_;
@@ -258,6 +270,9 @@ Tracer::Tracer(ParameterSet const& iPS, ActivityRegistry& iRegistry)
 
   iRegistry.watchPreSourceRun(this, &Tracer::preSourceRun);
   iRegistry.watchPostSourceRun(this, &Tracer::postSourceRun);
+
+  iRegistry.watchPreSourceProcessBlock(this, &Tracer::preSourceProcessBlock);
+  iRegistry.watchPostSourceProcessBlock(this, &Tracer::postSourceProcessBlock);
 
   iRegistry.watchPreOpenFile(this, &Tracer::preOpenFile);
   iRegistry.watchPostOpenFile(this, &Tracer::postOpenFile);
@@ -322,6 +337,9 @@ Tracer::Tracer(ParameterSet const& iPS, ActivityRegistry& iRegistry)
   iRegistry.watchPreModuleConstruction(this, &Tracer::preModuleConstruction);
   iRegistry.watchPostModuleConstruction(this, &Tracer::postModuleConstruction);
 
+  iRegistry.watchPreModuleDestruction(this, &Tracer::preModuleDestruction);
+  iRegistry.watchPostModuleDestruction(this, &Tracer::postModuleDestruction);
+
   iRegistry.watchPreModuleBeginJob(this, &Tracer::preModuleBeginJob);
   iRegistry.watchPostModuleBeginJob(this, &Tracer::postModuleBeginJob);
 
@@ -377,6 +395,11 @@ Tracer::Tracer(ParameterSet const& iPS, ActivityRegistry& iRegistry)
 
   iRegistry.watchPreSourceConstruction(this, &Tracer::preSourceConstruction);
   iRegistry.watchPostSourceConstruction(this, &Tracer::postSourceConstruction);
+
+  iRegistry.watchPreESModulePrefetching(this, &Tracer::preESModulePrefetching);
+  iRegistry.watchPostESModulePrefetching(this, &Tracer::postESModulePrefetching);
+  iRegistry.watchPreESModule(this, &Tracer::preESModule);
+  iRegistry.watchPostESModule(this, &Tracer::postESModule);
 
   iRegistry.preSourceEarlyTerminationSignal_.connect([this](edm::TerminationOrigin iOrigin) {
     LogAbsolute out("Tracer");
@@ -480,6 +503,7 @@ void Tracer::preBeginJob(PathsAndConsumesOfModulesBase const& pathsAndConsumes, 
     std::vector<ModuleDescription const*> const& allModules = pathsAndConsumes.allModules();
     out << "All modules and modules in the current process whose products they consume:\n";
     out << "(This does not include modules from previous processes or the source)\n";
+    out << "(Exclusively considers Event products, not Run, Lumi, or ProcessBlock products)\n";
     for (auto const& module : allModules) {
       out << "  " << module->moduleName() << "/\'" << module->moduleLabel() << "\'";
       unsigned int moduleID = module->id();
@@ -567,6 +591,16 @@ void Tracer::preSourceRun(RunIndex index) {
 
 void Tracer::postSourceRun(RunIndex index) {
   LogAbsolute("Tracer") << TimeStamper(printTimestamps_) << indention_ << indention_ << " finished: source run";
+}
+
+void Tracer::preSourceProcessBlock() {
+  LogAbsolute("Tracer") << TimeStamper(printTimestamps_) << indention_ << indention_
+                        << " starting: source process block";
+}
+
+void Tracer::postSourceProcessBlock(std::string const& processName) {
+  LogAbsolute("Tracer") << TimeStamper(printTimestamps_) << indention_ << indention_
+                        << " finished: source process block " << processName;
 }
 
 void Tracer::preOpenFile(std::string const& lfn, bool b) {
@@ -974,6 +1008,26 @@ void Tracer::postModuleConstruction(ModuleDescription const& desc) {
   LogAbsolute out("Tracer");
   out << TimeStamper(printTimestamps_);
   out << indention_ << indention_ << " finished: constructing module with label '" << desc.moduleLabel()
+      << "' id = " << desc.id();
+  if (dumpContextForLabels_.find(desc.moduleLabel()) != dumpContextForLabels_.end()) {
+    out << "\n" << desc;
+  }
+}
+
+void Tracer::preModuleDestruction(ModuleDescription const& desc) {
+  LogAbsolute out("Tracer");
+  out << TimeStamper(printTimestamps_);
+  out << indention_ << indention_ << " starting: destructing module with label '" << desc.moduleLabel()
+      << "' id = " << desc.id();
+  if (dumpContextForLabels_.find(desc.moduleLabel()) != dumpContextForLabels_.end()) {
+    out << "\n" << desc;
+  }
+}
+
+void Tracer::postModuleDestruction(ModuleDescription const& desc) {
+  LogAbsolute out("Tracer");
+  out << TimeStamper(printTimestamps_);
+  out << indention_ << indention_ << " finished: destructing module with label '" << desc.moduleLabel()
       << "' id = " << desc.id();
   if (dumpContextForLabels_.find(desc.moduleLabel()) != dumpContextForLabels_.end()) {
     out << "\n" << desc;
@@ -1584,6 +1638,50 @@ void Tracer::postSourceConstruction(ModuleDescription const& desc) {
   if (dumpNonModuleContext_) {
     out << "\n" << desc;
   }
+}
+
+void Tracer::preESModulePrefetching(eventsetup::EventSetupRecordKey const& iKey, ESModuleCallingContext const& mcc) {
+  LogAbsolute out("Tracer");
+  out << TimeStamper(printTimestamps_);
+  unsigned int nIndents = mcc.depth() + 4;
+  for (unsigned int i = 0; i < nIndents; ++i) {
+    out << indention_;
+  }
+  out << " starting: prefetching for esmodule: label = '" << mcc.componentDescription()->label_
+      << "' type = " << mcc.componentDescription()->type_ << " in record = " << iKey.name();
+}
+
+void Tracer::postESModulePrefetching(eventsetup::EventSetupRecordKey const& iKey, ESModuleCallingContext const& mcc) {
+  LogAbsolute out("Tracer");
+  out << TimeStamper(printTimestamps_);
+  unsigned int nIndents = mcc.depth() + 4;
+  for (unsigned int i = 0; i < nIndents; ++i) {
+    out << indention_;
+  }
+  out << " finished: prefetching for esmodule: label = '" << mcc.componentDescription()->label_
+      << "' type = " << mcc.componentDescription()->type_ << " in record = " << iKey.name();
+}
+
+void Tracer::preESModule(eventsetup::EventSetupRecordKey const& iKey, ESModuleCallingContext const& mcc) {
+  LogAbsolute out("Tracer");
+  out << TimeStamper(printTimestamps_);
+  unsigned int nIndents = mcc.depth() + 4;
+  for (unsigned int i = 0; i < nIndents; ++i) {
+    out << indention_;
+  }
+  out << " starting: processing esmodule: label = '" << mcc.componentDescription()->label_
+      << "' type = " << mcc.componentDescription()->type_ << " in record = " << iKey.name();
+}
+
+void Tracer::postESModule(eventsetup::EventSetupRecordKey const& iKey, ESModuleCallingContext const& mcc) {
+  LogAbsolute out("Tracer");
+  out << TimeStamper(printTimestamps_);
+  unsigned int nIndents = mcc.depth() + 4;
+  for (unsigned int i = 0; i < nIndents; ++i) {
+    out << indention_;
+  }
+  out << " finished: processing esmodule: label = '" << mcc.componentDescription()->label_
+      << "' type = " << mcc.componentDescription()->type_ << " in record = " << iKey.name();
 }
 
 using edm::service::Tracer;

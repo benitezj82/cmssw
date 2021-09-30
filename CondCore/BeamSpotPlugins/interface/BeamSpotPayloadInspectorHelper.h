@@ -14,12 +14,13 @@
 #include <memory>
 #include <sstream>
 #include "TCanvas.h"
+#include "TStyle.h"
 #include "TH2F.h"
 #include "TLatex.h"
 
 namespace BeamSpotPI {
 
-  std::pair<unsigned int, unsigned int> unpack(cond::Time_t since) {
+  inline std::pair<unsigned int, unsigned int> unpack(cond::Time_t since) {
     auto kLowMask = 0XFFFFFFFF;
     auto run = (since >> 32);
     auto lumi = (since & kLowMask);
@@ -45,7 +46,7 @@ namespace BeamSpotPI {
   };
 
   /************************************************/
-  std::string getStringFromParamEnum(const parameters& parameter) {
+  inline std::string getStringFromParamEnum(const parameters& parameter) {
     switch (parameter) {
       case X:
         return "X";
@@ -219,6 +220,8 @@ namespace BeamSpotPI {
       auto tagname = tag.name;
       auto iov = tag.iovs.front();
 
+      gStyle->SetHistMinimumZero(kTRUE);
+
       m_payload = this->fetchPayload(std::get<1>(iov));
 
       TCanvas canvas("Beam Spot Parameters Summary", "BeamSpot Parameters summary", isOnline_ ? 1500 : 1000, 1000);
@@ -234,7 +237,7 @@ namespace BeamSpotPI {
       canvas.cd(1)->Modified();
       canvas.cd(1)->SetGrid();
 
-      auto h2_BSParameters = std::unique_ptr<TH2F>(new TH2F("Parameters", "", 2, 0.0, 2.0, 8, 0, 8.));
+      auto h2_BSParameters = std::make_unique<TH2F>("Parameters", "", 2, 0.0, 2.0, 8, 0, 8.);
       h2_BSParameters->SetStats(false);
 
       std::function<double(parameters, bool)> cutFunctor = [this](parameters my_param, bool isError) {
@@ -310,9 +313,9 @@ namespace BeamSpotPI {
       auto ltx = TLatex();
       ltx.SetTextFont(62);
       if (isOnline_) {
-        ltx.SetTextSize(0.040);
+        ltx.SetTextSize(0.030);
       } else {
-        ltx.SetTextSize(0.032);
+        ltx.SetTextSize(0.025);
       }
       ltx.SetTextAlign(11);
 

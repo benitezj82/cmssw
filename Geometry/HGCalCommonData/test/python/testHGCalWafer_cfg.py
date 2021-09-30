@@ -13,7 +13,7 @@ process.load("Geometry.HcalCommonData.hcalDDDSimConstants_cff")
 process.load('FWCore.MessageService.MessageLogger_cfi')
 
 if hasattr(process,'MessageLogger'):
-    process.MessageLogger.categories.append('HGCalGeom')
+    process.MessageLogger.HGCalGeom=dict()
 
 process.load("IOMC.RandomEngine.IOMC_cff")
 process.RandomNumberGeneratorService.generator.initialSeed = 456789
@@ -39,16 +39,12 @@ process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32(1)
 )
 
-process.prodEE = cms.EDAnalyzer("HGCalWaferTester",
-                                NameSense     = cms.string("HGCalEESensitive"),
-                                NameDevice    = cms.string("HGCal EE"),
-                                Reco          = cms.bool(False)
-)
+process.load("Geometry.HGCalCommonData.hgcalWaferTesterEE_cfi")
 
-process.prodHEF = process.prodEE.clone(
+process.hgcalWaferTesterHEF = process.hgcalWaferTesterEE.clone(
     NameSense  = "HGCalHESiliconSensitive",
     NameDevice = "HGCal HE Front",
 )
  
  
-process.p1 = cms.Path(process.generator*process.prodEE*process.prodHEF)
+process.p1 = cms.Path(process.generator*process.hgcalWaferTesterEE*process.hgcalWaferTesterHEF)

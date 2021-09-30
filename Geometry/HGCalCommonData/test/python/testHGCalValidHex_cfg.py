@@ -13,7 +13,7 @@ process.load("Geometry.HcalCommonData.hcalDDDSimConstants_cff")
 process.load('FWCore.MessageService.MessageLogger_cfi')
 
 if hasattr(process,'MessageLogger'):
-    process.MessageLogger.categories.append('HGCalGeom')
+    process.MessageLogger.HGCalGeom=dict()
 
 process.load("IOMC.RandomEngine.IOMC_cff")
 process.RandomNumberGeneratorService.generator.initialSeed = 456789
@@ -39,13 +39,6 @@ process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32(1)
 )
 
-process.prodHEF = cms.EDAnalyzer("HGCalValidHexTester",
-                                 NameSense     = cms.string("HGCalHESiliconSensitive"),
-                                 NameDevice    = cms.string("HGCal HE Silicon"),
-                                 Layers        = cms.vint32(21,21,22,22),
-                                 Types         = cms.vint32(2,2,2,2),
-                                 ModuleU       = cms.vint32(3,-3,3,-3),
-                                 ModuleV       = cms.vint32(6,-6,6,-6)
-)
+process.load("Geometry.HGCalCommonData.hgcalValidHexTesterHEF_cfi")
  
-process.p1 = cms.Path(process.generator*process.prodHEF)
+process.p1 = cms.Path(process.generator*process.hgcalValidHexTesterHEF)

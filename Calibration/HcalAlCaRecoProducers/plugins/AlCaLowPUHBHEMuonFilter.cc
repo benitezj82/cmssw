@@ -12,7 +12,6 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/Run.h"
-#include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/Framework/interface/LuminosityBlock.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
@@ -135,8 +134,7 @@ bool AlCaLowPUHBHEMuonFilter::filter(edm::Event& iEvent, edm::EventSetup const& 
 #endif
   //Step1: Find if the event passes one of the chosen triggers
   /////////////////////////////TriggerResults
-  edm::Handle<edm::TriggerResults> triggerResults;
-  iEvent.getByToken(tok_trigRes_, triggerResults);
+  auto const& triggerResults = iEvent.getHandle(tok_trigRes_);
   if (triggerResults.isValid()) {
     bool ok(false);
     std::vector<std::string> modules;
@@ -144,10 +142,14 @@ bool AlCaLowPUHBHEMuonFilter::filter(edm::Event& iEvent, edm::EventSetup const& 
     const std::vector<std::string>& triggerNames_ = triggerNames.triggerNames();
     for (unsigned int iHLT = 0; iHLT < triggerResults->size(); iHLT++) {
       int hlt = triggerResults->accept(iHLT);
-      //std::cout << "trigger names: "<<iHLT<<" "<<triggerNames_[iHLT]<<std::endl;
+#ifdef EDM_ML_DEBUG
+      edm::LogVerbatim("LowPUHBHEMuonX") << "trigger names: " << iHLT << " " << triggerNames_[iHLT];
+#endif
       for (auto const& trigName : trigNames_) {
         if (triggerNames_[iHLT].find(trigName) != std::string::npos) {
-          //std::cout << "find trigger names: "<<trigName <<std::endl;
+#ifdef EDM_ML_DEBUG
+          edm::LogVerbatim("LowPUHBHEMuonX") << "find trigger names: " << trigName;
+#endif
           if (hlt > 0)
             ok = true;
 #ifdef EDM_ML_DEBUG
@@ -163,20 +165,20 @@ bool AlCaLowPUHBHEMuonFilter::filter(edm::Event& iEvent, edm::EventSetup const& 
       const CaloGeometry* geo = &(iSetup.getData(tok_geom_));
 
       // Relevant blocks from iEvent
-      edm::Handle<reco::MuonCollection> _Muon;
-      iEvent.getByToken(tok_Muon_, _Muon);
+      auto muonHandle = iEvent.getHandle(tok_Muon_);
 #ifdef EDM_ML_DEBUG
-      edm::LogVerbatim("LowPUHBHEMuon") << "AlCaLowPUHBHEMuonFilter::Muon Handle " << _Muon.isValid();
+      edm::LogVerbatim("LowPUHBHEMuon") << "AlCaLowPUHBHEMuonFilter::Muon Handle " << muonHandle.isValid();
 #endif
-      if (_Muon.isValid()) {
-        for (reco::MuonCollection::const_iterator RecMuon = _Muon->begin(); RecMuon != _Muon->end(); ++RecMuon) {
+      if (muonHandle.isValid()) {
+        for (reco::MuonCollection::const_iterator RecMuon = muonHandle->begin(); RecMuon != muonHandle->end();
+             ++RecMuon) {
 #ifdef EDM_ML_DEBUG
           edm::LogVerbatim("LowPUHBHEMuon")
               << "AlCaLowPUHBHEMuonFilter::Muon:Track " << RecMuon->track().isNonnull() << " innerTrack "
               << RecMuon->innerTrack().isNonnull() << " outerTrack " << RecMuon->outerTrack().isNonnull()
               << " globalTrack " << RecMuon->globalTrack().isNonnull();
 #endif
-          if ((RecMuon->pt() < minimumMuonpT_) || fabs(RecMuon->eta() < minimumMuoneta_))
+          if ((RecMuon->pt() < minimumMuonpT_) || std::abs(RecMuon->eta()) < minimumMuoneta_)
             continue;
           if ((RecMuon->track().isNonnull()) && (RecMuon->innerTrack().isNonnull()) &&
               (RecMuon->outerTrack().isNonnull()) && (RecMuon->globalTrack().isNonnull())) {

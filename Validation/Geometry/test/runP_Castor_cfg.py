@@ -6,8 +6,8 @@ process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
 
 #Geometry
 #
-process.load("Geometry.CMSCommonData.cmsAllGeometryXML_cfi")
-process.load("Geometry.TrackerNumberingBuilder.trackerNumberingGeometry_cfi")
+process.load("Configuration.Geometry.GeometrySimAll_cff")
+process.load("Configuration.Geometry.GeometryReco_cff")
 
 #Magnetic Field
 #
@@ -21,15 +21,17 @@ process.load("IOMC.RandomEngine.IOMC_cff")
 process.RandomNumberGeneratorService.g4SimHits.initialSeed = 9876
 
 process.MessageLogger = cms.Service("MessageLogger",
-    destinations = cms.untracked.vstring('cout'),
-    categories = cms.untracked.vstring('MaterialBudget'),
+    cerr = cms.untracked.PSet(
+        enable = cms.untracked.bool(False)
+    ),
     cout = cms.untracked.PSet(
+        MaterialBudget = cms.untracked.PSet(
+            limit = cms.untracked.int32(0)
+        ),
         default = cms.untracked.PSet(
             limit = cms.untracked.int32(0)
         ),
-        MaterialBudget = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-        )
+        enable = cms.untracked.bool(True)
     )
 )
 

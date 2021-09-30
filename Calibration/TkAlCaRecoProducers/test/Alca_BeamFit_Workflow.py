@@ -3,8 +3,8 @@ import FWCore.ParameterSet.Config as cms
 process = cms.Process("alcaBeamSpotWorkflow")
 # initialize MessageLogger
 process.load("FWCore.MessageLogger.MessageLogger_cfi")
-process.MessageLogger.categories = ["AlcaBeamSpotProducer"]
-process.MessageLogger.cerr = cms.untracked.PSet(placeholder = cms.untracked.bool(True))
+
+process.MessageLogger.cerr = cms.untracked.PSet(enable = cms.untracked.bool(False))
 process.MessageLogger.cout = cms.untracked.PSet(
     threshold = cms.untracked.string('INFO'),
     default = cms.untracked.PSet(
@@ -15,7 +15,7 @@ process.MessageLogger.cout = cms.untracked.PSet(
 	limit = cms.untracked.int32(0)
     )
 )
-#process.MessageLogger.statistics.append('cout')
+#process.MessageLogger.cout.enableStatistics = cms.untracked.bool(True)
 
 process.load("Calibration.TkAlCaRecoProducers.AlcaBeamSpotProducer_cff")
 
@@ -52,7 +52,7 @@ process.hltLevel1GTSeed.L1SeedsLogicalExpression = cms.string('0 AND ( 40 OR 41 
 process.load("Configuration.StandardSequences.MagneticField_cff")
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 process.GlobalTag.globaltag = 'GR_R_38X_V9::All' #'GR_R_35X_V8::All'
-process.load("Configuration.StandardSequences.Geometry_cff")
+process.load("Configuration.StandardSequences.GeometryDB_cff")
 
 
 ## reco PV

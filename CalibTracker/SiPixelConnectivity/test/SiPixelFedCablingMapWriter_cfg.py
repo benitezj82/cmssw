@@ -3,7 +3,6 @@ import FWCore.ParameterSet.Config as cms
 process = cms.Process("MapWriter")
 process.load("CondCore.DBCommon.CondDBCommon_cfi")
 
-#process.load("Configuration.StandardSequences.Geometry_cff")
 process.load("Configuration.StandardSequences.GeometryDB_cff")
 
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
@@ -34,9 +33,15 @@ process.PoolDBOutputService = cms.Service("PoolDBOutputService",
 #process.CondDBCommon.connect = cms.string("sqlite_file:cabling.db")
 
 process.MessageLogger = cms.Service("MessageLogger",
+    cerr = cms.untracked.PSet(
+        enable = cms.untracked.bool(False)
+    ),
     debugModules = cms.untracked.vstring('*'),
-    destinations = cms.untracked.vstring('out'),
-    out = cms.untracked.PSet( threshold = cms.untracked.string('DEBUG'))
+    files = cms.untracked.PSet(
+        out = cms.untracked.PSet(
+            threshold = cms.untracked.string('DEBUG')
+        )
+    )
 )
 
 process.load("CalibTracker.SiPixelConnectivity.PixelToLNKAssociateFromAsciiESProducer_cfi")

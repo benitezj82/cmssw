@@ -11,15 +11,10 @@
 #include "SimG4Core/Notification/interface/G4TrackToParticleID.h"
 #include "DataFormats/HcalDetId/interface/HcalDetId.h"
 
-#include "Geometry/Records/interface/HcalSimNumberingRecord.h"
 #include "CondFormats/GeometryObjects/interface/HcalSimulationParameters.h"
-#include "FWCore/Framework/interface/ESTransientHandle.h"
-#include "FWCore/Framework/interface/ESHandle.h"
-#include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
-#include "CondFormats/DataRecord/interface/HBHEDarkeningRecord.h"
 
 #include "G4LogicalVolumeStore.hh"
 #include "G4LogicalVolume.hh"
@@ -29,6 +24,8 @@
 #include "G4SystemOfUnits.hh"
 #include "G4PhysicalConstants.hh"
 #include "Randomize.hh"
+
+#include "DD4hep/Filter.h"
 
 #include <iostream>
 #include <fstream>
@@ -43,21 +40,24 @@
 #endif
 
 HCalSD::HCalSD(const std::string& name,
-               const edm::EventSetup& es,
+               const HcalDDDSimConstants* hcns,
+               const HcalDDDRecConstants* hcnr,
+               const HcalSimulationConstants* hscs,
+               const HBHEDarkening* hbd,
+               const HBHEDarkening* hed,
                const SensitiveDetectorCatalog& clg,
                edm::ParameterSet const& p,
                const SimTrackManager* manager)
     : CaloSD(name,
-             es,
              clg,
              p,
              manager,
              (float)(p.getParameter<edm::ParameterSet>("HCalSD").getParameter<double>("TimeSliceUnit")),
              p.getParameter<edm::ParameterSet>("HCalSD").getParameter<bool>("IgnoreTrackID")),
-      hcalConstants_(nullptr),
-      hcalSimConstants_(nullptr),
-      m_HBDarkening(nullptr),
-      m_HEDarkening(nullptr),
+      hcalConstants_(hcns),
+      hcalSimConstants_(hscs),
+      m_HBDarkening(hbd),
+      m_HEDarkening(hed),
       isHF(false),
       weight_(1.0),
       depth_(1) {
@@ -76,6 +76,7 @@ HCalSD::HCalSD(const std::string& name,
   //static SimpleConfigurable<double> bk3(1.75,  "HCalSD:BirkC3");
   // Values from NIM 80 (1970) 239-244: as implemented in Geant3
 
+  bool dd4hep = p.getParameter<bool>("g4GeometryDD4hepSource");
   edm::ParameterSet m_HC = p.getParameter<edm::ParameterSet>("HCalSD");
   useBirk = m_HC.getParameter<bool>("UseBirkLaw");
   double bunit = (CLHEP::g / (CLHEP::MeV * CLHEP::cm2));
@@ -133,28 +134,11 @@ HCalSD::HCalSD(const std::string& name,
                               << "Application of Fiducial Cut " << applyFidCut
                               << "Flag for test number|neutral density filter " << testNumber << " " << neutralDensity;
 
-  // Get pointers to HcalDDDConstant and HcalSimulationParameters
-  edm::ESHandle<HcalDDDSimConstants> hdc;
-  es.get<HcalSimNumberingRecord>().get(hdc);
-  if (hdc.isValid()) {
-    hcalConstants_ = hdc.product();
-  } else {
-    edm::LogError("HcalSim") << "HCalSD : Cannot find HcalDDDSimConstant";
-    throw cms::Exception("Unknown", "HCalSD") << "Cannot find HcalDDDSimConstant\n";
-  }
   if (forTBHC) {
     useHF = false;
     matNames.emplace_back("Scintillator");
   } else {
-    edm::ESHandle<HcalSimulationConstants> hdsc;
-    es.get<HcalSimNumberingRecord>().get(hdsc);
-    if (hdsc.isValid()) {
-      hcalSimConstants_ = hdsc.product();
-      matNames = hcalSimConstants_->hcalsimpar()->hcalMaterialNames_;
-    } else {
-      edm::LogError("HcalSim") << "HCalSD : Cannot find HcalDDDSimulationConstant";
-      throw cms::Exception("Unknown", "HCalSD") << "Cannot find HcalDDDSimulationConstant\n";
-    }
+    matNames = hcalSimConstants_->hcalsimpar()->hcalMaterialNames_;
   }
 
   HcalNumberingScheme* scheme;
@@ -190,19 +174,20 @@ HCalSD::HCalSD(const std::string& name,
     std::stringstream ss0;
     ss0 << "HCalSD: Names to be tested for Volume = HF has " << hfNames.size() << " elements";
 #endif
+    int addlevel = dd4hep ? 1 : 0;
     for (unsigned int i = 0; i < hfNames.size(); ++i) {
-      G4String namv = static_cast<G4String>(hfNames[i]);
+      G4String namv(static_cast<std::string>(dd4hep::dd::noNamespace(hfNames[i])));
       lv = nullptr;
       for (auto lvol : *lvs) {
-        if (lvol->GetName() == namv) {
+        if (dd4hep::dd::noNamespace(lvol->GetName()) == namv) {
           lv = lvol;
           break;
         }
       }
       hfLV.emplace_back(lv);
-      hfLevels.emplace_back(temp[i]);
+      hfLevels.emplace_back(temp[i] + addlevel);
 #ifdef EDM_ML_DEBUG
-      ss0 << "\n        HF[" << i << "] = " << namv << " LV " << lv << " at level " << temp[i];
+      ss0 << "\n        HF[" << i << "] = " << namv << " LV " << lv << " at level " << (temp[i] + addlevel);
 #endif
     }
 #ifdef EDM_ML_DEBUG
@@ -225,7 +210,7 @@ HCalSD::HCalSD(const std::string& name,
   for (auto const& namx : matNames) {
     const G4Material* mat = nullptr;
     for (matite = matTab->begin(); matite != matTab->end(); ++matite) {
-      if ((*matite)->GetName() == static_cast<G4String>(namx)) {
+      if (static_cast<std::string>(dd4hep::dd::noNamespace((*matite)->GetName())) == namx) {
         mat = (*matite);
         break;
       }
@@ -260,18 +245,7 @@ HCalSD::HCalSD(const std::string& name,
 
   //Test Hcal Numbering Scheme
   if (testNS_)
-    m_HcalTestNS = std::make_unique<HcalTestNS>(&es);
-
-  if (agingFlagHB) {
-    edm::ESHandle<HBHEDarkening> hdark;
-    es.get<HBHEDarkeningRecord>().get("HB", hdark);
-    m_HBDarkening = &*hdark;
-  }
-  if (agingFlagHE) {
-    edm::ESHandle<HBHEDarkening> hdark;
-    es.get<HBHEDarkeningRecord>().get("HE", hdark);
-    m_HEDarkening = &*hdark;
-  }
+    m_HcalTestNS = std::make_unique<HcalTestNS>(hcnr);
 
   for (int i = 0; i < 9; ++i) {
     hit_[i] = time_[i] = dist_[i] = nullptr;
@@ -327,7 +301,7 @@ HCalSD::HCalSD(const std::string& name,
   if (dumpGeom) {
     const HcalNumberingFromDDD* hcn = new HcalNumberingFromDDD(hcalConstants_);
     const auto& lvNames = clg.logicalNames(name);
-    HcalDumpGeometry geom(lvNames, hcn, testNumber);
+    HcalDumpGeometry geom(lvNames, hcn, testNumber, false);
     geom.update();
     delete hcn;
   }
@@ -341,10 +315,10 @@ void HCalSD::fillLogVolumeVector(const std::string& value,
   std::stringstream ss3;
   ss3 << "HCalSD: " << lvnames.size() << " names to be tested for Volume <" << value << ">:";
   for (unsigned int i = 0; i < lvnames.size(); ++i) {
-    G4String namv = static_cast<G4String>(lvnames[i]);
+    G4String namv(static_cast<std::string>(dd4hep::dd::noNamespace(lvnames[i])));
     lv = nullptr;
     for (auto lvol : *lvs) {
-      if (lvol->GetName() == namv) {
+      if (dd4hep::dd::noNamespace(lvol->GetName()) == namv) {
         lv = lvol;
         break;
       }
@@ -364,6 +338,13 @@ bool HCalSD::getFromLibrary(const G4Step* aStep) {
   weight_ = 1.0;
   bool kill(false);
   isHF = isItHF(aStep);
+#ifdef EDM_ML_DEBUG
+  edm::LogVerbatim("HcalSim") << "GetFromLibrary: isHF " << isHF << " darken " << (m_HFDarkening != nullptr)
+                              << " useParam " << useParam << " useShowerLibrary " << useShowerLibrary << " Muon? "
+                              << G4TrackToParticleID::isMuon(track) << " electron? "
+                              << G4TrackToParticleID::isGammaElectronPositron(track) << " Stable Hadron? "
+                              << G4TrackToParticleID::isStableHadronIon(track);
+#endif
   if (isHF) {
     if (m_HFDarkening) {
       G4ThreeVector hitPoint = aStep->GetPreStepPoint()->GetPosition();
@@ -496,7 +477,7 @@ double HCalSD::getEnergyDeposit(const G4Step* aStep) {
     weight_ = layerWeight(det + 2, hitPoint, depth_, lay);
   }
 
-  if (m_HBDarkening && det == 1) {
+  if (agingFlagHB && m_HBDarkening && det == 1) {
     double dweight = m_HBDarkening->degradation(deliveredLumi, ieta, lay);
     weight_ *= dweight;
 #ifdef EDM_ML_DEBUG
@@ -505,7 +486,7 @@ double HCalSD::getEnergyDeposit(const G4Step* aStep) {
 #endif
   }
 
-  if (m_HEDarkening && det == 2) {
+  if (agingFlagHE && m_HEDarkening && det == 2) {
     double dweight = m_HEDarkening->degradation(deliveredLumi, ieta, lay);
     weight_ *= dweight;
 #ifdef EDM_ML_DEBUG
@@ -529,11 +510,13 @@ double HCalSD::getEnergyDeposit(const G4Step* aStep) {
       }
     }
   }
+  double wt0(1.0);
   if (useBirk) {
     const G4Material* mat = aStep->GetPreStepPoint()->GetMaterial();
     if (isItScintillator(mat))
-      weight_ *= getAttenuation(aStep, birk1, birk2, birk3);
+      wt0 = getAttenuation(aStep, birk1, birk2, birk3);
   }
+  weight_ *= wt0;
   double wt1 = getResponseWt(theTrack);
   double wt2 = theTrack->GetWeight();
   double edep = weight_ * wt1 * destep;
@@ -542,7 +525,7 @@ double HCalSD::getEnergyDeposit(const G4Step* aStep) {
   }
 #ifdef EDM_ML_DEBUG
   edm::LogVerbatim("HcalSim") << "HCalSD: edep= " << edep << " Det: " << det + 2 << " depth= " << depth_
-                              << " weight= " << weight_ << " wt1= " << wt1 << " wt2= " << wt2;
+                              << " weight= " << weight_ << " wt0= " << wt0 << " wt1= " << wt1 << " wt2= " << wt2;
 #endif
   return edep;
 }
@@ -983,17 +966,19 @@ double HCalSD::layerWeight(int det, const G4ThreeVector& pos, int depth, int lay
 
 void HCalSD::plotProfile(const G4Step* aStep, const G4ThreeVector& global, double edep, double time, int id) {
   const G4VTouchable* touch = aStep->GetPreStepPoint()->GetTouchable();
-  static const G4String modName[8] = {"HEModule", "HVQF", "HBModule", "MBAT", "MBBT", "MBBTC", "MBBT_R1P", "MBBT_R1M"};
+  static const unsigned int names = 10;
+  static const G4String modName[names] = {
+      "HEModule", "HVQF", "HBModule", "MBAT", "MBBT", "MBBTC", "MBBT_R1P", "MBBT_R1M", "MBBT_R1PX", "MBBT_R1MX"};
   G4ThreeVector local;
   bool found = false;
   double depth = -2000;
   int idx = 4;
   for (int n = 0; n < touch->GetHistoryDepth(); ++n) {
-    G4String name = touch->GetVolume(n)->GetName();
+    G4String name(static_cast<std::string>(dd4hep::dd::noNamespace(touch->GetVolume(n)->GetName())));
 #ifdef EDM_ML_DEBUG
     edm::LogVerbatim("HcalSim") << "plotProfile Depth " << n << " Name " << name;
 #endif
-    for (unsigned int ii = 0; ii < 8; ++ii) {
+    for (unsigned int ii = 0; ii < names; ++ii) {
       if (name == modName[ii]) {
         found = true;
         int dn = touch->GetHistoryDepth() - n;

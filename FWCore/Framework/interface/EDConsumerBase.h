@@ -27,6 +27,8 @@
 
 // user include files
 #include "DataFormats/Provenance/interface/BranchType.h"
+#include "DataFormats/Provenance/interface/ProvenanceFwd.h"
+#include "FWCore/Common/interface/FWCoreCommonFwd.h"
 #include "FWCore/Framework/interface/ProductResolverIndexAndSkipBit.h"
 #include "FWCore/Framework/interface/EventSetupRecordKey.h"
 #include "FWCore/Framework/interface/HCTypeTag.h"
@@ -50,9 +52,8 @@
 // forward declarations
 
 namespace edm {
-  class ModuleDescription;
+  class ModuleProcessName;
   class ProductResolverIndexHelper;
-  class ProductRegistry;
   class ConsumesCollector;
   template <Transition Tr>
   class EDConsumerBaseESAdaptor;
@@ -69,7 +70,7 @@ namespace edm {
 
   class EDConsumerBase {
   public:
-    EDConsumerBase() : m_tokenLabels{'\0'}, frozen_(false), containsCurrentProcessAlias_(false) {}
+    EDConsumerBase();
     virtual ~EDConsumerBase() noexcept(false);
 
     // disallow copying
@@ -101,11 +102,16 @@ namespace edm {
     // ---------- member functions ---------------------------
     void updateLookup(BranchType iBranchType, ProductResolverIndexHelper const&, bool iPrefetchMayGet);
     void updateLookup(eventsetup::ESRecordsToProxyIndices const&);
+    void selectInputProcessBlocks(ProductRegistry const& productRegistry,
+                                  ProcessBlockHelperBase const& processBlockHelperBase) {
+      doSelectInputProcessBlocks(productRegistry, processBlockHelperBase);
+    }
 
     typedef ProductLabels Labels;
     void labelsForToken(EDGetToken iToken, Labels& oLabels) const;
 
-    void modulesWhoseProductsAreConsumed(std::vector<ModuleDescription const*>& modules,
+    void modulesWhoseProductsAreConsumed(std::array<std::vector<ModuleDescription const*>*, NumBranchTypes>& modulesAll,
+                                         std::vector<ModuleProcessName>& modulesInPreviousProcesses,
                                          ProductRegistry const& preg,
                                          std::map<std::string, ModuleDescription const*> const& labelsToDesc,
                                          std::string const& processName) const;
@@ -245,9 +251,15 @@ namespace edm {
     void throwBranchMismatch(BranchType, EDGetToken) const;
     void throwBadToken(edm::TypeID const& iType, EDGetToken iToken) const;
     void throwConsumesCallAfterFrozen(TypeToGet const&, InputTag const&) const;
+    void throwESConsumesCallAfterFrozen(eventsetup::EventSetupRecordKey const&,
+                                        eventsetup::heterocontainer::HCTypeTag const&,
+                                        edm::ESInputTag const&) const;
     void throwESConsumesInProcessBlock() const;
 
     edm::InputTag const& checkIfEmpty(edm::InputTag const& tag);
+
+    virtual void doSelectInputProcessBlocks(ProductRegistry const&, ProcessBlockHelperBase const&);
+
     // ---------- member data --------------------------------
 
     struct TokenLookupInfo {

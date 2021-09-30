@@ -62,6 +62,9 @@ private:
 
   edm::EDGetTokenT<CrossingFrame<PSimHit> > etlSimHitsToken_;
 
+  edm::ESGetToken<MTDGeometry, MTDDigiGeometryRecord> mtdgeoToken_;
+  edm::ESGetToken<MTDTopology, MTDTopologyRcd> mtdtopoToken_;
+
   // --- histograms declaration
 
   MonitorElement* meNhits_[4];
@@ -95,6 +98,8 @@ EtlSimHitsValidation::EtlSimHitsValidation(const edm::ParameterSet& iConfig)
       hitMinEnergy1Dis_(iConfig.getParameter<double>("hitMinimumEnergy1Dis")),
       hitMinEnergy2Dis_(iConfig.getParameter<double>("hitMinimumEnergy2Dis")) {
   etlSimHitsToken_ = consumes<CrossingFrame<PSimHit> >(iConfig.getParameter<edm::InputTag>("inputTag"));
+  mtdgeoToken_ = esConsumes<MTDGeometry, MTDDigiGeometryRecord>();
+  mtdtopoToken_ = esConsumes<MTDTopology, MTDTopologyRcd>();
 }
 
 EtlSimHitsValidation::~EtlSimHitsValidation() {}
@@ -104,12 +109,10 @@ void EtlSimHitsValidation::analyze(const edm::Event& iEvent, const edm::EventSet
   using namespace edm;
   using namespace geant_units::operators;
 
-  edm::ESHandle<MTDGeometry> geometryHandle;
-  iSetup.get<MTDDigiGeometryRecord>().get(geometryHandle);
+  auto geometryHandle = iSetup.getTransientHandle(mtdgeoToken_);
   const MTDGeometry* geom = geometryHandle.product();
 
-  edm::ESHandle<MTDTopology> topologyHandle;
-  iSetup.get<MTDTopologyRcd>().get(topologyHandle);
+  auto topologyHandle = iSetup.getTransientHandle(mtdtopoToken_);
   const MTDTopology* topology = topologyHandle.product();
 
   bool topo1Dis = false;
@@ -194,6 +197,7 @@ void EtlSimHitsValidation::analyze(const edm::Event& iEvent, const edm::EventSet
     }
 
     for (auto const& hit : m_etlHits[idet]) {
+      double weight = 1.0;
       if (topo1Dis) {
         if ((hit.second).energy < hitMinEnergy1Dis_)
           continue;
@@ -214,13 +218,18 @@ void EtlSimHitsValidation::analyze(const edm::Event& iEvent, const edm::EventSet
           convertMmToCm((hit.second).x), convertMmToCm((hit.second).y), convertMmToCm((hit.second).z));
       const auto& global_point = thedet->toGlobal(local_point);
 
+      if (topo2Dis && (detId.discSide() == 1)) {
+        weight = -weight;
+      }
+
       // --- Fill the histograms
+
       meHitEnergy_[idet]->Fill((hit.second).energy);
       meHitTime_[idet]->Fill((hit.second).time);
       meHitXlocal_[idet]->Fill((hit.second).x);
       meHitYlocal_[idet]->Fill((hit.second).y);
       meHitZlocal_[idet]->Fill((hit.second).z);
-      meOccupancy_[idet]->Fill(global_point.x(), global_point.y());
+      meOccupancy_[idet]->Fill(global_point.x(), global_point.y(), weight);
       meHitX_[idet]->Fill(global_point.x());
       meHitY_[idet]->Fill(global_point.y());
       meHitZ_[idet]->Fill(global_point.z());
@@ -273,7 +282,6 @@ void EtlSimHitsValidation::bookHistograms(DQMStore::IBooker& ibook,
                                    10.);
   meNtrkPerCell_[3] =
       ibook.book1D("EtlNtrkPerCellZposD2", "Number of tracks per ETL sensor (+Z, Second disk);N_{trk}", 10, 0., 10.);
-
   meHitEnergy_[0] = ibook.book1D(
       "EtlHitEnergyZnegD1", "ETL SIM hits energy (-Z, Single(topo1D)/First(topo2D) disk);E_{SIM} [MeV]", 100, 0., 3.);
   meHitEnergy_[1] =
@@ -381,11 +389,11 @@ void EtlSimHitsValidation::bookHistograms(DQMStore::IBooker& ibook,
       "EtlHitYZposD1", "ETL SIM hits Y (+Z, Single(topo1D)/First(topo2D) disk);Y_{SIM} [cm]", 100, -130., 130.);
   meHitY_[3] = ibook.book1D("EtlHitYZposD2", "ETL SIM hits Y (+Z, Second disk);Y_{SIM} [cm]", 100, -130., 130.);
   meHitZ_[0] = ibook.book1D(
-      "EtlHitZZnegD1", "ETL SIM hits Z (-Z, Single(topo1D)/First(topo2D) disk);Z_{SIM} [cm]", 100, -304.2, -303.4);
-  meHitZ_[1] = ibook.book1D("EtlHitZZnegD2", "ETL SIM hits Z (-Z, Second disk);Z_{SIM} [cm]", 100, -304.2, -303.4);
+      "EtlHitZZnegD1", "ETL SIM hits Z (-Z, Single(topo1D)/First(topo2D) disk);Z_{SIM} [cm]", 100, -302., -298.);
+  meHitZ_[1] = ibook.book1D("EtlHitZZnegD2", "ETL SIM hits Z (-Z, Second disk);Z_{SIM} [cm]", 100, -304., -300.);
   meHitZ_[2] = ibook.book1D(
-      "EtlHitZZposD1", "ETL SIM hits Z (+Z, Single(topo1D)/First(topo2D) disk);Z_{SIM} [cm]", 100, 303.4, 304.2);
-  meHitZ_[3] = ibook.book1D("EtlHitZZposD2", "ETL SIM hits Z (+Z, Second disk);Z_{SIM} [cm]", 100, 303.4, 304.2);
+      "EtlHitZZposD1", "ETL SIM hits Z (+Z, Single(topo1D)/First(topo2D) disk);Z_{SIM} [cm]", 100, 298., 302.);
+  meHitZ_[3] = ibook.book1D("EtlHitZZposD2", "ETL SIM hits Z (+Z, Second disk);Z_{SIM} [cm]", 100, 300., 304.);
 
   meHitPhi_[0] = ibook.book1D(
       "EtlHitPhiZnegD1", "ETL SIM hits #phi (-Z, Single(topo1D)/First(topo2D) disk);#phi_{SIM} [rad]", 100, -3.15, 3.15);

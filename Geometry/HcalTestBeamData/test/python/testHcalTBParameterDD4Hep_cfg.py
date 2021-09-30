@@ -1,6 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 
-process = cms.Process("PROD")
+from Configuration.ProcessModifiers.dd4hep_cff import dd4hep
+process = cms.Process("PROD", dd4hep)
 
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load("SimGeneral.HepPDTESSource.pdt_cfi")
@@ -25,12 +26,12 @@ process.DDCompactViewESProducer = cms.ESProducer("DDCompactViewESProducer",
 
 process.MessageLogger.cerr.FwkReport.reportEvery = 5
 if hasattr(process,'MessageLogger'):
-    process.MessageLogger.categories.append('HCalGeom')
-    process.MessageLogger.categories.append('EcalGeom')
-    process.MessageLogger.categories.append('HcalSim')
-    process.MessageLogger.categories.append('HcalTBSim')
-    process.MessageLogger.categories.append('EcalSim')
-    process.MessageLogger.categories.append('CaloSim')
+    process.MessageLogger.HCalGeom=dict()
+    process.MessageLogger.EcalGeom=dict()
+    process.MessageLogger.HcalSim=dict()
+    process.MessageLogger.HcalTBSim=dict()
+    process.MessageLogger.EcalSim=dict()
+    process.MessageLogger.CaloSim=dict()
 
 process.load("IOMC.RandomEngine.IOMC_cff")
 process.RandomNumberGeneratorService.generator.initialSeed = 456789
@@ -92,10 +93,6 @@ process.testH2HC = cms.EDAnalyzer("HcalTBParameterTester",
                                   Name = cms.untracked.string("HcalHits"),
                                   Mode = cms.untracked.int32(0)
 )
-
-process.hcalTB02XtalParameters.fromDD4Hep = True
-process.hcalTB02HcalParameters.fromDD4Hep = True
-process.hcalTB06BeamParameters.fromDD4Hep = True
 
 process.p1 = cms.Path(process.generator*process.VtxSmeared*process.generatorSmeared*process.testH4)
 #process.p1 = cms.Path(process.generator*process.VtxSmeared*process.generatorSmeared*process.testH2EE*process.testH2HC)

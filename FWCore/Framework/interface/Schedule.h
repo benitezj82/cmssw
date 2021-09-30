@@ -58,17 +58,18 @@
 */
 
 #include "DataFormats/Provenance/interface/ModuleDescription.h"
+#include "FWCore/Common/interface/FWCoreCommonFwd.h"
 #include "FWCore/Framework/interface/ExceptionActions.h"
 #include "FWCore/Framework/interface/ExceptionHelpers.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/OccurrenceTraits.h"
 #include "FWCore/Framework/interface/WorkerManager.h"
-#include "FWCore/Framework/src/Worker.h"
-#include "FWCore/Framework/src/WorkerRegistry.h"
-#include "FWCore/Framework/src/GlobalSchedule.h"
-#include "FWCore/Framework/src/StreamSchedule.h"
-#include "FWCore/Framework/src/SystemTimeKeeper.h"
-#include "FWCore/Framework/src/PreallocationConfiguration.h"
+#include "FWCore/Framework/interface/maker/Worker.h"
+#include "FWCore/Framework/interface/WorkerRegistry.h"
+#include "FWCore/Framework/interface/GlobalSchedule.h"
+#include "FWCore/Framework/interface/StreamSchedule.h"
+#include "FWCore/Framework/interface/SystemTimeKeeper.h"
+#include "FWCore/Framework/interface/PreallocationConfiguration.h"
 #include "FWCore/MessageLogger/interface/ExceptionMessages.h"
 #include "FWCore/MessageLogger/interface/JobReport.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -130,6 +131,7 @@ namespace edm {
              service::TriggerNamesService const& tns,
              ProductRegistry& pregistry,
              BranchIDListHelper& branchIDListHelper,
+             ProcessBlockHelperBase&,
              ThinnedAssociationsHelper& thinnedAssociationsHelper,
              SubProcessParentageHelper const* subProcessParentageHelper,
              ExceptionToActionTable const& actions,
@@ -157,7 +159,7 @@ namespace edm {
                                ServiceToken const& token,
                                bool cleaningUpAfterException = false);
 
-    void beginJob(ProductRegistry const&, eventsetup::ESRecordsToProxyIndices const&);
+    void beginJob(ProductRegistry const&, eventsetup::ESRecordsToProxyIndices const&, ProcessBlockHelperBase const&);
     void endJob(ExceptionCollector& collector);
 
     void beginStream(unsigned int);
@@ -230,10 +232,13 @@ namespace edm {
                                      std::vector<ModuleDescription const*>& descriptions,
                                      unsigned int hint) const;
 
-    void fillModuleAndConsumesInfo(std::vector<ModuleDescription const*>& allModuleDescriptions,
-                                   std::vector<std::pair<unsigned int, unsigned int>>& moduleIDToIndex,
-                                   std::vector<std::vector<ModuleDescription const*>>& modulesWhoseProductsAreConsumedBy,
-                                   ProductRegistry const& preg) const;
+    void fillModuleAndConsumesInfo(
+        std::vector<ModuleDescription const*>& allModuleDescriptions,
+        std::vector<std::pair<unsigned int, unsigned int>>& moduleIDToIndex,
+        std::array<std::vector<std::vector<ModuleDescription const*>>, NumBranchTypes>&
+            modulesWhoseProductsAreConsumedBy,
+        std::vector<std::vector<ModuleProcessName>>& modulesInPreviousProcessesWhoseProductsAreConsumedBy,
+        ProductRegistry const& preg) const;
 
     /// Return the number of events this Schedule has tried to process
     /// (inclues both successes and failures, including failures due
@@ -276,6 +281,9 @@ namespace edm {
                       ParameterSet const& iPSet,
                       const ProductRegistry& iRegistry,
                       eventsetup::ESRecordsToProxyIndices const&);
+
+    /// Deletes module with label iLabel
+    void deleteModule(std::string const& iLabel, ActivityRegistry* areg);
 
     /// returns the collection of pointers to workers
     AllWorkers const& allWorkers() const;

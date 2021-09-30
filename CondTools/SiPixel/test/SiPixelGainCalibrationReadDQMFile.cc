@@ -142,8 +142,7 @@ void SiPixelGainCalibrationReadDQMFile::fillDatabase(const edm::EventSetup &iSet
             << std::endl;
   uint32_t detid = 0;
   therootfile->cd();
-  edm::ESHandle<TrackerGeometry> pDD;
-  iSetup.get<TrackerDigiGeometryRecord>().get(pDD);
+  const TrackerGeometry *pDD = &iSetup.getData(pddToken_);
   edm::LogInfo("SiPixelCondObjOfflineBuilder") << " There are " << pDD->dets().size() << " detectors" << std::endl;
 
   int NDetid = 0;
@@ -460,24 +459,20 @@ void SiPixelGainCalibrationReadDQMFile::fillDatabase(const edm::EventSetup &iSet
     if (record_ == "SiPixelGainCalibrationForHLTRcd") {
       std::cout << "now doing SiPixelGainCalibrationForHLTRcd payload..." << std::endl;
       if (mydbservice->isNewTagRequest(record_)) {
-        mydbservice->createNewIOV<SiPixelGainCalibrationForHLT>(theGainCalibrationDbInputHLT.release(),
-                                                                mydbservice->beginOfTime(),
-                                                                mydbservice->endOfTime(),
-                                                                "SiPixelGainCalibrationForHLTRcd");
+        mydbservice->createNewIOV<SiPixelGainCalibrationForHLT>(
+            *theGainCalibrationDbInputHLT, mydbservice->beginOfTime(), "SiPixelGainCalibrationForHLTRcd");
       } else {
         mydbservice->appendSinceTime<SiPixelGainCalibrationForHLT>(
-            theGainCalibrationDbInputHLT.release(), mydbservice->currentTime(), "SiPixelGainCalibrationForHLTRcd");
+            *theGainCalibrationDbInputHLT, mydbservice->currentTime(), "SiPixelGainCalibrationForHLTRcd");
       }
     } else if (record_ == "SiPixelGainCalibrationOfflineRcd") {
       std::cout << "now doing SiPixelGainCalibrationOfflineRcd payload..." << std::endl;
       if (mydbservice->isNewTagRequest(record_)) {
-        mydbservice->createNewIOV<SiPixelGainCalibrationOffline>(theGainCalibrationDbInputOffline.release(),
-                                                                 mydbservice->beginOfTime(),
-                                                                 mydbservice->endOfTime(),
-                                                                 "SiPixelGainCalibrationOfflineRcd");
+        mydbservice->createNewIOV<SiPixelGainCalibrationOffline>(
+            *theGainCalibrationDbInputOffline, mydbservice->beginOfTime(), "SiPixelGainCalibrationOfflineRcd");
       } else {
         mydbservice->appendSinceTime<SiPixelGainCalibrationOffline>(
-            theGainCalibrationDbInputOffline.release(), mydbservice->currentTime(), "SiPixelGainCalibrationOfflineRcd");
+            *theGainCalibrationDbInputOffline, mydbservice->currentTime(), "SiPixelGainCalibrationOfflineRcd");
       }
     }
     edm::LogInfo(" --- all OK");
@@ -486,7 +481,8 @@ void SiPixelGainCalibrationReadDQMFile::fillDatabase(const edm::EventSetup &iSet
 
 SiPixelGainCalibrationReadDQMFile::SiPixelGainCalibrationReadDQMFile(const edm::ParameterSet &iConfig)
     : appendMode_(iConfig.getUntrackedParameter<bool>("appendMode", true)),
-      theGainCalibrationDbInputService_(iConfig),
+      pddToken_(esConsumes()),
+      theGainCalibrationDbInputService_(iConfig, consumesCollector()),
       record_(iConfig.getUntrackedParameter<std::string>("record", "SiPixelGainCalibrationOfflineRcd")),
       gainlow_(10.),
       gainhi_(0.),

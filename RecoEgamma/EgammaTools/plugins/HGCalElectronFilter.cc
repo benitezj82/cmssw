@@ -56,7 +56,7 @@ private:
 };
 
 HGCalElectronFilter::HGCalElectronFilter(const edm::ParameterSet& iConfig)
-    : electronsToken_(consumes<edm::View<reco::GsfElectron>>(iConfig.getParameter<edm::InputTag>("inputGsfElectrons"))),
+    : electronsToken_(consumes(iConfig.getParameter<edm::InputTag>("inputGsfElectrons"))),
       outputCollection_(iConfig.getParameter<std::string>("outputCollection")),
       cleanBarrel_(iConfig.getParameter<bool>("cleanBarrel")) {
   produces<reco::GsfElectronCollection>(outputCollection_);
@@ -72,8 +72,7 @@ HGCalElectronFilter::~HGCalElectronFilter() {}
 void HGCalElectronFilter::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
   auto gsfElectrons_p = std::make_unique<reco::GsfElectronCollection>();
 
-  edm::Handle<edm::View<reco::GsfElectron>> electronsH;
-  iEvent.getByToken(electronsToken_, electronsH);
+  auto electronsH = iEvent.getHandle(electronsToken_);
 
   for (const auto& electron1 : *electronsH) {
     bool isBest = true;
@@ -114,12 +113,12 @@ void HGCalElectronFilter::endStream() {}
 
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
 void HGCalElectronFilter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
-  // cleanedEcalDrivenGsfElectronsFromMultiCl
+  // cleanedEcalDrivenGsfElectronsHGC
   edm::ParameterSetDescription desc;
-  desc.add<edm::InputTag>("inputGsfElectrons", edm::InputTag("ecalDrivenGsfElectronsFromMultiCl"));
+  desc.add<edm::InputTag>("inputGsfElectrons", edm::InputTag("ecalDrivenGsfElectronsHGC"));
   desc.add<bool>("cleanBarrel", false);
   desc.add<std::string>("outputCollection", "");
-  descriptions.add("cleanedEcalDrivenGsfElectronsFromMultiCl", desc);
+  descriptions.add("cleanedEcalDrivenGsfElectronsHGC", desc);
 }
 
 //define this as a plug-in

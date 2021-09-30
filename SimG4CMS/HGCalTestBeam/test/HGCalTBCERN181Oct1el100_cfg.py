@@ -27,9 +27,9 @@ process.maxEvents = cms.untracked.PSet(
 )
 
 if 'MessageLogger' in process.__dict__:
-     process.MessageLogger.categories.append('BeamMomentumGun')
-     process.MessageLogger.categories.append('HGCSim')
-#    process.MessageLogger.categories.append('HcalSim')
+     process.MessageLogger.BeamMomentumGun=dict()
+     process.MessageLogger.HGCSim=dict()
+#    process.MessageLogger.HcalSim=dict()
 
 # Input source
 process.source = cms.Source("EmptySource")
@@ -96,11 +96,16 @@ process.VtxSmeared.MeanZ  = 0
 process.VtxSmeared.SigmaZ = 0
 process.g4SimHits.HGCSD.RejectMouseBite = True
 process.g4SimHits.HGCSD.RotatedWafer    = True
+process.g4SimHits.OnlySDs = ['AHcalSensitiveDetector',
+                             'HGCSensitiveDetector',
+                             'HGCalTB1601SensitiveDetector',
+                             'HcalTB06BeamDetector']
 process.g4SimHits.Watchers = cms.VPSet(cms.PSet(
 		HGCPassive = cms.PSet(
-			LVNames = cms.vstring('HGCalEE','HGCalHE','HGCalAH', 'HGCalBeam', 'CMSE'),
-			MotherName = cms.string('OCMS'),
-			),
+                     LVNames = cms.vstring('HGCalEE','HGCalHE','HGCalAH', 'HGCalBeam', 'CMSE'),
+                     MotherName = cms.string('OCMS'),
+                     IfDD4Hep = cms.bool(False),
+                ),
 		type = cms.string('HGCPassive'),
 		)
 				       )

@@ -40,17 +40,15 @@
 
 namespace {
 
-  /************************************************
-   ***************  test class ******************
-  *************************************************/
+  using namespace cond::payloadInspector;
 
-  class SiStripLatencyTest : public cond::payloadInspector::Histogram1D<SiStripLatency> {
+  /************************************************
+  // test class
+  *************************************************/
+  class SiStripLatencyTest : public Histogram1D<SiStripLatency, SINGLE_IOV> {
   public:
     SiStripLatencyTest()
-        : cond::payloadInspector::Histogram1D<SiStripLatency>(
-              "SiStripLatency values", "SiStripLatency values", 5, 0.0, 5.0) {
-      Base::setSingleIov(true);
-    }
+        : Histogram1D<SiStripLatency, SINGLE_IOV>("SiStripLatency values", "SiStripLatency values", 5, 0.0, 5.0) {}
 
     bool fill() override {
       auto tag = PlotBase::getTag<0>();
@@ -68,13 +66,9 @@ namespace {
   /***********************************************
   // 1d histogram of mode  of 1 IOV 
   ************************************************/
-  class SiStripLatencyMode : public cond::payloadInspector::Histogram1D<SiStripLatency> {
+  class SiStripLatencyMode : public Histogram1D<SiStripLatency, SINGLE_IOV> {
   public:
-    SiStripLatencyMode()
-        : cond::payloadInspector::Histogram1D<SiStripLatency>(
-              "SiStripLatency mode", "SiStripLatency mode", 70, -10, 60) {
-      Base::setSingleIov(true);
-    }
+    SiStripLatencyMode() : Histogram1D<SiStripLatency>("SiStripLatency mode", "SiStripLatency mode", 70, -10, 60) {}
 
     bool fill() override {
       auto tag = PlotBase::getTag<0>();
@@ -96,14 +90,12 @@ namespace {
     }
   };
 
-  /****************************************************************************
-   *******************1D histo of mode as a function of the run****************
-   *****************************************************************************/
-
-  class SiStripLatencyModeHistory : public cond::payloadInspector::HistoryPlot<SiStripLatency, uint16_t> {
+  /************************************************
+  // historic trend plot of mode as a function of the run
+  ************************************************/
+  class SiStripLatencyModeHistory : public HistoryPlot<SiStripLatency, uint16_t> {
   public:
-    SiStripLatencyModeHistory()
-        : cond::payloadInspector::HistoryPlot<SiStripLatency, uint16_t>("Mode vs run number", "Mode vs run number") {}
+    SiStripLatencyModeHistory() : HistoryPlot<SiStripLatency, uint16_t>("Mode vs run number", "Mode vs run number") {}
 
     uint16_t getFromPayload(SiStripLatency& payload) override {
       uint16_t singlemode = payload.singleMode();
@@ -111,14 +103,25 @@ namespace {
     }
   };
 
-  /****************************************************************************    
-   *****************number of modes  per run *************************************
-   **************************************************************************/
-  class SiStripLatencyNumbOfModeHistory : public cond::payloadInspector::HistoryPlot<SiStripLatency, int> {
+  /************************************************
+  // historic trend plot of mode as a function of the run
+  ************************************************/
+  class SiStripIsPeakModeHistory : public HistoryPlot<SiStripLatency, int16_t> {
+  public:
+    SiStripIsPeakModeHistory() : HistoryPlot<SiStripLatency, int16_t>("Mode vs run number", "Mode vs run number") {}
+    int16_t getFromPayload(SiStripLatency& payload) override {
+      uint16_t mode = payload.singleReadOutMode();
+      return mode;
+    }
+  };
+
+  /************************************************
+  // historic trend plot of number of modes per run
+  ************************************************/
+  class SiStripLatencyNumbOfModeHistory : public HistoryPlot<SiStripLatency, int> {
   public:
     SiStripLatencyNumbOfModeHistory()
-        : cond::payloadInspector::HistoryPlot<SiStripLatency, int>("Number of modes vs run ",
-                                                                   "Number of modes vs run") {}
+        : HistoryPlot<SiStripLatency, int>("Number of modes vs run ", "Number of modes vs run") {}
 
     int getFromPayload(SiStripLatency& payload) override {
       std::vector<uint16_t> modes;
@@ -127,7 +130,6 @@ namespace {
       return modes.size();
     }
   };
-
 }  // namespace
 
 // Register the classes as boost python plugin
@@ -135,5 +137,6 @@ PAYLOAD_INSPECTOR_MODULE(SiStripLatency) {
   PAYLOAD_INSPECTOR_CLASS(SiStripLatencyTest);
   PAYLOAD_INSPECTOR_CLASS(SiStripLatencyMode);
   PAYLOAD_INSPECTOR_CLASS(SiStripLatencyModeHistory);
+  PAYLOAD_INSPECTOR_CLASS(SiStripIsPeakModeHistory);
   PAYLOAD_INSPECTOR_CLASS(SiStripLatencyNumbOfModeHistory);
 }

@@ -29,7 +29,6 @@ V00-03-25
 #include "FWCore/Common/interface/TriggerNames.h"
 #include "DataFormats/HLTReco/interface/TriggerEvent.h"
 #include "CondFormats/BeamSpotObjects/interface/BeamSpotOnlineObjects.h"
-#include "CondCore/DBOutputService/interface/OnlineDBOutputService.h"
 #include <numeric>
 #include <cmath>
 #include <memory>
@@ -90,6 +89,13 @@ void FakeBeamMonitor::formatFitTime(char* ts, const time_t& t) {
 
 static constexpr int buffTime = 23;
 
+std::string FakeBeamMonitor::getGMTstring(const time_t& timeToConvert) {
+  char buff[32];
+  std::strftime(buff, sizeof(buff), "%Y.%m.%d %H:%M:%S GMT", gmtime(&timeToConvert));
+  std::string timeStr(buff);
+  return timeStr;
+}
+
 //
 // constructors and destructor
 //
@@ -135,6 +141,7 @@ FakeBeamMonitor::FakeBeamMonitor(const ParameterSet& ps)
   minNrVertices_ = ps.getParameter<ParameterSet>("PVFitter").getUntrackedParameter<unsigned int>("minNrVerticesForFit");
   minVtxNdf_ = ps.getParameter<ParameterSet>("PVFitter").getUntrackedParameter<double>("minVertexNdf");
   minVtxWgt_ = ps.getParameter<ParameterSet>("PVFitter").getUntrackedParameter<double>("minVertexMeanWeight");
+  useLockRecords_ = ps.getUntrackedParameter<bool>("useLockRecords");
 
   if (!monitorName_.empty())
     monitorName_ = monitorName_ + "/";
@@ -196,6 +203,12 @@ namespace {
     kNumHists
   };
 }  // namespace
+
+void FakeBeamMonitor::dqmBeginRun(edm::Run const&, edm::EventSetup const&) {
+  if (useLockRecords_ && onlineDbService_.isAvailable()) {
+    onlineDbService_->lockRecords();
+  }
+}
 
 void FakeBeamMonitor::bookHistograms(DQMStore::IBooker& iBooker, edm::Run const& iRun, edm::EventSetup const& iSetup) {
   frun = iRun.run();
@@ -510,6 +523,13 @@ void FakeBeamMonitor::bookHistograms(DQMStore::IBooker& iBooker, edm::Run const&
 
 //--------------------------------------------------------
 void FakeBeamMonitor::beginLuminosityBlock(const LuminosityBlock& lumiSeg, const EventSetup& context) {
+  // start DB logger
+  DBloggerReturn_ = 0;
+  if (onlineDbService_.isAvailable()) {
+    onlineDbService_->logger().start();
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor::beginLuminosityBlock - LS: " << lumiSeg.luminosityBlock();
+  }
+
   int nthlumi = lumiSeg.luminosityBlock();
   const edm::TimeValue_t fbegintimestamp = lumiSeg.beginTime().value();
   const std::time_t ftmptime = fbegintimestamp >> 32;
@@ -780,6 +800,12 @@ void FakeBeamMonitor::endLuminosityBlock(const LuminosityBlock& lumiSeg, const E
   const edm::TimeValue_t fendtimestamp = lumiSeg.endTime().value();
   const std::time_t fendtime = fendtimestamp >> 32;
   tmpTime = refBStime[1] = refPVtime[1] = fendtime;
+
+  // end DB logger
+  if (onlineDbService_.isAvailable()) {
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor::endLuminosityBlock";
+    onlineDbService_->logger().end(DBloggerReturn_);
+  }
 }
 
 //--------------------------------------------------------
@@ -862,8 +888,8 @@ void FakeBeamMonitor::FitAndFill(const LuminosityBlock& lumiSeg, int& lastlumi, 
   sprintf(tmpTitlePV, "%s %i %s %i", "Num. of reco. vertices for LS: ", beginLumiOfPVFit_, " to ", endLumiOfPVFit_);
   h_nVtx_st->setAxisTitle(tmpTitlePV, 1);
 
-  //  std::vector<float> DipPVInfo_;
-  //  DipPVInfo_.clear();
+  std::vector<float> DipPVInfo_;
+  DipPVInfo_.clear();
   //
   //  if (countTotPV_ != 0) {
   //    DipPVInfo_.push_back((float)countEvtLastNLS_);
@@ -884,6 +910,12 @@ void FakeBeamMonitor::FitAndFill(const LuminosityBlock& lumiSeg, int& lastlumi, 
   //    }
   //  }
   //  theBeamFitter->SetPVInfo(DipPVInfo_);
+  DipPVInfo_.push_back(rndm_->Gaus(1000., 100.));  // Events used
+  DipPVInfo_.push_back(rndm_->Gaus(100., 10.));    // Mean PV
+  DipPVInfo_.push_back(rndm_->Gaus(10., 5.));      // Mean PV err
+  DipPVInfo_.push_back(rndm_->Gaus(10., 5.));      // Rms PV
+  DipPVInfo_.push_back(rndm_->Gaus(5., 3.));       // Rms PV err
+  DipPVInfo_.push_back(rndm_->Gaus(100., 10.));    // Max PVs
   countEvtLastNLS_ = 0;
 
   if (onlineMode_) {  // filling LS gap
@@ -1352,7 +1384,7 @@ void FakeBeamMonitor::FitAndFill(const LuminosityBlock& lumiSeg, int& lastlumi, 
 
   // Create the BeamSpotOnlineObjects object
   BeamSpotOnlineObjects* BSOnline = new BeamSpotOnlineObjects();
-  BSOnline->SetLastAnalyzedLumi(fitLS.second);
+  BSOnline->SetLastAnalyzedLumi(LSRange.second);
   BSOnline->SetLastAnalyzedRun(frun);
   BSOnline->SetLastAnalyzedFill(0);  // To be updated with correct LHC Fill number
   BSOnline->SetPosition(bs.x0(), bs.y0(), bs.z0());
@@ -1376,17 +1408,68 @@ void FakeBeamMonitor::FitAndFill(const LuminosityBlock& lumiSeg, int& lastlumi, 
   //      BSOnline->SetNumPVs(theBeamFitter->getNPVs());
   BSOnline->SetNumTracks(50);
   BSOnline->SetNumPVs(10);
+  BSOnline->SetUsedEvents((int)DipPVInfo_[0]);
+  BSOnline->SetMeanPV(DipPVInfo_[1]);
+  BSOnline->SetMeanErrorPV(DipPVInfo_[2]);
+  BSOnline->SetRmsPV(DipPVInfo_[3]);
+  BSOnline->SetRmsErrorPV(DipPVInfo_[4]);
+  BSOnline->SetMaxPVs((int)DipPVInfo_[5]);
+  auto creationTime =
+      std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  BSOnline->SetCreationTime(creationTime);
+
+  // use fake timestamps from 1970.01.01 00:00:00 to 1970.01.01 00:00:01 GMT
+  std::pair<time_t, time_t> timeForDIP = std::make_pair(0, 1);
+  BSOnline->SetStartTimeStamp(timeForDIP.first);
+  BSOnline->SetStartTime(getGMTstring(timeForDIP.first));
+  BSOnline->SetEndTimeStamp(timeForDIP.second);
+  BSOnline->SetEndTime(getGMTstring(timeForDIP.second));
 
   edm::LogInfo("FakeBeamMonitor") << "FitAndFill::[PayloadCreation] BeamSpotOnline object created: \n" << std::endl;
   edm::LogInfo("FakeBeamMonitor") << *BSOnline << std::endl;
   //std::cout << "------------------> fitted BS: " << *BSOnline << std::endl;
 
   // Create the payload for BeamSpotOnlineObjects object
-  edm::Service<cond::service::OnlineDBOutputService> onlineDbService;
-  if (onlineDbService.isAvailable()) {
+  if (onlineDbService_.isAvailable()) {
     edm::LogInfo("FakeBeamMonitor") << "FitAndFill::[PayloadCreation] onlineDbService available \n" << std::endl;
-    BSOnline->SetCreationTime(onlineDbService->currentTime());
-    onlineDbService->writeForNextLumisection(BSOnline, recordName_);
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor::FitAndFill - Lumi of the current fit: " << currentlumi;
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor::FitAndFill - Do PV Fitting for LS = " << beginLumiOfPVFit_
+                                         << " to " << endLumiOfPVFit_;
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor::FitAndFill - [BeamFitter] Do BeamSpot Fit for LS = "
+                                         << LSRange.first << " to " << LSRange.second;
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor::FitAndFill - [FakeBeamMonitor] Do BeamSpot Fit for LS = "
+                                         << beginLumiOfBSFit_ << " to " << endLumiOfBSFit_;
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor - RESULTS OF DEFAULT FIT:";
+    onlineDbService_->logger().logInfo() << "\n" << bs;
+    onlineDbService_->logger().logInfo()
+        << "FakeBeamMonitor::FitAndFill - [PayloadCreation] BeamSpotOnline object created:";
+    onlineDbService_->logger().logInfo() << "\n" << *BSOnline;
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor - Additional parameters for DIP:";
+    onlineDbService_->logger().logInfo() << "Events used in the fit: " << BSOnline->GetUsedEvents();
+    onlineDbService_->logger().logInfo() << "Mean PV               : " << BSOnline->GetMeanPV();
+    onlineDbService_->logger().logInfo() << "Mean PV Error         : " << BSOnline->GetMeanErrorPV();
+    onlineDbService_->logger().logInfo() << "Rms PV                : " << BSOnline->GetRmsPV();
+    onlineDbService_->logger().logInfo() << "Rms PV Error          : " << BSOnline->GetRmsErrorPV();
+    onlineDbService_->logger().logInfo() << "Max PVs               : " << BSOnline->GetMaxPVs();
+    onlineDbService_->logger().logInfo() << "StartTime             : " << BSOnline->GetStartTime();
+    onlineDbService_->logger().logInfo() << "StartTimeStamp        : " << BSOnline->GetStartTimeStamp();
+    onlineDbService_->logger().logInfo() << "EndTime               : " << BSOnline->GetEndTime();
+    onlineDbService_->logger().logInfo() << "EndTimeStamp          : " << BSOnline->GetEndTimeStamp();
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor::FitAndFill - [PayloadCreation] onlineDbService available";
+    onlineDbService_->logger().logInfo() << "FakeBeamMonitor::FitAndFill - [PayloadCreation] SetCreationTime: "
+                                         << creationTime << " [epoch in microseconds]";
+    try {
+      onlineDbService_->writeForNextLumisection(BSOnline, recordName_);
+      onlineDbService_->logger().logInfo()
+          << "FakeBeamMonitor::FitAndFill - [PayloadCreation] writeForNextLumisection executed correctly";
+    } catch (const std::exception& e) {
+      onlineDbService_->logger().logError() << "FakeBeamMonitor - Error writing record: " << recordName_
+                                            << " for Run: " << frun << " - Lumi: " << LSRange.second;
+      onlineDbService_->logger().logError() << "Error is: " << e.what();
+      onlineDbService_->logger().logError() << "RESULTS OF DEFAULT FIT WAS:";
+      onlineDbService_->logger().logError() << "\n" << bs;
+      DBloggerReturn_ = 2;
+    }
   }
   edm::LogInfo("FakeBeamMonitor") << "FitAndFill::[PayloadCreation] BeamSpotOnline payload created \n" << std::endl;
 
@@ -1460,7 +1543,7 @@ void FakeBeamMonitor::FitAndFill(const LuminosityBlock& lumiSeg, int& lastlumi, 
 }
 
 //--------------------------------------------------------
-void FakeBeamMonitor::RestartFitting() {
+void FakeBeamMonitor::RestartFitting() {  //
   if (debug_)
     edm::LogInfo("FakeBeamMonitor")
         << " RestartingFitting:: Restart Beami everything to a fresh start !!! because Gap is > 10 LS" << endl;
@@ -1513,6 +1596,9 @@ void FakeBeamMonitor::dqmEndRun(const Run& r, const EventSetup& context) {
   mapLSBSTrkSize.clear();
   mapLSPVStoreSize.clear();
   mapLSCF.clear();
+  if (useLockRecords_ && onlineDbService_.isAvailable()) {
+    onlineDbService_->releaseLocks();
+  }
 }
 
 //--------------------------------------------------------

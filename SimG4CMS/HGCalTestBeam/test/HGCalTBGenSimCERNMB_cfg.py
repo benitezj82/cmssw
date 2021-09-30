@@ -35,8 +35,8 @@ process.maxEvents = cms.untracked.PSet(
 )
 
 if 'MessageLogger' in process.__dict__:
-    process.MessageLogger.categories.append('HGCalGeom')
-    process.MessageLogger.categories.append('HGCSim')
+    process.MessageLogger.HGCalGeom=dict()
+    process.MessageLogger.HGCSim=dict()
 
 
 # Input source
@@ -112,6 +112,10 @@ process.VtxSmeared.MaxY =  0
 process.HGCalTBAnalyzer.doDigis = False
 process.HGCalTBAnalyzer.doRecHits = False
 process.g4SimHits.StackingAction.TrackNeutrino = True
+process.g4SimHits.OnlySDs = ['AHcalSensitiveDetector',
+                             'HGCSensitiveDetector',
+                             'HGCalTB1601SensitiveDetector',
+                             'HcalTB06BeamDetector']
 
 # Path and EndPath definitions
 process.generation_step = cms.Path(process.pgen)

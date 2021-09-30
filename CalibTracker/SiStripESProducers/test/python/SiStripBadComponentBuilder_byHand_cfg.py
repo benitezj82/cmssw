@@ -3,11 +3,14 @@ import FWCore.ParameterSet.Config as cms
 process = cms.Process("CALIB")
 
 process.MessageLogger = cms.Service("MessageLogger",
-    debugModules = cms.untracked.vstring(''),
+    cerr = cms.untracked.PSet(
+        enable = cms.untracked.bool(False)
+    ),
     cout = cms.untracked.PSet(
+        enable = cms.untracked.bool(True),
         threshold = cms.untracked.string('INFO')
     ),
-    destinations = cms.untracked.vstring('cout')
+    debugModules = cms.untracked.vstring('')
 )
 
 process.source = cms.Source("EmptyIOVSource",
@@ -145,11 +148,10 @@ process.TrackerTopologyEP = cms.ESProducer("TrackerTopologyEP")
 process.load("DQM.SiStripCommon.TkHistoMap_cff")
 ####
 
-from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
-process.reader = DQMEDAnalyzer("SiStripQualityStatistics",
-                               dataLabel = cms.untracked.string(""),
-                               TkMapFileName = cms.untracked.string("TkMapBadComponents_byHand.png")
-                               )
+from CalibTracker.SiStripQuality.siStripQualityStatistics_cfi import siStripQualityStatistics
+process.reader = siStripQualityStatistics.clone(
+        TkMapFileName = cms.untracked.string("TkMapBadComponents_byHand.png")
+        )
 
 process.siStripBadModuleDummyDBWriter.record=process.PoolDBOutputService.toPut[0].record
 process.p = cms.Path(process.reader*process.siStripBadModuleDummyDBWriter)

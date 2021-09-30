@@ -12,7 +12,8 @@ import FWCore.Framework.test.cmsExceptionsFatalOption_cff
 
 process.options = cms.untracked.PSet(
     numberOfStreams = cms.untracked.uint32(nStreams),
-    numberOfThreads = cms.untracked.uint32(nStreams)
+    numberOfThreads = cms.untracked.uint32(nStreams),
+    numberOfConcurrentLuminosityBlocks = cms.untracked.uint32(1)
 )
 
 
@@ -124,6 +125,8 @@ process.LumiIntAn = cms.EDAnalyzer("edmtest::limited::LumiIntAnalyzer",
                                    concurrencyLimit = cms.untracked.uint32(1),
     transitions = cms.int32(nEvt+2*int(nEvt/nEvtLumi))
     ,cachevalue = cms.int32(nEvtLumi)
+    # needed to avoid deleting TestAccumulator1
+    ,moduleLabel = cms.InputTag("TestAccumulator1")
 )
 
 process.RunSumIntAn = cms.EDAnalyzer("edmtest::limited::RunSummaryIntAnalyzer",

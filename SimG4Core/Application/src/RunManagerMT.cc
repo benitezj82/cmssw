@@ -29,6 +29,7 @@
 
 #include "HepPDT/ParticleDataTable.hh"
 
+#include "G4Timer.hh"
 #include "G4GeometryManager.hh"
 #include "G4StateManager.hh"
 #include "G4ApplicationState.hh"
@@ -69,7 +70,6 @@ RunManagerMT::RunManagerMT(edm::ParameterSet const& p)
       m_PhysicsTablesDir(p.getUntrackedParameter<std::string>("PhysicsTablesDirectory", "")),
       m_StorePhysicsTables(p.getUntrackedParameter<bool>("StorePhysicsTables", false)),
       m_RestorePhysicsTables(p.getUntrackedParameter<bool>("RestorePhysicsTables", false)),
-      m_UseParametrisedEMPhysics(p.getUntrackedParameter<bool>("UseParametrisedEMPhysics")),
       m_pPhysics(p.getParameter<edm::ParameterSet>("Physics")),
       m_pRunAction(p.getParameter<edm::ParameterSet>("RunAction")),
       m_g4overlap(p.getUntrackedParameter<edm::ParameterSet>("G4CheckOverlap")),
@@ -87,7 +87,6 @@ RunManagerMT::RunManagerMT(edm::ParameterSet const& p)
   m_kernel = new G4MTRunManagerKernel();
   m_stateManager = G4StateManager::GetStateManager();
   m_stateManager->SetExceptionHandler(new ExceptionHandler());
-  m_geometryManager->G4GeometryManager::GetInstance();
 
   m_check = p.getUntrackedParameter<bool>("CheckGeometry", false);
 }
@@ -104,12 +103,15 @@ void RunManagerMT::initG4(const DDCompactView* pDD,
   bool geoFromDD4hep = m_p.getParameter<bool>("g4GeometryDD4hepSource");
   bool cuts = m_pPhysics.getParameter<bool>("CutsPerRegion");
   bool protonCut = m_pPhysics.getParameter<bool>("CutsOnProton");
-  int verb = std::max(m_pPhysics.getUntrackedParameter<int>("Verbosity", 0),
-                      m_p.getUntrackedParameter<int>("SteppingVerbosity", 0));
+  int verb = m_pPhysics.getUntrackedParameter<int>("Verbosity", 0);
+  int stepverb = m_p.getUntrackedParameter<int>("SteppingVerbosity", 0);
   edm::LogVerbatim("SimG4CoreApplication")
       << "RunManagerMT: start initialising of geometry DD4Hep: " << geoFromDD4hep << "\n"
       << "              cutsPerRegion: " << cuts << " cutForProton: " << protonCut << "\n"
       << "              G4 verbosity: " << verb;
+
+  G4Timer timer;
+  timer.Start();
 
   m_world = std::make_unique<DDDWorld>(pDD, pDD4hep, m_catalog, verb, cuts, protonCut);
   G4VPhysicalVolume* world = m_world.get()->GetWorldVolume();
@@ -125,13 +127,14 @@ void RunManagerMT::initG4(const DDCompactView* pDD,
   unsigned int numLV = lvs->size();
   unsigned int nn = regStore->size();
   edm::LogVerbatim("SimG4CoreApplication")
-      << "###RunManagerMT: " << numPV << " PhysVolumes; " << numLV << " LogVolumes; " << nn << " Regions.";
+      << "RunManagerMT: " << numPV << " physical volumes; " << numLV << " logical volumes; " << nn << " regions.";
 
   if (m_check) {
     m_kernel->SetVerboseLevel(2);
   }
   m_kernel->DefineWorldVolume(world, true);
   m_registry.dddWorldSignal_(m_world.get());
+  G4StateManager::GetStateManager()->SetNewState(G4State_PreInit);
 
   // Create physics list
   edm::LogVerbatim("SimG4CoreApplication") << "RunManagerMT: create PhysicsList";
@@ -147,8 +150,12 @@ void RunManagerMT::initG4(const DDCompactView* pDD,
   if (phys == nullptr) {
     throw edm::Exception(edm::errors::Configuration, "Physics list construction failed!");
   }
+  if (stepverb > 0) {
+    verb = std::max(verb, 1);
+  }
+  G4HadronicParameters::Instance()->SetVerboseLevel(verb);
   G4EmParameters::Instance()->SetVerbose(verb);
-  G4EmParameters::Instance()->SetWorkerVerbose(verb - 1);
+  G4EmParameters::Instance()->SetWorkerVerbose(std::max(verb - 1, 0));
 
   // exotic particle physics
   double monopoleMass = m_pPhysics.getUntrackedParameter<double>("MonopoleMass", 0);
@@ -162,8 +169,7 @@ void RunManagerMT::initG4(const DDCompactView* pDD,
 
   // adding GFlash, Russian Roulette for eletrons and gamma,
   // step limiters on top of any Physics Lists
-  if (m_UseParametrisedEMPhysics)
-    phys->RegisterPhysics(new ParametrisedEMPhysics("EMoptions", m_pPhysics));
+  phys->RegisterPhysics(new ParametrisedEMPhysics("EMoptions", m_pPhysics));
 
   if (m_RestorePhysicsTables) {
     m_physicsList->SetPhysicsTableRetrieved(m_PhysicsTablesDir);
@@ -204,12 +210,14 @@ void RunManagerMT::initG4(const DDCompactView* pDD,
       G4UImanager::GetUIpointer()->ApplyCommand(cmd);
     m_physicsList->StorePhysicsTable(m_PhysicsTablesDir);
   }
+  // Appload nuclear level data up to Z=84
   G4NuclearLevelData::GetInstance()->UploadNuclearLevelData(84);
 
   if (verb > 1) {
     m_physicsList->DumpCutValuesTable();
   }
-  edm::LogVerbatim("SimG4CoreApplication") << "RunManagerMT: Physics is initilized, now initialise user actions";
+  edm::LogVerbatim("SimG4CoreApplication")
+      << "RunManagerMT: Physics is initilized, now initialise user actions, verb=" << verb;
 
   initializeUserActions();
 
@@ -230,6 +238,9 @@ void RunManagerMT::initG4(const DDCompactView* pDD,
     CMSG4CheckOverlap check(m_g4overlap, regionFile, m_UIsession, world);
   }
 
+  m_stateManager->SetNewState(G4State_PreInit);
+  G4HadronicParameters::Instance()->SetVerboseLevel(std::max(verb - 1, 0));
+
   // If the Geant4 particle table is needed, decomment the lines below
   //
   //G4ParticleTable::GetParticleTable()->DumpTable("ALL");
@@ -237,7 +248,9 @@ void RunManagerMT::initG4(const DDCompactView* pDD,
   m_stateManager->SetNewState(G4State_GeomClosed);
   m_currentRun = new G4Run();
   m_userRunAction->BeginOfRunAction(m_currentRun);
-  edm::LogVerbatim("SimG4CoreApplication") << "RunManagerMT:: initG4 done";
+  timer.Stop();
+  G4cout.precision(4);
+  G4cout << "RunManagerMT: initG4 done " << timer << G4endl;
 }
 
 void RunManagerMT::initializeUserActions() {
@@ -252,7 +265,7 @@ void RunManagerMT::Connect(RunAction* runAction) {
 }
 
 void RunManagerMT::stopG4() {
-  m_geometryManager->OpenGeometry();
+  G4GeometryManager::GetInstance()->OpenGeometry();
   m_stateManager->SetNewState(G4State_Quit);
   if (!m_runTerminated) {
     terminateRun();
@@ -260,12 +273,12 @@ void RunManagerMT::stopG4() {
 }
 
 void RunManagerMT::terminateRun() {
-  if (m_userRunAction) {
+  if (nullptr != m_userRunAction) {
     m_userRunAction->EndOfRunAction(m_currentRun);
     delete m_userRunAction;
     m_userRunAction = nullptr;
   }
-  if (m_kernel && !m_runTerminated) {
+  if (!m_runTerminated) {
     m_kernel->RunTermination();
   }
   m_runTerminated = true;

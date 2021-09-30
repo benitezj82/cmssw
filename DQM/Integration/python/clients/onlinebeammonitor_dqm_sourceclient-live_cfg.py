@@ -113,41 +113,21 @@ else:
   from DQM.Integration.config.inputsource_cfi import options
   # for live online DQM in P5
   # new stream label
-  process.source.streamLabel = cms.untracked.string('streamDQMOnlineBeamspot')
+  #process.source.streamLabel = cms.untracked.string('streamDQMOnlineBeamspot')
 
 #ESProducer
 process.load("CondCore.CondDB.CondDB_cfi")
-process.BeamSpotDBSource = cms.ESSource("PoolDBESSource",
-                      process.CondDB,
-                      toGet = cms.VPSet(
-                            cms.PSet(
-                                record = cms.string('BeamSpotOnlineLegacyObjectsRcd'),
-                                tag = cms.string("BeamSpotOnlineTestLegacy"),
-                                refreshTime = cms.uint64(1)
-                            ),
-                            cms.PSet(
-                                record = cms.string('BeamSpotOnlineHLTObjectsRcd'),
-                                tag = cms.string("BeamSpotOnlineTestHLT"),
-                                refreshTime = cms.uint64(1)
-
-                            ),
-                      )
-
-)
 process.BeamSpotESProducer = cms.ESProducer("OnlineBeamSpotESProducer")
-if unitTest == True:
-  process.BeamSpotDBSource.connect = cms.string('frontier://FrontierProd/CMS_CONDITIONS') 
-else:
-  process.BeamSpotDBSource.connect = cms.string('oracle://cms_orcon_prod/CMS_CONDITIONS') 
+
 #-----------------------------
 # DQM Live Environment
 #-----------------------------
 process.load("DQM.Integration.config.environment_cfi")
 process.dqmEnv.subSystemFolder = 'TrackingHLTBeamspotStream'
 process.dqmSaver.tag           = 'TrackingHLTBeamspotStream'
-#process.dqmSaver.runNumber     = options.runNumber
-#process.dqmSaverPB.tag         = 'TrackingHLTBeamspotStream'
-#process.dqmSaverPB.runNumber   = options.runNumber
+process.dqmSaver.runNumber     = options.runNumber
+process.dqmSaverPB.tag         = 'TrackingHLTBeamspotStream'
+process.dqmSaverPB.runNumber   = options.runNumber
 
 #-----------------------------
 # BeamMonitor
@@ -165,9 +145,21 @@ process.load("DQM.Integration.config.FrontierCondition_GT_cfi")
 #from Configuration.AlCa.GlobalTag import GlobalTag as gtCustomise
 #process.GlobalTag = gtCustomise(process.GlobalTag, 'auto:run2_data', '')
 
+# Please *do not* delete this toGet statement as it is needed to fetch BeamSpotOnline
+# information every lumisection (instead of every run as for the other records in the GT)
+process.GlobalTag.toGet = cms.VPSet(
+  cms.PSet(
+    record = cms.string("BeamSpotOnlineLegacyObjectsRcd"),
+    refreshTime = cms.uint64(1)
+  ),
+  cms.PSet(
+    record = cms.string("BeamSpotOnlineHLTObjectsRcd"),
+    refreshTime = cms.uint64(1)
+  )
+)
 
 process.dqmcommon = cms.Sequence(process.dqmEnv
-                               * process.dqmSaver)
+                               * process.dqmSaver * process.dqmSaverPB)
 
 process.monitor = cms.Sequence(process.dqmOnlineBeamMonitor)
 
@@ -179,4 +171,4 @@ process = customise(process)
 
 process.p = cms.Path( process.dqmcommon
                         * process.monitor )
-
+print("Final Source settings:", process.source)

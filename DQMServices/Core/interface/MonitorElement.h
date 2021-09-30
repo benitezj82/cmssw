@@ -119,7 +119,7 @@ namespace dqm::impl {
         return std::make_tuple(std::reference_wrapper(me->getPathname()), std::reference_wrapper(me->getName()));
       }
       auto make_tuple(MonitorElementData::Path const &path) const {
-        return std::make_tuple(path.getDirname(), path.getObjectname());
+        return std::make_tuple(std::reference_wrapper(path.getDirname()), std::reference_wrapper(path.getObjectname()));
       }
       bool operator()(MonitorElement *left, MonitorElement *right) const {
         return make_tuple(left) < make_tuple(right);
@@ -427,7 +427,8 @@ namespace dqm::impl {
     virtual void setCanExtend(unsigned int value);
     // We should decide if we support this (or make it default)
     DQM_DEPRECATED
-    virtual void setStatOverflows(unsigned int value);
+    virtual void setStatOverflows(bool value);
+    virtual bool getStatOverflows();
 
     // these should be non-const, since they are potentially not thread-safe
     virtual TObject const *getRootObject() const;

@@ -29,7 +29,7 @@
 #include <unordered_map>
 #include <utility>
 
-#define EDM_ML_DEBUG
+// #define EDM_ML_DEBUG 1
 
 using namespace std;
 using namespace dd4hep;
@@ -77,6 +77,7 @@ namespace dd4hep {
     class SolidSection;
     class DDLExtrudedPolygon;
     class DDLShapeless;
+    class DDLAssembly;
     class DDLTrapezoid;
     class DDLEllipticalTube;
     class DDLPseudoTrap;
@@ -204,6 +205,9 @@ namespace dd4hep {
   /// Converter for <ShapelessSolid/> tags
   template <>
   void Converter<DDLShapeless>::operator()(xml_h element) const;
+  /// Converter for <Assembly/> tags
+  template <>
+  void Converter<DDLAssembly>::operator()(xml_h element) const;
   /// Converter for <Trapezoid/> tags
   template <>
   void Converter<DDLTrapezoid>::operator()(xml_h element) const;
@@ -387,6 +391,9 @@ void Converter<SolidSection>::operator()(xml_h element) const {
       case hash("ShapelessSolid"):
         Converter<DDLShapeless>(description, ns.context(), optional)(solid);
         break;
+      case hash("Assembly"):
+        Converter<DDLAssembly>(description, ns.context(), optional)(solid);
+        break;
       default:
         throw std::runtime_error("Request to process unknown shape '" + xml_dim_t(solid).nameStr() + "' [" +
                                  solid.tag() + "]");
@@ -402,7 +409,7 @@ void Converter<DDLConstant>::operator()(xml_h element) const {
   DDRegistry* res = _option<DDRegistry>();
   xml_dim_t constant = element;
   xml_dim_t par = constant.parent();
-  bool eval = par.hasAttr(_U(eval)) ? par.attr<bool>(_U(eval)) : false;
+  bool eval = par.hasAttr(_U(eval)) ? par.attr<bool>(_U(eval)) : true;
   string val = constant.valueStr();
   string nam = constant.nameStr();
   string real = ns.prepend(nam);
@@ -556,6 +563,8 @@ void Converter<DDLElementaryMaterial>::operator()(xml_h element) const {
     }
 
     mix->AddElement(elt, 1.0);
+    mix->SetTemperature(ns.context()->description.stdConditions().temperature);
+    mix->SetPressure(ns.context()->description.stdConditions().pressure);
 
     /// Create medium from the material
     TGeoMedium* medium = mgr.GetMedium(matname);
@@ -594,12 +603,19 @@ void Converter<DDLCompositeMaterial>::operator()(xml_h element) const {
 
 #endif
 
+    if (ns.context()->makePayload) {
+      ns.context()->compMaterialsVec.emplace_back(std::make_pair(nam, density));
+    }
     for (composites.reset(); composites; ++composites) {
       xml_dim_t xfrac(composites);
       xml_dim_t xfrac_mat(xfrac.child(DD_CMU(rMaterial)));
       double fraction = xfrac.fraction();
       string fracname = ns.realName(xfrac_mat.nameStr());
 
+      if (ns.context()->makePayload) {
+        ns.context()->compMaterialsRefs[nam].emplace_back(
+            cms::DDParsingContext::CompositeMaterial(ns.prepend(fracname), fraction));
+      }
       TGeoMaterial* frac_mat = mgr.GetMaterial(fracname.c_str());
       if (frac_mat == nullptr)  // Try to find it within this namespace
         frac_mat = mgr.GetMaterial(ns.prepend(fracname).c_str());
@@ -621,6 +637,8 @@ void Converter<DDLCompositeMaterial>::operator()(xml_h element) const {
       ns.context()->unresolvedMaterials[nam].emplace_back(
           cms::DDParsingContext::CompositeMaterial(ns.prepend(fracname), fraction));
     }
+    mix->SetTemperature(ns.context()->description.stdConditions().temperature);
+    mix->SetPressure(ns.context()->description.stdConditions().pressure);
     mix->SetRadLen(0e0);
     /// Create medium from the material
     TGeoMedium* medium = mgr.GetMedium(matname);
@@ -789,6 +807,13 @@ void Converter<DDLLogicalPart>::operator()(xml_h element) const {
   string volName = ns.prepend(e.attr<string>(_U(name)));
   Solid solid = ns.solid(sol);
   Material material = ns.material(mat);
+  if (ns.context()->assemblySolids.count(sol) == 1) {
+    // To match the general paradigm, an assembly starts as a solid,
+    // and then a logical part is made of the solid. However, the
+    // solid is just a dummy whose names tags it as an assembly.
+    ns.addAssembly(volName, false);
+    return;
+  }
 
 #ifdef EDM_ML_DEBUG
   Volume volume =
@@ -846,6 +871,55 @@ void Converter<DDLTransform3D>::operator()(xml_h element) const {
   *tr = Transform3D(rot, pos);
 }
 
+static void placeAssembly(Volume* parentPtr,
+                          const string& parentName,
+                          Volume* childPtr,
+                          const string& childName,
+                          int copy,
+                          const Transform3D& transform,
+                          cms::DDNamespace& ns) {
+#ifdef EDM_ML_DEBUG
+
+  printout(ns.context()->debug_placements ? ALWAYS : DEBUG,
+           "DD4CMS",
+           "+++ Parent vol: %-24s Child: %-32s, copy:%d",
+           parentName.c_str(),
+           childName.c_str(),
+           copy);
+
+#endif
+
+  TGeoShape* shape = (*childPtr)->GetShape();
+  // Need to fix the daughter's BBox of assemblies, if the BBox was not calculated....
+  if (shape->IsA() == TGeoShapeAssembly::Class()) {
+    TGeoShapeAssembly* as = (TGeoShapeAssembly*)shape;
+    if (std::fabs(as->GetDX()) < numeric_limits<double>::epsilon() &&
+        std::fabs(as->GetDY()) < numeric_limits<double>::epsilon() &&
+        std::fabs(as->GetDZ()) < numeric_limits<double>::epsilon()) {
+      as->NeedsBBoxRecompute();
+      as->ComputeBBox();
+    }
+  }
+  TGeoNode* n;
+  TString nam_id = TString::Format("%s_%d", (*childPtr)->GetName(), copy);
+  n = static_cast<TGeoNode*>((*parentPtr)->GetNode(nam_id));
+  if (n != nullptr) {
+    printout(ERROR, "PlacedVolume", "++ Attempt to add already existing node %s", (const char*)nam_id);
+    return;
+  }
+
+  PlacedVolume pv;
+  if ((*childPtr)->IsAssembly()) {
+    pv = parentPtr->placeVolume(ns.assembly(childName), copy, transform);
+  } else {
+    pv = parentPtr->placeVolume(*childPtr, copy, transform);
+  }
+
+  if (!pv.isValid()) {
+    printout(ERROR, "DD4CMS", "+++ Placement FAILED! Parent:%s Child:%s", parentName.c_str(), childName.c_str());
+  }
+}
+
 /// Converter for <PosPart/> tags
 template <>
 void Converter<DDLPosPart>::operator()(xml_h element) const {
@@ -854,8 +928,13 @@ void Converter<DDLPosPart>::operator()(xml_h element) const {
   int copy = e.attr<int>(DD_CMU(copyNumber));
   string parentName = ns.prepend(ns.attr<string>(e.child(DD_CMU(rParent)), _U(name)));
   string childName = ns.prepend(ns.attr<string>(e.child(DD_CMU(rChild)), _U(name)));
+  Transform3D transform;
+  Converter<DDLTransform3D>(description, param, &transform)(element);
+
   Volume parent = ns.volume(parentName, false);
   Volume child = ns.volume(childName, false);
+  Assembly parAsmb = ns.assembly(parentName, false);
+  Assembly childAsmb = ns.assembly(childName, false);
 
 #ifdef EDM_ML_DEBUG
 
@@ -871,13 +950,29 @@ void Converter<DDLPosPart>::operator()(xml_h element) const {
 
 #endif
 
-  if (!parent.isValid() && strchr(parentName.c_str(), NAMESPACE_SEP) == nullptr)
+  if (!parent.isValid() && !parAsmb.isValid() && strchr(parentName.c_str(), NAMESPACE_SEP) == nullptr) {
     parentName = ns.prepend(parentName);
-  parent = ns.volume(parentName);
+    parAsmb = ns.assembly(parentName, false);
+    if (!parAsmb.isValid())
+      parent = ns.volume(parentName);
+  }
 
-  if (!child.isValid() && strchr(childName.c_str(), NAMESPACE_SEP) == nullptr)
+  if (!child.isValid() && !childAsmb.isValid() && strchr(childName.c_str(), NAMESPACE_SEP) == nullptr) {
     childName = ns.prepend(childName);
-  child = ns.volume(childName, false);
+    child = ns.volume(childName, false);
+    childAsmb = ns.assembly(childName, false);
+  }
+  if (parAsmb.isValid() || childAsmb.isValid()) {
+    printout(ns.context()->debug_placements ? ALWAYS : DEBUG,
+             "DD4CMS",
+             "***** Placing assembly parent %s, child %s",
+             parentName.c_str(),
+             childName.c_str());
+    Volume* parentPtr = parAsmb.isValid() ? &parAsmb : &parent;
+    Volume* childPtr = childAsmb.isValid() ? &childAsmb : &child;
+    placeAssembly(parentPtr, parentName, childPtr, childName, copy, transform, ns);
+    return;
+  }
 
 #ifdef EDM_ML_DEBUG
 
@@ -895,9 +990,6 @@ void Converter<DDLPosPart>::operator()(xml_h element) const {
 
   PlacedVolume pv;
   if (child.isValid()) {
-    Transform3D transform;
-    Converter<DDLTransform3D>(description, param, &transform)(element);
-
     // FIXME: workaround for Reflection rotation
     // copy from DDCore/src/Volumes.cpp to replace
     // static PlacedVolume _addNode(TGeoVolume* par, TGeoVolume* daughter, int id, TGeoMatrix* transform)
@@ -922,7 +1014,7 @@ void Converter<DDLPosPart>::operator()(xml_h element) const {
     TString nam_id = TString::Format("%s_%d", child->GetName(), copy);
     n = static_cast<TGeoNode*>(parent->GetNode(nam_id));
     if (n != nullptr) {
-      printout(ERROR, "PlacedVolume", "++ Attempt to add already exiting node %s", (const char*)nam_id);
+      printout(ERROR, "PlacedVolume", "++ Attempt to add already existing node %s", (const char*)nam_id);
     }
 
     Rotation3D rot(transform.Rotation());
@@ -986,8 +1078,10 @@ void Converter<Parameter>::operator()(xml_h element) const {
   string specParName = specPar.attr<string>(_U(name));
   string name = e.nameStr();
   string value = e.attr<string>(DD_CMU(value));
-  bool eval = e.hasAttr(_U(eval)) ? e.attr<bool>(_U(eval))
-                                  : (specParSect.hasAttr(_U(eval)) ? specParSect.attr<bool>(_U(eval)) : false);
+  bool eval = specParSect.hasAttr(_U(eval)) ? specParSect.attr<bool>(_U(eval)) : false;
+  eval = specPar.hasAttr(_U(eval)) ? specPar.attr<bool>(_U(eval)) : eval;
+  eval = e.hasAttr(_U(eval)) ? e.attr<bool>(_U(eval)) : eval;
+
   string type = eval ? "number" : "string";
 
 #ifdef EDM_ML_DEBUG
@@ -1003,6 +1097,10 @@ void Converter<Parameter>::operator()(xml_h element) const {
 #endif
 
   size_t idx = value.find('[');
+  if (idx == string::npos && type == "number") {
+    registry.specpars[specParName].numpars[name].emplace_back(dd4hep::_toDouble(value));
+    return;
+  }
   if (idx == string::npos || type == "string") {
     registry.specpars[specParName].spars[name].emplace_back(std::move(value));
     return;
@@ -1245,8 +1343,8 @@ void Converter<DDLSphere>::operator()(xml_h element) const {
            "DD4CMS",
            "+   Sphere:   r_inner=%8.3f [cm] r_outer=%8.3f [cm]"
            " startPhi=%8.3f [rad] deltaPhi=%8.3f startTheta=%8.3f delteTheta=%8.3f [rad]",
-           rinner,
-           router,
+           rinner / dd4hep::cm,
+           router / dd4hep::cm,
            startPhi,
            deltaPhi,
            startTheta,
@@ -1275,9 +1373,9 @@ void Converter<DDLTorus>::operator()(xml_h element) const {
            "DD4CMS",
            "+   Torus:    r=%10.3f [cm] r_inner=%10.3f [cm] r_outer=%10.3f [cm]"
            " startPhi=%10.3f [rad] deltaPhi=%10.3f [rad]",
-           r,
-           rinner,
-           router,
+           r / dd4hep::cm,
+           rinner / dd4hep::cm,
+           router / dd4hep::cm,
            startPhi,
            deltaPhi);
 
@@ -1305,12 +1403,12 @@ void Converter<DDLPseudoTrap>::operator()(xml_h element) const {
   printout(ns.context()->debug_shapes ? ALWAYS : DEBUG,
            "DD4CMS",
            "+   Pseudotrap:  dz=%8.3f [cm] dx1:%.3f dy1:%.3f dx2=%.3f dy2=%.3f radius:%.3f atMinusZ:%s",
-           dz,
-           dx1,
-           dy1,
-           dx2,
-           dy2,
-           r,
+           dz / dd4hep::cm,
+           dx1 / dd4hep::cm,
+           dy1 / dd4hep::cm,
+           dx2 / dd4hep::cm,
+           dy2 / dd4hep::cm,
+           r / dd4hep::cm,
            yes_no(atMinusZ));
 
 #endif
@@ -1342,15 +1440,15 @@ void Converter<DDLTrapezoid>::operator()(xml_h element) const {
            "DD4CMS",
            "+   Trapezoid:  dz=%10.3f [cm] alp1:%.3f bl1=%.3f tl1=%.3f alp2=%.3f bl2=%.3f tl2=%.3f h2=%.3f phi=%.3f "
            "theta=%.3f",
-           dz,
+           dz / dd4hep::cm,
            alp1,
-           bl1,
-           tl1,
-           h1,
+           bl1 / dd4hep::cm,
+           tl1 / dd4hep::cm,
+           h1 / dd4hep::cm,
            alp2,
-           bl2,
-           tl2,
-           h2,
+           bl2 / dd4hep::cm,
+           tl2 / dd4hep::cm,
+           h2 / dd4hep::cm,
            phi,
            theta);
 
@@ -1376,11 +1474,11 @@ void Converter<DDLTrd1>::operator()(xml_h element) const {
     printout(ns.context()->debug_shapes ? ALWAYS : DEBUG,
              "DD4CMS",
              "+   Trd1:       dz=%8.3f [cm] dx1:%.3f dy1:%.3f dx2:%.3f dy2:%.3f",
-             dz,
-             dx1,
-             dy1,
-             dx2,
-             dy2);
+             dz / dd4hep::cm,
+             dx1 / dd4hep::cm,
+             dy1 / dd4hep::cm,
+             dx2 / dd4hep::cm,
+             dy2 / dd4hep::cm);
 
 #endif
 
@@ -1391,11 +1489,11 @@ void Converter<DDLTrd1>::operator()(xml_h element) const {
     printout(ns.context()->debug_shapes ? ALWAYS : DEBUG,
              "DD4CMS",
              "+   Trd1(which is actually Trd2):       dz=%8.3f [cm] dx1:%.3f dy1:%.3f dx2:%.3f dy2:%.3f",
-             dz,
-             dx1,
-             dy1,
-             dx2,
-             dy2);
+             dz / dd4hep::cm,
+             dx1 / dd4hep::cm,
+             dy1 / dd4hep::cm,
+             dx2 / dd4hep::cm,
+             dy2 / dd4hep::cm);
 
 #endif
 
@@ -1420,11 +1518,11 @@ void Converter<DDLTrd2>::operator()(xml_h element) const {
   printout(ns.context()->debug_shapes ? ALWAYS : DEBUG,
            "DD4CMS",
            "+   Trd1:       dz=%8.3f [cm] dx1:%.3f dy1:%.3f dx2:%.3f dy2:%.3f",
-           dz,
-           dx1,
-           dy1,
-           dx2,
-           dy2);
+           dz / dd4hep::cm,
+           dx1 / dd4hep::cm,
+           dy1 / dd4hep::cm,
+           dx2 / dd4hep::cm,
+           dy2 / dd4hep::cm);
 
 #endif
 
@@ -1449,9 +1547,9 @@ void Converter<DDLTubs>::operator()(xml_h element) const {
            "DD4CMS",
            "+   Tubs:     dz=%8.3f [cm] rmin=%8.3f [cm] rmax=%8.3f [cm]"
            " startPhi=%8.3f [rad] deltaPhi=%8.3f [rad]",
-           dz,
-           rmin,
-           rmax,
+           dz / dd4hep::cm,
+           rmin / dd4hep::cm,
+           rmax / dd4hep::cm,
            startPhi,
            deltaPhi);
 
@@ -1484,9 +1582,9 @@ void Converter<DDLCutTubs>::operator()(xml_h element) const {
            "DD4CMS",
            "+   CutTube:  dz=%8.3f [cm] rmin=%8.3f [cm] rmax=%8.3f [cm]"
            " startPhi=%8.3f [rad] deltaPhi=%8.3f [rad]...",
-           dz,
-           rmin,
-           rmax,
+           dz / dd4hep::cm,
+           rmin / dd4hep::cm,
+           rmax / dd4hep::cm,
            startPhi,
            deltaPhi);
 
@@ -1516,13 +1614,13 @@ void Converter<DDLTruncTubs>::operator()(xml_h element) const {
            "DD4CMS",
            "+   TruncTube:zHalf=%8.3f [cm] rmin=%8.3f [cm] rmax=%8.3f [cm]"
            " startPhi=%8.3f [rad] deltaPhi=%8.3f [rad] atStart=%8.3f [cm] atDelta=%8.3f [cm] inside:%s",
-           zhalf,
-           rmin,
-           rmax,
+           zhalf / dd4hep::cm,
+           rmin / dd4hep::cm,
+           rmax / dd4hep::cm,
            startPhi,
            deltaPhi,
-           cutAtStart,
-           cutAtDelta,
+           cutAtStart / dd4hep::cm,
+           cutAtDelta / dd4hep::cm,
            yes_no(cutInside));
 
 #endif
@@ -1545,9 +1643,9 @@ void Converter<DDLEllipticalTube>::operator()(xml_h element) const {
   printout(ns.context()->debug_shapes ? ALWAYS : DEBUG,
            "DD4CMS",
            "+   EllipticalTube xSemiAxis=%8.3f [cm] ySemiAxis=%8.3f [cm] zHeight=%8.3f [cm]",
-           dx,
-           dy,
-           dz);
+           dx / dd4hep::cm,
+           dy / dd4hep::cm,
+           dz / dd4hep::cm);
 
 #endif
 
@@ -1577,11 +1675,11 @@ void Converter<DDLCone>::operator()(xml_h element) const {
            " rmin1=%8.3f [cm] rmax1=%8.3f [cm]"
            " rmin2=%8.3f [cm] rmax2=%8.3f [cm]"
            " startPhi=%8.3f [rad] deltaPhi=%8.3f [rad]",
-           dz,
-           rmin1,
-           rmax1,
-           rmin2,
-           rmax2,
+           dz / dd4hep::cm,
+           rmin1 / dd4hep::cm,
+           rmax1 / dd4hep::cm,
+           rmin2 / dd4hep::cm,
+           rmax2 / dd4hep::cm,
            startPhi,
            deltaPhi);
 
@@ -1601,12 +1699,27 @@ void Converter<DDLShapeless>::operator()(xml_h element) const {
 
   printout(ns.context()->debug_shapes ? ALWAYS : DEBUG,
            "DD4CMS",
-           "+   Shapeless: THIS ONE CAN ONLY BE USED AT THE VOLUME LEVEL -> Assembly%s",
+           "+   Shapeless: THIS ONE CAN ONLY BE USED AT THE VOLUME LEVEL -> Shapeless: %s",
            nam.c_str());
 
 #endif
 
   ns.addSolid(nam, Box(1, 1, 1));
+}
+
+/// Converter for <Assembly/> tags
+template <>
+void Converter<DDLAssembly>::operator()(xml_h element) const {
+  cms::DDNamespace ns(_param<cms::DDParsingContext>());
+  xml_dim_t e(element);
+  string nam = e.nameStr();
+
+#ifdef EDM_ML_DEBUG
+  printout(
+      ns.context()->debug_shapes ? ALWAYS : DEBUG, "DD4CMS", "+   Assembly: Adding solid -> Assembly: %s", nam.c_str());
+#endif
+
+  ns.addAssemblySolid(nam);
 }
 
 /// Converter for <Box/> tags
@@ -1624,9 +1737,9 @@ void Converter<DDLBox>::operator()(xml_h element) const {
   printout(ns.context()->debug_shapes ? ALWAYS : DEBUG,
            "DD4CMS",
            "+   Box:      dx=%10.3f [cm] dy=%10.3f [cm] dz=%10.3f [cm]",
-           dx,
-           dy,
-           dz);
+           dx / dd4hep::cm,
+           dy / dd4hep::cm,
+           dz / dd4hep::cm);
 
 #endif
 
@@ -1801,7 +1914,6 @@ void Converter<DDLDivision>::operator()(xml_h element) const {
              child->IsVolumeMulti() ? "YES" : "NO");
 
 #endif
-
   } else {
     printout(ERROR, "DD4CMS", "++ FAILED Division of a %s is not implemented yet!", parent.solid().type());
   }
@@ -2046,19 +2158,17 @@ void Converter<print_xml_doc>::operator()(xml_h element) const {
 static long load_dddefinition(Detector& det, xml_h element) {
   xml_elt_t dddef(element);
   if (dddef) {
-    cms::DDParsingContext context(det);
+    cms::DDParsingContext& context = *det.extension<DDParsingContext>();
     cms::DDNamespace ns(context);
     ns.addConstantNS("world_x", "101*m", "number");
     ns.addConstantNS("world_y", "101*m", "number");
     ns.addConstantNS("world_z", "450*m", "number");
     ns.addConstantNS("Air", "materials:Air", "string");
     ns.addConstantNS("Vacuum", "materials:Vacuum", "string");
-    ns.addConstantNS("fm", "1e-12*m", "number");
-    ns.addConstantNS("mum", "1e-6*m", "number");
 
     string fname = xml::DocumentHandler::system_path(element);
     bool open_geometry = dddef.hasChild(DD_CMU(open_geometry)) ? dddef.child(DD_CMU(open_geometry)) : true;
-    bool close_geometry = dddef.hasChild(DD_CMU(close_geometry)) ? dddef.hasChild(DD_CMU(close_geometry)) : false;
+    bool close_geometry = dddef.hasChild(DD_CMU(close_geometry)) ? dddef.hasChild(DD_CMU(close_geometry)) : true;
 
     xml_coll_t(dddef, _U(debug)).for_each(Converter<debug>(det, &context));
 
@@ -2245,8 +2355,6 @@ static long load_dddefinition(Detector& det, xml_h element) {
 
       // Can not deal with reflections without closed geometry
       det.manager().CloseGeometry();
-      // Convert reflections via TGeo reflection factory
-      det.manager().ConvertReflections();
 
       det.endDocument();
     }

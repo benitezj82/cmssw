@@ -7,7 +7,7 @@
 #include "DetectorDescription/Core/interface/DDExpandedNode.h"
 #include "DetectorDescription/Core/interface/DDExpandedView.h"
 #include "DetectorDescription/RegressionTest/src/DDCheck.h"
-#include "DetectorDescription/Core/src/Material.h"
+#include "DetectorDescription/Core/interface/Material.h"
 #include "DetectorDescription/Parser/interface/DDLParser.h"
 #include "DetectorDescription/Parser/interface/FIPConfiguration.h"
 #include "FWCore/ParameterSetReader/interface/ParameterSetReader.h"
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     //     emptying the buffers.
     std::shared_ptr<edm::Presence> theMessageServicePresence;
     theMessageServicePresence =
-        std::shared_ptr<edm::Presence>(edm::PresenceFactory::get()->makePresence("MessageServicePresence").release());
+        std::shared_ptr<edm::Presence>(edm::PresenceFactory::get()->makePresence("SingleThreadMSPresence").release());
 
     // C.  Manufacture a configuration and establish it.
     std::string config =

@@ -53,6 +53,27 @@ namespace edmtest {
     // We throw an edm exception with a configurable action.
     throw edm::Exception(edm::errors::NotFound) << "Intentional 'NotFound' exception for testing purposes\n";
   }
+  //--------------------------------------------------------------------
+  //
+  // throws an exception.
+  // Announces an IntProduct but does not produce one;
+  // every call to FailingInLumiProducer::produce throws a cms exception
+  //
+  class FailingInLumiProducer : public edm::global::EDProducer<edm::BeginLuminosityBlockProducer> {
+  public:
+    explicit FailingInLumiProducer(edm::ParameterSet const& /*p*/) {
+      produces<IntProduct, edm::Transition::BeginLuminosityBlock>();
+    }
+    void produce(edm::StreamID, edm::Event& e, edm::EventSetup const& c) const override;
+
+    void globalBeginLuminosityBlockProduce(edm::LuminosityBlock&, edm::EventSetup const&) const override;
+  };
+
+  void FailingInLumiProducer::produce(edm::StreamID, edm::Event&, edm::EventSetup const&) const {}
+  void FailingInLumiProducer::globalBeginLuminosityBlockProduce(edm::LuminosityBlock&, edm::EventSetup const&) const {
+    // We throw an edm exception with a configurable action.
+    throw edm::Exception(edm::errors::NotFound) << "Intentional 'NotFound' exception for testing purposes\n";
+  }
 
   //--------------------------------------------------------------------
   //
@@ -436,7 +457,7 @@ namespace edmtest {
     }
 
     // EventSetup is not used.
-    for (auto const tv : tokenValues_) {
+    for (auto const& tv : tokenValues_) {
       e.emplace(tv.token, tv.value);
     }
   }
@@ -496,7 +517,8 @@ namespace edmtest {
                                                              edm::EndLuminosityBlockProducer,
                                                              edm::EndRunProducer,
                                                              edm::BeginProcessBlockProducer,
-                                                             edm::EndProcessBlockProducer> {
+                                                             edm::EndProcessBlockProducer,
+                                                             edm::InputProcessBlockCache<>> {
   public:
     explicit NonEventIntProducer(edm::ParameterSet const& p)
         : bpbToken_{produces<IntProduct, edm::Transition::BeginProcessBlock>("beginProcessBlock")},
@@ -512,7 +534,8 @@ namespace edmtest {
           blExpect_{p.getUntrackedParameter<int>("expectBeginLuminosityBlock")},
           elExpect_{p.getUntrackedParameter<int>("expectEndLuminosityBlock")},
           erExpect_{p.getUntrackedParameter<int>("expectEndRun")},
-          epbExpect_{p.getUntrackedParameter<int>("expectEndProcessBlock")} {
+          epbExpect_{p.getUntrackedParameter<int>("expectEndProcessBlock")},
+          aipbExpect_{p.getUntrackedParameter<int>("expectAccessInputProcessBlock")} {
       {
         auto tag = p.getParameter<edm::InputTag>("consumesBeginProcessBlock");
         if (not tag.label().empty()) {
@@ -549,14 +572,21 @@ namespace edmtest {
           epbGet_ = consumes<edm::InProcess>(tag);
         }
       }
+      {
+        auto tag = p.getParameter<edm::InputTag>("consumesAccessInputProcessBlock");
+        if (not tag.label().empty()) {
+          aipbGet_ = consumes<edm::InProcess>(tag);
+        }
+      }
     }
     void accumulate(edm::StreamID iID, edm::Event const& e, edm::EventSetup const& c) const override;
-    void beginProcessBlockProduce(edm::ProcessBlock&) const override;
-    void endProcessBlockProduce(edm::ProcessBlock&) const override;
+    void beginProcessBlockProduce(edm::ProcessBlock&) override;
+    void endProcessBlockProduce(edm::ProcessBlock&) override;
     void globalBeginRunProduce(edm::Run& e, edm::EventSetup const&) const override;
     void globalEndRunProduce(edm::Run& e, edm::EventSetup const&) const override;
     void globalBeginLuminosityBlockProduce(edm::LuminosityBlock& e, edm::EventSetup const&) const override;
     void globalEndLuminosityBlockProduce(edm::LuminosityBlock& e, edm::EventSetup const&) const override;
+    void accessInputProcessBlock(edm::ProcessBlock const&) override;
 
     static void fillDescriptions(edm::ConfigurationDescriptions& conf) {
       edm::ParameterSetDescription desc;
@@ -566,6 +596,8 @@ namespace edmtest {
       desc.addUntracked<int>("expectBeginProcessBlock", 0);
       desc.add<edm::InputTag>("consumesEndProcessBlock", {});
       desc.addUntracked<int>("expectEndProcessBlock", 0);
+      desc.add<edm::InputTag>("consumesAccessInputProcessBlock", {});
+      desc.addUntracked<int>("expectAccessInputProcessBlock", 0);
       desc.add<edm::InputTag>("consumesBeginRun", {});
       desc.addUntracked<int>("expectBeginRun", 0);
       desc.add<edm::InputTag>("consumesEndRun", {});
@@ -594,16 +626,18 @@ namespace edmtest {
     edm::EDGetTokenT<IntProduct> elGet_;
     edm::EDGetTokenT<IntProduct> erGet_;
     edm::EDGetTokenT<IntProduct> epbGet_;
+    edm::EDGetTokenT<IntProduct> aipbGet_;
     const int bpbExpect_;
     const int brExpect_;
     const int blExpect_;
     const int elExpect_;
     const int erExpect_;
     const int epbExpect_;
+    const int aipbExpect_;
   };
 
   void NonEventIntProducer::accumulate(edm::StreamID iID, edm::Event const& e, edm::EventSetup const&) const {}
-  void NonEventIntProducer::beginProcessBlockProduce(edm::ProcessBlock& processBlock) const {
+  void NonEventIntProducer::beginProcessBlockProduce(edm::ProcessBlock& processBlock) {
     if (not bpbGet_.isUninitialized()) {
       check(processBlock.get(bpbGet_), bpbExpect_);
     }
@@ -616,7 +650,7 @@ namespace edmtest {
     }
     processBlock.emplace(bpbToken_, value_);
   }
-  void NonEventIntProducer::endProcessBlockProduce(edm::ProcessBlock& processBlock) const {
+  void NonEventIntProducer::endProcessBlockProduce(edm::ProcessBlock& processBlock) {
     if (not epbGet_.isUninitialized()) {
       check(processBlock.get(epbGet_), epbExpect_);
     }
@@ -624,6 +658,14 @@ namespace edmtest {
       usleep(sleepTime_);
     }
     processBlock.emplace(epbToken_, value_);
+  }
+  void NonEventIntProducer::accessInputProcessBlock(edm::ProcessBlock const& processBlock) {
+    if (not aipbGet_.isUninitialized()) {
+      check(processBlock.get(aipbGet_), aipbExpect_);
+    }
+    if (sleepTime_ > 0) {
+      usleep(sleepTime_);
+    }
   }
   void NonEventIntProducer::globalBeginRunProduce(edm::Run& r, edm::EventSetup const&) const {
     if (not brGet_.isUninitialized()) {
@@ -676,14 +718,14 @@ namespace edmtest {
     explicit IntProducerBeginProcessBlock(edm::ParameterSet const& p)
         : token_{produces<IntProduct, edm::Transition::BeginProcessBlock>()}, value_(p.getParameter<int>("ivalue")) {}
     void produce(edm::StreamID, edm::Event&, edm::EventSetup const&) const override {}
-    void beginProcessBlockProduce(edm::ProcessBlock&) const override;
+    void beginProcessBlockProduce(edm::ProcessBlock&) override;
 
   private:
     edm::EDPutTokenT<IntProduct> token_;
     int value_;
   };
 
-  void IntProducerBeginProcessBlock::beginProcessBlockProduce(edm::ProcessBlock& processBlock) const {
+  void IntProducerBeginProcessBlock::beginProcessBlockProduce(edm::ProcessBlock& processBlock) {
     processBlock.emplace(token_, value_);
   }
 
@@ -700,7 +742,7 @@ namespace edmtest {
           token4_{produces<IntProduct, edm::Transition::EndProcessBlock>("four")},
           value_(p.getParameter<int>("ivalue")) {}
     void produce(edm::StreamID, edm::Event&, edm::EventSetup const&) const override {}
-    void endProcessBlockProduce(edm::ProcessBlock&) const override;
+    void endProcessBlockProduce(edm::ProcessBlock&) override;
 
   private:
     edm::EDPutTokenT<IntProduct> token_;
@@ -710,12 +752,83 @@ namespace edmtest {
     int value_;
   };
 
-  void IntProducerEndProcessBlock::endProcessBlockProduce(edm::ProcessBlock& processBlock) const {
+  void IntProducerEndProcessBlock::endProcessBlockProduce(edm::ProcessBlock& processBlock) {
     processBlock.emplace(token_, value_);
     processBlock.emplace<IntProduct>(token2_, value_ + 2);
     processBlock.put(token3_, std::make_unique<IntProduct>(value_ + 3));
     processBlock.put(token4_, std::make_unique<IntProduct>(value_ + 4));
   }
+
+  //--------------------------------------------------------------------
+  //
+  // Produces an TransientIntProduct in ProcessBlock at endProcessBlock
+  //
+  class TransientIntProducerEndProcessBlock : public edm::global::EDProducer<edm::EndProcessBlockProducer> {
+  public:
+    explicit TransientIntProducerEndProcessBlock(edm::ParameterSet const& p)
+        : token_{produces<TransientIntProduct, edm::Transition::EndProcessBlock>()},
+          value_(p.getParameter<int>("ivalue")) {}
+    void produce(edm::StreamID, edm::Event&, edm::EventSetup const&) const override {}
+    void endProcessBlockProduce(edm::ProcessBlock&) override;
+
+  private:
+    edm::EDPutTokenT<TransientIntProduct> token_;
+    int value_;
+  };
+
+  void TransientIntProducerEndProcessBlock::endProcessBlockProduce(edm::ProcessBlock& processBlock) {
+    processBlock.emplace(token_, value_);
+  }
+
+  //--------------------------------------------------------------------
+  //
+  // Produces an IntProduct instance, the module must get run, otherwise an exception is thrown
+  class MustRunIntProducer : public edm::global::EDProducer<> {
+  public:
+    explicit MustRunIntProducer(edm::ParameterSet const& p)
+        : moduleLabel_{p.getParameter<std::string>("@module_label")},
+          token_{produces<IntProduct>()},
+          value_(p.getParameter<int>("ivalue")),
+          produce_{p.getParameter<bool>("produce")},
+          mustRunEvent_{p.getParameter<bool>("mustRunEvent")} {}
+    ~MustRunIntProducer() {
+      if (not wasRunEndJob_) {
+        throw cms::Exception("NotRun") << "This module (" << moduleLabel_
+                                       << ") should have run for endJob transition, but it did not";
+      }
+    }
+    static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+      edm::ParameterSetDescription desc;
+      desc.add<int>("ivalue");
+      desc.add<bool>("produce", true);
+      desc.add<bool>("mustRunEvent", true)
+          ->setComment(
+              "If set to false, the endJob() is still required to be called to check that the module was not deleted "
+              "early on");
+      descriptions.addDefault(desc);
+    }
+    void produce(edm::StreamID, edm::Event& e, edm::EventSetup const& c) const override {
+      wasRunEvent_ = true;
+      if (produce_) {
+        e.emplace(token_, value_);
+      }
+    }
+    void endJob() override {
+      wasRunEndJob_ = true;
+      if (mustRunEvent_ and not wasRunEvent_) {
+        throw cms::Exception("NotRun") << "This module should have run for event transitions, but it did not";
+      }
+    }
+
+  private:
+    const std::string moduleLabel_;
+    const edm::EDPutTokenT<IntProduct> token_;
+    const int value_;
+    const bool produce_;
+    const bool mustRunEvent_;
+    mutable std::atomic<bool> wasRunEndJob_ = false;
+    mutable std::atomic<bool> wasRunEvent_ = false;
+  };
 }  // namespace edmtest
 
 using edmtest::AddIntsProducer;
@@ -736,7 +849,9 @@ using edmtest::ManyIntWhenRegisteredProducer;
 using edmtest::NonEventIntProducer;
 using edmtest::NonProducer;
 using edmtest::TransientIntProducer;
+using edmtest::TransientIntProducerEndProcessBlock;
 DEFINE_FWK_MODULE(FailingProducer);
+DEFINE_FWK_MODULE(edmtest::FailingInLumiProducer);
 DEFINE_FWK_MODULE(edmtest::FailingInRunProducer);
 DEFINE_FWK_MODULE(NonProducer);
 DEFINE_FWK_MODULE(IntProducer);
@@ -755,3 +870,5 @@ DEFINE_FWK_MODULE(ManyIntWhenRegisteredProducer);
 DEFINE_FWK_MODULE(NonEventIntProducer);
 DEFINE_FWK_MODULE(IntProducerBeginProcessBlock);
 DEFINE_FWK_MODULE(IntProducerEndProcessBlock);
+DEFINE_FWK_MODULE(TransientIntProducerEndProcessBlock);
+DEFINE_FWK_MODULE(edmtest::MustRunIntProducer);

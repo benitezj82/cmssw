@@ -14,7 +14,6 @@
 #include <chrono>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem/fstream.hpp>
 
 #include "DataFormats/FEDRawData/interface/FEDHeader.h"
 #include "DataFormats/FEDRawData/interface/FEDTrailer.h"
@@ -47,7 +46,7 @@
 //JSON file reader
 #include "EventFilter/Utilities/interface/reader.h"
 
-#include <boost/lexical_cast.hpp>
+using namespace evf::FastMonState;
 
 FedRawDataInputSource::FedRawDataInputSource(edm::ParameterSet const& pset, edm::InputSourceDescription const& desc)
     : edm::RawInputSource(pset, desc),
@@ -146,8 +145,8 @@ FedRawDataInputSource::FedRawDataInputSource(edm::ParameterSet const& pset, edm:
   if (fms_) {
     daqDirector_->setFMS(fms_);
     fms_->setInputSource(this);
-    fms_->setInState(evf::FastMonitoringThread::inInit);
-    fms_->setInStateSup(evf::FastMonitoringThread::inInit);
+    fms_->setInState(inInit);
+    fms_->setInStateSup(inInit);
   }
   //should delete chunks when run stops
   for (unsigned int i = 0; i < numBuffers_; i++) {
@@ -239,8 +238,7 @@ edm::RawInputSource::Next FedRawDataInputSource::checkNext() {
   //signal hltd to start event accounting
   if (!currentLumiSection_)
     daqDirector_->createProcessingNotificationMaybe();
-  if (fms_)
-    fms_->setInState(evf::FastMonitoringThread::inWaitInput);
+  setMonState(inWaitInput);
   switch (nextEvent()) {
     case evf::EvFDaqDirector::runEnded: {
       //maybe create EoL file in working directory before ending run
@@ -354,8 +352,7 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
     threadError();
   if (!currentFile_.get()) {
     evf::EvFDaqDirector::FileStatus status = evf::EvFDaqDirector::noFile;
-    if (fms_)
-      fms_->setInState(evf::FastMonitoringThread::inWaitInput);
+    setMonState(inWaitInput);
     if (!fileQueue_.try_pop(currentFile_)) {
       //sleep until wakeup (only in single-buffer mode) or timeout
       std::unique_lock<std::mutex> lkw(mWakeup_);
@@ -364,16 +361,14 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
     }
     status = currentFile_->status_;
     if (status == evf::EvFDaqDirector::runEnded) {
-      if (fms_)
-        fms_->setInState(evf::FastMonitoringThread::inRunEnd);
+      setMonState(inRunEnd);
       currentFile_.reset();
       return status;
     } else if (status == evf::EvFDaqDirector::runAbort) {
       throw cms::Exception("FedRawDataInputSource::getNextEvent")
           << "Run has been aborted by the input source reader thread";
     } else if (status == evf::EvFDaqDirector::newLumi) {
-      if (fms_)
-        fms_->setInState(evf::FastMonitoringThread::inNewLumi);
+      setMonState(inNewLumi);
       if (getLSFromFilename_) {
         if (currentFile_->lumi_ > currentLumiSection_) {
           reportEventsThisLumiInSource(currentLumiSection_, eventsThisLumi_);
@@ -390,8 +385,7 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
     } else
       assert(false);
   }
-  if (fms_)
-    fms_->setInState(evf::FastMonitoringThread::inProcessingFile);
+  setMonState(inProcessingFile);
 
   //file is empty
   if (!currentFile_->fileSize_) {
@@ -465,15 +459,13 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
   }
   if (singleBufferMode_) {
     //should already be there
-    if (fms_)
-      fms_->setInState(evf::FastMonitoringThread::inWaitChunk);
+    setMonState(inWaitChunk);
     while (!currentFile_->waitForChunk(currentFile_->currentChunk_)) {
       usleep(10000);
       if (currentFile_->parent_->exceptionState() || setExceptionState_)
         currentFile_->parent_->threadError();
     }
-    if (fms_)
-      fms_->setInState(evf::FastMonitoringThread::inChunkReceived);
+    setMonState(inChunkReceived);
 
     unsigned char* dataPosition = currentFile_->chunks_[0]->buf_ + currentFile_->chunkPosition_;
 
@@ -484,7 +476,7 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
 
       if (detectedFRDversion_ == 0) {
         detectedFRDversion_ = *((uint16_t*)dataPosition);
-        if (detectedFRDversion_ > 6)
+        if (detectedFRDversion_ > FRDHeaderMaxVersion)
           throw cms::Exception("FedRawDataInputSource::getNextEvent")
               << "Unknown FRD version -: " << detectedFRDversion_;
         assert(detectedFRDversion_ >= 1);
@@ -526,15 +518,13 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
   //multibuffer mode:
   else {
     //wait for the current chunk to become added to the vector
-    if (fms_)
-      fms_->setInState(evf::FastMonitoringThread::inWaitChunk);
+    setMonState(inWaitChunk);
     while (!currentFile_->waitForChunk(currentFile_->currentChunk_)) {
       usleep(10000);
       if (setExceptionState_)
         threadError();
     }
-    if (fms_)
-      fms_->setInState(evf::FastMonitoringThread::inChunkReceived);
+    setMonState(inChunkReceived);
 
     //check if header is at the boundary of two chunks
     chunkIsFree_ = false;
@@ -568,7 +558,13 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
         //rewind to header start position
         currentFile_->rewindChunk(FRDHeaderVersionSize[detectedFRDversion_]);
         //copy event to a chunk start and move pointers
+
+        setMonState(inWaitChunk);
+
         chunkEnd = currentFile_->advance(dataPosition, FRDHeaderVersionSize[detectedFRDversion_] + msgSize);
+
+        setMonState(inChunkReceived);
+
         assert(chunkEnd);
         chunkIsFree_ = true;
         //header is moved
@@ -581,8 +577,7 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
       }
     }
   }  //end multibuffer mode
-  if (fms_)
-    fms_->setInState(evf::FastMonitoringThread::inChecksumEvent);
+  setMonState(inChecksumEvent);
 
   if (verifyChecksum_ && event_->version() >= 5) {
     uint32_t crc = 0;
@@ -606,8 +601,7 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
           << adler;
     }
   }
-  if (fms_)
-    fms_->setInState(evf::FastMonitoringThread::inCachedEvent);
+  setMonState(inCachedEvent);
 
   currentFile_->nProcessed_++;
 
@@ -615,10 +609,10 @@ inline evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getNextEvent() {
 }
 
 void FedRawDataInputSource::read(edm::EventPrincipal& eventPrincipal) {
-  if (fms_)
-    fms_->setInState(evf::FastMonitoringThread::inReadEvent);
+  setMonState(inReadEvent);
   std::unique_ptr<FEDRawDataCollection> rawData(new FEDRawDataCollection);
-  edm::Timestamp tstamp = fillFEDRawDataCollection(*rawData);
+  bool tcdsInRange;
+  edm::Timestamp tstamp = fillFEDRawDataCollection(*rawData, tcdsInRange);
 
   if (useL1EventID_) {
     eventID_ = edm::EventID(eventRunNumber_, currentLumiSection_, L1EventID_);
@@ -644,7 +638,8 @@ void FedRawDataInputSource::read(edm::EventPrincipal& eventPrincipal) {
                                       event_->isRealData(),
                                       static_cast<edm::EventAuxiliary::ExperimentType>(fedHeader.triggerType()),
                                       processGUID(),
-                                      !fileListLoopMode_);
+                                      !fileListLoopMode_,
+                                      !tcdsInRange);
     aux.setProcessHistoryID(processHistoryID_);
     makeEvent(eventPrincipal, aux);
   }
@@ -654,8 +649,7 @@ void FedRawDataInputSource::read(edm::EventPrincipal& eventPrincipal) {
   eventPrincipal.put(daqProvenanceHelper_.branchDescription(), std::move(edp), daqProvenanceHelper_.dummyProvenance());
 
   eventsThisLumi_++;
-  if (fms_)
-    fms_->setInState(evf::FastMonitoringThread::inReadCleanup);
+  setMonState(inReadCleanup);
 
   //resize vector if needed
   while (streamFileTracker_.size() <= eventPrincipal.streamID())
@@ -686,12 +680,11 @@ void FedRawDataInputSource::read(edm::EventPrincipal& eventPrincipal) {
   if (chunkIsFree_)
     freeChunks_.push(currentFile_->chunks_[currentFile_->currentChunk_ - 1]);
   chunkIsFree_ = false;
-  if (fms_)
-    fms_->setInState(evf::FastMonitoringThread::inNoRequest);
+  setMonState(inNoRequest);
   return;
 }
 
-edm::Timestamp FedRawDataInputSource::fillFEDRawDataCollection(FEDRawDataCollection& rawData) {
+edm::Timestamp FedRawDataInputSource::fillFEDRawDataCollection(FEDRawDataCollection& rawData, bool& tcdsInRange) {
   edm::TimeValue_t time;
   timeval stv;
   gettimeofday(&stv, nullptr);
@@ -703,6 +696,7 @@ edm::Timestamp FedRawDataInputSource::fillFEDRawDataCollection(FEDRawDataCollect
   unsigned char* event = (unsigned char*)event_->payload();
   GTPEventID_ = 0;
   tcds_pointer_ = nullptr;
+  tcdsInRange = false;
   uint16_t selectedTCDSFed = 0;
   while (eventSize > 0) {
     assert(eventSize >= FEDTrailer::length);
@@ -719,6 +713,9 @@ edm::Timestamp FedRawDataInputSource::fillFEDRawDataCollection(FEDRawDataCollect
       if (!selectedTCDSFed) {
         selectedTCDSFed = fedId;
         tcds_pointer_ = event + eventSize;
+        if (fedId >= FEDNumbering::MINTCDSuTCAFEDID && fedId <= FEDNumbering::MAXTCDSuTCAFEDID) {
+          tcdsInRange = true;
+        }
       } else
         throw cms::Exception("FedRawDataInputSource::fillFEDRawDataCollection")
             << "Second TCDS FED ID " << fedId << " found. First ID: " << selectedTCDSFed;
@@ -777,17 +774,17 @@ void FedRawDataInputSource::readSupervisor() {
           if (j)
             copy_active = true;
         if (readingFilesCount_ >= maxBufferedFiles_)
-          fms_->setInStateSup(evf::FastMonitoringThread::inSupFileLimit);
+          setMonStateSup(inSupFileLimit);
         else if (freeChunks_.empty()) {
           if (copy_active)
-            fms_->setInStateSup(evf::FastMonitoringThread::inSupWaitFreeChunkCopying);
+            setMonStateSup(inSupWaitFreeChunkCopying);
           else
-            fms_->setInStateSup(evf::FastMonitoringThread::inSupWaitFreeChunk);
+            setMonStateSup(inSupWaitFreeChunk);
         } else {
           if (copy_active)
-            fms_->setInStateSup(evf::FastMonitoringThread::inSupWaitFreeThreadCopying);
+            setMonStateSup(inSupWaitFreeThreadCopying);
           else
-            fms_->setInStateSup(evf::FastMonitoringThread::inSupWaitFreeThread);
+            setMonStateSup(inSupWaitFreeThread);
         }
       }
       std::unique_lock<std::mutex> lkw(mWakeup_);
@@ -815,9 +812,8 @@ void FedRawDataInputSource::readSupervisor() {
     int64_t fileSizeFromMetadata;
 
     if (fms_) {
-      fms_->setInStateSup(evf::FastMonitoringThread::inSupBusy);
+      setMonStateSup(inSupBusy);
       fms_->startedLookingForFile();
-      fms_->setInStateSup(evf::FastMonitoringThread::inSupLockPolling);
     }
 
     evf::EvFDaqDirector::FileStatus status = evf::EvFDaqDirector::noFile;
@@ -837,6 +833,7 @@ void FedRawDataInputSource::readSupervisor() {
 
       assert(rawFd == -1);
       uint64_t thisLockWaitTimeUs = 0.;
+      setMonStateSup(inSupLockPolling);
       if (fileListMode_) {
         //return LS if LS not set, otherwise return file
         status = getFile(ls, nextFile, fileSizeIndex, thisLockWaitTimeUs);
@@ -872,8 +869,7 @@ void FedRawDataInputSource::readSupervisor() {
                                                      thisLockWaitTimeUs);
       }
 
-      if (fms_)
-        fms_->setInStateSup(evf::FastMonitoringThread::inSupBusy);
+      setMonStateSup(inSupBusy);
 
       //cycle through all remaining LS even if no files get assigned
       if (currentLumiSection != ls && status == evf::EvFDaqDirector::runEnded)
@@ -894,8 +890,7 @@ void FedRawDataInputSource::readSupervisor() {
 
       //check again for any remaining index/EoLS files after EoR file is seen
       if (status == evf::EvFDaqDirector::runEnded && !fileListMode_ && !useFileBroker_) {
-        if (fms_)
-          fms_->setInStateSup(evf::FastMonitoringThread::inRunEnd);
+        setMonStateSup(inRunEnd);
         usleep(100000);
         //now all files should have appeared in ramdisk, check again if any raw files were left behind
         status = daqDirector_->updateFuLock(
@@ -923,14 +918,28 @@ void FedRawDataInputSource::readSupervisor() {
         if (ls > currentLumiSection) {
           if (!useFileBroker_) {
             //file locking
-            //fms_->setInStateSup(evf::FastMonitoringThread::inSupNewLumi);
+            //setMonStateSup(inSupNewLumi);
             currentLumiSection = ls;
             std::unique_ptr<InputFile> inf(new InputFile(evf::EvFDaqDirector::newLumi, currentLumiSection));
             fileQueue_.push(std::move(inf));
           } else {
             //new file service
             if (currentLumiSection == 0 && !alwaysStartFromFirstLS_) {
-              if (ls < 100) {
+              if (daqDirector_->getStartLumisectionFromEnv() > 1) {
+                //start transitions from LS specified by env, continue if not reached
+                if (ls < daqDirector_->getStartLumisectionFromEnv()) {
+                  //skip file if from earlier LS than specified by env
+                  if (rawFd != -1) {
+                    close(rawFd);
+                    rawFd = -1;
+                  }
+                  status = evf::EvFDaqDirector::noFile;
+                  continue;
+                } else {
+                  std::unique_ptr<InputFile> inf(new InputFile(evf::EvFDaqDirector::newLumi, ls));
+                  fileQueue_.push(std::move(inf));
+                }
+              } else if (ls < 100) {
                 //look at last LS file on disk to start from that lumisection (only within first 100 LS)
                 unsigned int lsToStart = daqDirector_->getLumisectionToStart();
 
@@ -970,8 +979,7 @@ void FedRawDataInputSource::readSupervisor() {
 
       int dbgcount = 0;
       if (status == evf::EvFDaqDirector::noFile) {
-        if (fms_)
-          fms_->setInStateSup(evf::FastMonitoringThread::inSupNoFile);
+        setMonStateSup(inSupNoFile);
         dbgcount++;
         if (!(dbgcount % 20))
           LogDebug("FedRawDataInputSource") << "No file for me... sleep and try again...";
@@ -989,8 +997,7 @@ void FedRawDataInputSource::readSupervisor() {
     }
     //end of file grab loop, parse result
     if (status == evf::EvFDaqDirector::newFile) {
-      if (fms_)
-        fms_->setInStateSup(evf::FastMonitoringThread::inSupNewFile);
+      setMonStateSup(inSupNewFile);
       LogDebug("FedRawDataInputSource") << "The director says to grab -: " << nextFile;
 
       std::string rawFile;
@@ -1012,9 +1019,9 @@ void FedRawDataInputSource::readSupervisor() {
       uint64_t fileSize = st.st_size;
 
       if (fms_) {
-        fms_->setInStateSup(evf::FastMonitoringThread::inSupBusy);
+        setMonStateSup(inSupBusy);
         fms_->stoppedLookingForFile(ls);
-        fms_->setInStateSup(evf::FastMonitoringThread::inSupNewFile);
+        setMonStateSup(inSupNewFile);
       }
       int eventsInNewFile;
       if (fileListMode_) {
@@ -1069,9 +1076,9 @@ void FedRawDataInputSource::readSupervisor() {
               if (j)
                 copy_active = true;
             if (copy_active)
-              fms_->setInStateSup(evf::FastMonitoringThread::inSupNewFileWaitThreadCopying);
+              setMonStateSup(inSupNewFileWaitThreadCopying);
             else
-              fms_->setInStateSup(evf::FastMonitoringThread::inSupNewFileWaitThread);
+              setMonStateSup(inSupNewFileWaitThread);
           }
           //get thread
           unsigned int newTid = 0xffffffff;
@@ -1089,9 +1096,9 @@ void FedRawDataInputSource::readSupervisor() {
               if (j)
                 copy_active = true;
             if (copy_active)
-              fms_->setInStateSup(evf::FastMonitoringThread::inSupNewFileWaitChunkCopying);
+              setMonStateSup(inSupNewFileWaitChunkCopying);
             else
-              fms_->setInStateSup(evf::FastMonitoringThread::inSupNewFileWaitChunk);
+              setMonStateSup(inSupNewFileWaitChunk);
           }
           InputChunk* newChunk = nullptr;
           while (!freeChunks_.try_pop(newChunk)) {
@@ -1111,8 +1118,7 @@ void FedRawDataInputSource::readSupervisor() {
           }
           if (stop)
             break;
-          if (fms_)
-            fms_->setInStateSup(evf::FastMonitoringThread::inSupNewFile);
+          setMonStateSup(inSupNewFile);
 
           std::unique_lock<std::mutex> lk(mReader_);
 
@@ -1186,12 +1192,11 @@ void FedRawDataInputSource::readSupervisor() {
       }
     }
   }
-  if (fms_)
-    fms_->setInStateSup(evf::FastMonitoringThread::inRunEnd);
+  setMonStateSup(inRunEnd);
   //make sure threads finish reading
   unsigned numFinishedThreads = 0;
   while (numFinishedThreads < workerThreads_.size()) {
-    unsigned int tid;
+    unsigned tid = 0;
     while (!workerPool_.try_pop(tid)) {
       usleep(10000);
     }
@@ -1341,7 +1346,7 @@ void FedRawDataInputSource::readWorker(unsigned int tid) {
     if (detectedFRDversion_ == 0 && chunk->offset_ == 0) {
       detectedFRDversion_ = *((uint16_t*)(chunk->buf_ + file->rawHeaderSize_));
     }
-    assert(detectedFRDversion_ <= 6);
+    assert(detectedFRDversion_ <= FRDHeaderMaxVersion);
     chunk->readComplete_ =
         true;  //this is atomic to secure the sequential buffer fill before becoming available for processing)
     file->chunks_[chunk->fileIndex_] = chunk;  //put the completed chunk in the file chunk vector at predetermined index
@@ -1353,10 +1358,23 @@ void FedRawDataInputSource::threadError() {
   throw cms::Exception("FedRawDataInputSource:threadError") << " file reader thread error ";
 }
 
+inline void FedRawDataInputSource::setMonState(evf::FastMonState::InputState state) {
+  if (fms_)
+    fms_->setInState(state);
+}
+
+inline void FedRawDataInputSource::setMonStateSup(evf::FastMonState::InputState state) {
+  if (fms_)
+    fms_->setInStateSup(state);
+}
+
 inline bool InputFile::advance(unsigned char*& dataPosition, const size_t size) {
   //wait for chunk
+
   while (!waitForChunk(currentChunk_)) {
+    parent_->setMonState(inWaitChunk);
     usleep(100000);
+    parent_->setMonState(inChunkReceived);
     if (parent_->exceptionState())
       parent_->threadError();
   }
@@ -1367,7 +1385,9 @@ inline bool InputFile::advance(unsigned char*& dataPosition, const size_t size) 
   if (currentLeft < size) {
     //we need next chunk
     while (!waitForChunk(currentChunk_ + 1)) {
+      parent_->setMonState(inWaitChunk);
       usleep(100000);
+      parent_->setMonState(inChunkReceived);
       if (parent_->exceptionState())
         parent_->threadError();
     }
@@ -1540,10 +1560,10 @@ long FedRawDataInputSource::initFileList() {
       std::string runStr = fileStem.substr(3, end - 3);
       try {
         //get long to support test run numbers < 2^32
-        long rval = boost::lexical_cast<long>(runStr);
+        long rval = std::stol(runStr);
         edm::LogInfo("FedRawDataInputSource") << "Autodetected run number in fileListMode -: " << rval;
         return rval;
-      } catch (boost::bad_lexical_cast const&) {
+      } catch (const std::exception&) {
         edm::LogWarning("FedRawDataInputSource")
             << "Unable to autodetect run number in fileListMode from file -: " << fileName;
       }
@@ -1570,7 +1590,7 @@ evf::EvFDaqDirector::FileStatus FedRawDataInputSource::getFile(unsigned int& ls,
       fileStem = fileStem.substr(0, fileStem.find('_'));
 
     if (!fileListLoopMode_)
-      ls = boost::lexical_cast<unsigned int>(fileStem);
+      ls = std::stoul(fileStem);
     else  //always starting from LS 1 in loop mode
       ls = 1 + loopModeIterationInc_;
 

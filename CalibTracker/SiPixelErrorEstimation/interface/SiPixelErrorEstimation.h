@@ -1,4 +1,3 @@
-
 #ifndef CalibTracker_SiPixelerrorEstimation_SiPixelErrorEstimation_h
 #define CalibTracker_SiPixelerrorEstimation_SiPixelErrorEstimation_h
 
@@ -6,7 +5,7 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -60,7 +59,7 @@
 class TTree;
 class TFile;
 
-class SiPixelErrorEstimation : public edm::EDAnalyzer {
+class SiPixelErrorEstimation : public edm::one::EDAnalyzer<> {
 public:
   explicit SiPixelErrorEstimation(const edm::ParameterSet&);
   ~SiPixelErrorEstimation() override;
@@ -77,6 +76,9 @@ private:
   edm::EDGetTokenT<SiPixelRecHitCollection> tPixRecHitCollection;
   edm::EDGetTokenT<edm::SimTrackContainer> tSimTrackContainer;
   edm::EDGetTokenT<reco::TrackCollection> tTrackCollection;
+  edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> trackerTopoToken_;
+  edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> trackerGeomToken_;
+  edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> magneticFieldToken_;
   std::string outputFile_;
   std::string src_;
   bool checkType_;         // do we check that the simHit associated with recHit is of the expected particle type ?

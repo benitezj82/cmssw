@@ -45,6 +45,12 @@ options.register('noDB',
                  VarParsing.VarParsing.varType.bool,
                  "Don't upload the BeamSpot conditions to the DB")
 
+options.register('BeamSplashRun',
+                 False, # default value
+                 VarParsing.VarParsing.multiplicity.singleton,
+                 VarParsing.VarParsing.varType.bool,
+                 "Set client source settings for beam SPLASH run")
+
 # Parameters for runType
 
 options.register ('runkey',
@@ -52,6 +58,14 @@ options.register ('runkey',
           VarParsing.VarParsing.multiplicity.singleton,
           VarParsing.VarParsing.varType.string,
           "Run Keys of CMS")
+
+# Parameter for frontierKey
+
+options.register ('runUniqueKey',
+          'InValid',
+          VarParsing.VarParsing.multiplicity.singleton,
+          VarParsing.VarParsing.varType.string,
+          "Unique run key from RCMS for Frontier")
 
 options.parseArguments()
 
@@ -86,6 +100,7 @@ if not options.inputFiles:
         skipFirstLumis = cms.untracked.bool(options.skipFirstLumis),
         deleteDatFiles = cms.untracked.bool(False),
         endOfRunKills  = cms.untracked.bool(endOfRunKills),
+        inputFileTransitionsEachEvent = cms.untracked.bool(False)
     )
 else:
     print("The list of input files is provided. Disabling discovery and running on everything.")
@@ -102,4 +117,17 @@ else:
 #    secondaryFileNames = cms.untracked.vstring()
 #)
 
-print("Source:", source)
+# https://twiki.cern.ch/twiki/bin/viewauth/CMS/CMSBeamSplash2017
+def set_BeamSplashRun_settings( source ):
+  source.minEventsPerLumi      = 1000000
+  source.nextLumiTimeoutMillis = 15000
+
+if options.BeamSplashRun : set_BeamSplashRun_settings( source )
+
+print("Initial Source settings:", source)
+
+
+
+
+
+

@@ -1,7 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
 from Configuration.Eras.Era_Run2_2018_cff import Run2_2018
-
 process = cms.Process('SIM',Run2_2018)
 
 # import of standard configurations
@@ -11,7 +10,6 @@ process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load('Configuration.EventContent.EventContent_cff')
 process.load('SimGeneral.MixingModule.mixNoPU_cfi')
 process.load('Configuration.Geometry.GeometryExtended2018Reco_cff')
-process.load('Configuration.Geometry.GeometryExtended2018_cff')
 process.load('Configuration.StandardSequences.MagneticField_cff')
 process.load('Configuration.StandardSequences.Generator_cff')
 process.load('IOMC.EventVertexGenerators.VtxSmearedRealistic25ns13TeVEarly2018Collision_cfi')
@@ -26,9 +24,9 @@ process.maxEvents = cms.untracked.PSet(
 )
 
 if 'MessageLogger' in process.__dict__:
-    process.MessageLogger.categories.append('G4cout')
-    process.MessageLogger.categories.append('G4cerr')
-    process.MessageLogger.categories.append('ParticleGun')
+    process.MessageLogger.G4cout=dict()
+    process.MessageLogger.G4cerr=dict()
+    process.MessageLogger.ParticleGun=dict()
 
 # Input source
 process.source = cms.Source("EmptySource")

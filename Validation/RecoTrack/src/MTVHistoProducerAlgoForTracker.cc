@@ -139,7 +139,9 @@ namespace {
 }  // namespace
 
 MTVHistoProducerAlgoForTracker::MTVHistoProducerAlgoForTracker(const edm::ParameterSet& pset, const bool doSeedPlots)
-    : doSeedPlots_(doSeedPlots), doMTDPlots_(pset.getUntrackedParameter<bool>("doMTDPlots")) {
+    : doSeedPlots_(doSeedPlots),
+      doMTDPlots_(pset.getUntrackedParameter<bool>("doMTDPlots")),
+      doDzPVcutPlots_(pset.getUntrackedParameter<bool>("doDzPVcutPlots")) {
   //parameters for _vs_eta plots
   minEta = pset.getParameter<double>("minEta");
   maxEta = pset.getParameter<double>("maxEta");
@@ -259,9 +261,6 @@ MTVHistoProducerAlgoForTracker::MTVHistoProducerAlgoForTracker(const edm::Parame
 
   maxDzpvCum = pset.getParameter<double>("maxDzpvCumulative");
   nintDzpvCum = pset.getParameter<int>("nintDzpvCumulative");
-
-  maxDzpvsigCum = pset.getParameter<double>("maxDzpvsigCumulative");
-  nintDzpvsigCum = pset.getParameter<int>("nintDzpvsigCumulative");
 
   //--- tracking particle selectors for efficiency measurements
   using namespace edm;
@@ -577,61 +576,17 @@ void MTVHistoProducerAlgoForTracker::bookSimTrackPVAssociationHistos(DQMStore::I
   histograms.h_simuldzpvzoomed.push_back(ibook.book1D(
       "num_simul_dzpv_zoomed", "N of simulated tracks vs dz(PV)", nintDz, minDz / dxyDzZoom, maxDz / dxyDzZoom));
 
-  histograms.h_assoc_dzpvcut.push_back(ibook.book1D(
-      "num_assoc(simToReco)_dzpvcut", "N of associated tracks (simToReco) vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
-  histograms.h_simul_dzpvcut.push_back(
-      ibook.book1D("num_simul_dzpvcut", "N of simulated tracks from sim PV", nintDzpvCum, 0, maxDzpvCum));
-  histograms.h_simul2_dzpvcut.push_back(ibook.book1D(
-      "num_simul2_dzpvcut", "N of simulated tracks (associated to any track) from sim PV", nintDzpvCum, 0, maxDzpvCum));
-
-  histograms.h_assoc_dzpvcut_pt.push_back(ibook.book1D("num_assoc(simToReco)_dzpvcut_pt",
-                                                       "#sump_{T} of associated tracks (simToReco) vs dz(PV)",
+  if (doDzPVcutPlots_) {
+    histograms.h_assoc_dzpvcut.push_back(ibook.book1D(
+        "num_assoc(simToReco)_dzpvcut", "N of associated tracks (simToReco) vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
+    histograms.h_simul_dzpvcut.push_back(
+        ibook.book1D("num_simul_dzpvcut", "N of simulated tracks from sim PV", nintDzpvCum, 0, maxDzpvCum));
+    histograms.h_simul2_dzpvcut.push_back(ibook.book1D("num_simul2_dzpvcut",
+                                                       "N of simulated tracks (associated to any track) from sim PV",
                                                        nintDzpvCum,
                                                        0,
                                                        maxDzpvCum));
-  histograms.h_simul_dzpvcut_pt.push_back(
-      ibook.book1D("num_simul_dzpvcut_pt", "#sump_{T} of simulated tracks from sim PV", nintDzpvCum, 0, maxDzpvCum));
-  histograms.h_simul2_dzpvcut_pt.push_back(
-      ibook.book1D("num_simul2_dzpvcut_pt",
-                   "#sump_{T} of simulated tracks (associated to any track) from sim PV",
-                   nintDzpvCum,
-                   0,
-                   maxDzpvCum));
-  histograms.h_assoc_dzpvcut_pt.back()->enableSumw2();
-  histograms.h_simul_dzpvcut_pt.back()->enableSumw2();
-  histograms.h_simul2_dzpvcut_pt.back()->enableSumw2();
-
-  histograms.h_assoc_dzpvsigcut.push_back(ibook.book1D("num_assoc(simToReco)_dzpvsigcut",
-                                                       "N of associated tracks (simToReco) vs dz(PV)/dzError",
-                                                       nintDzpvsigCum,
-                                                       0,
-                                                       maxDzpvsigCum));
-  histograms.h_simul_dzpvsigcut.push_back(ibook.book1D(
-      "num_simul_dzpvsigcut", "N of simulated tracks from sim PV/dzError", nintDzpvsigCum, 0, maxDzpvsigCum));
-  histograms.h_simul2_dzpvsigcut.push_back(
-      ibook.book1D("num_simul2_dzpvsigcut",
-                   "N of simulated tracks (associated to any track) from sim PV/dzError",
-                   nintDzpvsigCum,
-                   0,
-                   maxDzpvsigCum));
-
-  histograms.h_assoc_dzpvsigcut_pt.push_back(
-      ibook.book1D("num_assoc(simToReco)_dzpvsigcut_pt",
-                   "#sump_{T} of associated tracks (simToReco) vs dz(PV)/dzError",
-                   nintDzpvsigCum,
-                   0,
-                   maxDzpvsigCum));
-  histograms.h_simul_dzpvsigcut_pt.push_back(ibook.book1D(
-      "num_simul_dzpvsigcut_pt", "#sump_{T} of simulated tracks from sim PV/dzError", nintDzpvsigCum, 0, maxDzpvsigCum));
-  histograms.h_simul2_dzpvsigcut_pt.push_back(
-      ibook.book1D("num_simul2_dzpvsigcut_pt",
-                   "#sump_{T} of simulated tracks (associated to any track) from sim PV/dzError",
-                   nintDzpvsigCum,
-                   0,
-                   maxDzpvsigCum));
-  histograms.h_assoc_dzpvsigcut_pt.back()->enableSumw2();
-  histograms.h_simul_dzpvsigcut_pt.back()->enableSumw2();
-  histograms.h_simul2_dzpvsigcut_pt.back()->enableSumw2();
+  }
 }
 
 void MTVHistoProducerAlgoForTracker::bookRecoHistos(DQMStore::IBooker& ibook,
@@ -1526,59 +1481,16 @@ void MTVHistoProducerAlgoForTracker::bookRecoPVAssociationHistos(DQMStore::IBook
                                                        minDz / dxyDzZoom,
                                                        maxDz / dxyDzZoom));
 
-  histograms.h_reco_dzpvcut.push_back(
-      ibook.book1D("num_reco_dzpvcut", "N of reco track vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
-  histograms.h_assoc2_dzpvcut.push_back(ibook.book1D(
-      "num_assoc(recoToSim)_dzpvcut", "N of associated (recoToSim) tracks vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
-  histograms.h_pileup_dzpvcut.push_back(ibook.book1D(
-      "num_pileup_dzpvcut", "N of associated (recoToSim) pileup tracks vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
+  if (doDzPVcutPlots_) {
+    histograms.h_reco_dzpvcut.push_back(
+        ibook.book1D("num_reco_dzpvcut", "N of reco track vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
 
-  histograms.h_reco_dzpvcut_pt.push_back(
-      ibook.book1D("num_reco_dzpvcut_pt", "#sump_{T} of reco track vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
-  histograms.h_assoc2_dzpvcut_pt.push_back(ibook.book1D("num_assoc(recoToSim)_dzpvcut_pt",
-                                                        "#sump_{T} of associated (recoToSim) tracks vs dz(PV)",
-                                                        nintDzpvCum,
-                                                        0,
-                                                        maxDzpvCum));
-  histograms.h_pileup_dzpvcut_pt.push_back(ibook.book1D("num_pileup_dzpvcut_pt",
-                                                        "#sump_{T} of associated (recoToSim) pileup tracks vs dz(PV)",
-                                                        nintDzpvCum,
-                                                        0,
-                                                        maxDzpvCum));
-  histograms.h_reco_dzpvcut_pt.back()->enableSumw2();
-  histograms.h_assoc2_dzpvcut_pt.back()->enableSumw2();
-  histograms.h_pileup_dzpvcut_pt.back()->enableSumw2();
+    histograms.h_assoc2_dzpvcut.push_back(ibook.book1D(
+        "num_assoc(recoToSim)_dzpvcut", "N of associated (recoToSim) tracks vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
 
-  histograms.h_reco_dzpvsigcut.push_back(
-      ibook.book1D("num_reco_dzpvsigcut", "N of reco track vs dz(PV)/dzError", nintDzpvsigCum, 0, maxDzpvsigCum));
-  histograms.h_assoc2_dzpvsigcut.push_back(ibook.book1D("num_assoc(recoToSim)_dzpvsigcut",
-                                                        "N of associated (recoToSim) tracks vs dz(PV)/dzError",
-                                                        nintDzpvsigCum,
-                                                        0,
-                                                        maxDzpvsigCum));
-  histograms.h_pileup_dzpvsigcut.push_back(ibook.book1D("num_pileup_dzpvsigcut",
-                                                        "N of associated (recoToSim) pileup tracks vs dz(PV)/dzError",
-                                                        nintDzpvsigCum,
-                                                        0,
-                                                        maxDzpvsigCum));
-
-  histograms.h_reco_dzpvsigcut_pt.push_back(ibook.book1D(
-      "num_reco_dzpvsigcut_pt", "#sump_{T} of reco track vs dz(PV)/dzError", nintDzpvsigCum, 0, maxDzpvsigCum));
-  histograms.h_assoc2_dzpvsigcut_pt.push_back(
-      ibook.book1D("num_assoc(recoToSim)_dzpvsigcut_pt",
-                   "#sump_{T} of associated (recoToSim) tracks vs dz(PV)/dzError",
-                   nintDzpvsigCum,
-                   0,
-                   maxDzpvsigCum));
-  histograms.h_pileup_dzpvsigcut_pt.push_back(
-      ibook.book1D("num_pileup_dzpvsigcut_pt",
-                   "#sump_{T} of associated (recoToSim) pileup tracks vs dz(PV)/dzError",
-                   nintDzpvsigCum,
-                   0,
-                   maxDzpvsigCum));
-  histograms.h_reco_dzpvsigcut_pt.back()->enableSumw2();
-  histograms.h_assoc2_dzpvsigcut_pt.back()->enableSumw2();
-  histograms.h_pileup_dzpvsigcut_pt.back()->enableSumw2();
+    histograms.h_pileup_dzpvcut.push_back(ibook.book1D(
+        "num_pileup_dzpvcut", "N of associated (recoToSim) pileup tracks vs dz(PV)", nintDzpvCum, 0, maxDzpvCum));
+  }
 }
 
 void MTVHistoProducerAlgoForTracker::bookRecodEdxHistos(DQMStore::IBooker& ibook, Histograms& histograms) {
@@ -1939,25 +1851,19 @@ void MTVHistoProducerAlgoForTracker::fill_recoAssociated_simTrack_histos(
       histograms.h_simuldzpv[count]->Fill(dzPVSim);
       histograms.h_simuldzpvzoomed[count]->Fill(dzPVSim);
 
-      histograms.h_simul_dzpvcut[count]->Fill(0);
-      histograms.h_simul_dzpvsigcut[count]->Fill(0);
-      histograms.h_simul_dzpvcut_pt[count]->Fill(0, pt);
-      histograms.h_simul_dzpvsigcut_pt[count]->Fill(0, pt);
+      if (doDzPVcutPlots_)
+        histograms.h_simul_dzpvcut[count]->Fill(0);
 
       if (isMatched) {
         histograms.h_assocdzpv[count]->Fill(dzPVSim);
         histograms.h_assocdzpvzoomed[count]->Fill(dzPVSim);
 
-        histograms.h_simul2_dzpvcut[count]->Fill(0);
-        histograms.h_simul2_dzpvsigcut[count]->Fill(0);
-        histograms.h_simul2_dzpvcut_pt[count]->Fill(0, pt);
-        histograms.h_simul2_dzpvsigcut_pt[count]->Fill(0, pt);
-        const double dzpvcut = std::abs(track->dz(*pvPosition));
-        const double dzpvsigcut = dzpvcut / track->dzError();
-        histograms.h_assoc_dzpvcut[count]->Fill(dzpvcut);
-        histograms.h_assoc_dzpvsigcut[count]->Fill(dzpvsigcut);
-        histograms.h_assoc_dzpvcut_pt[count]->Fill(dzpvcut, pt);
-        histograms.h_assoc_dzpvsigcut_pt[count]->Fill(dzpvsigcut, pt);
+        if (doDzPVcutPlots_) {
+          histograms.h_simul2_dzpvcut[count]->Fill(0);
+
+          const double dzpvcut = std::abs(track->dz(*pvPosition));
+          histograms.h_assoc_dzpvcut[count]->Fill(dzpvcut);
+        }
       }
     }
     if (simPVPosition) {
@@ -2027,7 +1933,6 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
   const auto dz = track.dz(bsPosition);
   const auto dxypv = pvPosition ? track.dxy(*pvPosition) : 0.0;
   const auto dzpv = pvPosition ? track.dz(*pvPosition) : 0.0;
-  const auto dzpvsig = pvPosition ? dzpv / track.dzError() : 0.0;
   const auto nhits = track.found();
   const auto nlayers = track.hitPattern().trackerLayersWithMeasurement();
   const auto nPixelLayers = track.hitPattern().pixelLayersWithMeasurement();
@@ -2066,10 +1971,8 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
       histograms.h_recodxypvzoomed[count]->Fill(dxypv);
       histograms.h_recodzpvzoomed[count]->Fill(dzpv);
 
-      histograms.h_reco_dzpvcut[count]->Fill(std::abs(dzpv));
-      histograms.h_reco_dzpvsigcut[count]->Fill(std::abs(dzpvsig));
-      histograms.h_reco_dzpvcut_pt[count]->Fill(std::abs(dzpv), pt);
-      histograms.h_reco_dzpvsigcut_pt[count]->Fill(std::abs(dzpvsig), pt);
+      if (doDzPVcutPlots_)
+        histograms.h_reco_dzpvcut[count]->Fill(std::abs(dzpv));
     }
     if (simPVPosition) {
       histograms.h_reco_simpvz[count]->Fill(simpvz);
@@ -2137,10 +2040,8 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
         histograms.h_assoc2dxypvzoomed[count]->Fill(dxypv);
         histograms.h_assoc2dzpvzoomed[count]->Fill(dzpv);
 
-        histograms.h_assoc2_dzpvcut[count]->Fill(std::abs(dzpv));
-        histograms.h_assoc2_dzpvsigcut[count]->Fill(std::abs(dzpvsig));
-        histograms.h_assoc2_dzpvcut_pt[count]->Fill(std::abs(dzpv), pt);
-        histograms.h_assoc2_dzpvsigcut_pt[count]->Fill(std::abs(dzpvsig), pt);
+        if (doDzPVcutPlots_)
+          histograms.h_assoc2_dzpvcut[count]->Fill(std::abs(dzpv));
       }
       if (simPVPosition) {
         histograms.h_assoc2_simpvz[count]->Fill(simpvz);
@@ -2262,10 +2163,8 @@ void MTVHistoProducerAlgoForTracker::fill_generic_recoTrack_histos(const Histogr
           histograms.h_pileupdxypvzoomed[count]->Fill(dxypv);
           histograms.h_pileupdzpvzoomed[count]->Fill(dzpv);
 
-          histograms.h_pileup_dzpvcut[count]->Fill(std::abs(dzpv));
-          histograms.h_pileup_dzpvsigcut[count]->Fill(std::abs(dzpvsig));
-          histograms.h_pileup_dzpvcut_pt[count]->Fill(std::abs(dzpv), pt);
-          histograms.h_pileup_dzpvsigcut_pt[count]->Fill(std::abs(dzpvsig), pt);
+          if (doDzPVcutPlots_)
+            histograms.h_pileup_dzpvcut[count]->Fill(std::abs(dzpv));
         }
         if (simPVPosition) {
           histograms.h_pileup_simpvz[count]->Fill(simpvz);

@@ -181,6 +181,8 @@ METAnalyzer::METAnalyzer(const edm::ParameterSet& pSet) {
   verbose_ = parameters.getParameter<int>("verbose");
 
   FolderName_ = parameters.getUntrackedParameter<std::string>("FolderName");
+
+  l1gtTrigMenuToken_ = esConsumes<edm::Transition::BeginRun>();
 }
 
 // ***********************************************************
@@ -1178,9 +1180,7 @@ void METAnalyzer::bookMonitorElement(std::string DirName,
 
 // ***********************************************************
 void METAnalyzer::dqmBeginRun(const edm::Run& iRun, const edm::EventSetup& iSetup) {
-  edm::ESHandle<L1GtTriggerMenu> menuRcd;
-  iSetup.get<L1GtTriggerMenuRcd>().get(menuRcd);
-  const L1GtTriggerMenu* menu = menuRcd.product();
+  const L1GtTriggerMenu* menu = &iSetup.getData(l1gtTrigMenuToken_);
   for (CItAlgo techTrig = menu->gtTechnicalTriggerMap().begin(); techTrig != menu->gtTechnicalTriggerMap().end();
        ++techTrig) {
     if ((techTrig->second).algoName() == m_l1algoname_) {
@@ -1401,10 +1401,11 @@ void METAnalyzer::makeRatePlot(std::string DirName, double totltime) {
       // Integral plot & convert number of events to rate (hz)
       tMETRate = (TH1F*)tMET->Clone("METRateHist");
       for (int i = tMETRate->GetNbinsX() - 1; i >= 0; i--) {
-        mMETRate->setBinContent(i + 1, tMETRate->GetBinContent(i + 2) + tMET->GetBinContent(i + 1));
+        tMETRate->SetBinContent(i + 1, tMETRate->GetBinContent(i + 2) + tMET->GetBinContent(i + 1));
       }
       for (int i = 0; i < tMETRate->GetNbinsX(); i++) {
-        mMETRate->setBinContent(i + 1, tMETRate->GetBinContent(i + 1) / double(totltime));
+        tMETRate->SetBinContent(i + 1, tMETRate->GetBinContent(i + 1) / double(totltime));
+        mMETRate->setBinContent(i + 1, tMETRate->GetBinContent(i + 1));
       }
     }
   }

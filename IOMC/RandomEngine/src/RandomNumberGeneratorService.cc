@@ -34,7 +34,7 @@
 #include "FWCore/Utilities/interface/Exception.h"
 #include "FWCore/Utilities/interface/LuminosityBlockIndex.h"
 #include "FWCore/Utilities/interface/StreamID.h"
-#include "IOMC/RandomEngine/src/TRandomAdaptor.h"
+#include "IOMC/RandomEngine/interface/TRandomAdaptor.h"
 #include "SimDataFormats/RandomEngine/interface/RandomEngineState.h"
 #include "SimDataFormats/RandomEngine/interface/RandomEngineStates.h"
 
@@ -87,7 +87,7 @@ namespace edm {
 
       // The saveFileName must correspond to a file name without any path specification.
       // Throw if that is not true.
-      if (!saveFileName_.empty() && (saveFileName_.find("/") != std::string::npos)) {
+      if (!saveFileName_.empty() && (saveFileName_.find('/') != std::string::npos)) {
         throw Exception(errors::Configuration)
             << "The saveFileName parameter must be a simple file name with no path\n"
             << "specification. In the configuration, it was given the value \"" << saveFileName_ << "\"\n";
@@ -187,6 +187,7 @@ namespace edm {
         }
       }
       activityRegistry.watchPreModuleConstruction(this, &RandomNumberGeneratorService::preModuleConstruction);
+      activityRegistry.watchPreModuleDestruction(this, &RandomNumberGeneratorService::preModuleDestruction);
 
       activityRegistry.watchPreallocate(this, &RandomNumberGeneratorService::preallocate);
 
@@ -379,6 +380,13 @@ namespace edm {
       std::map<std::string, SeedsAndName>::iterator iter = seedsAndNameMap_.find(description.moduleLabel());
       if (iter != seedsAndNameMap_.end()) {
         iter->second.setModuleID(description.id());
+      }
+    }
+
+    void RandomNumberGeneratorService::preModuleDestruction(ModuleDescription const& description) {
+      std::map<std::string, SeedsAndName>::iterator iter = seedsAndNameMap_.find(description.moduleLabel());
+      if (iter != seedsAndNameMap_.end()) {
+        iter->second.setModuleID(SeedsAndName::kInvalid);
       }
     }
 

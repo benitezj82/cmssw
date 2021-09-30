@@ -23,6 +23,7 @@
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "DQMServices/Core/interface/DQMStore.h"
 #include "DQMServices/Core/interface/DQMOneEDAnalyzer.h"
+#include "CondCore/DBOutputService/interface/OnlineDBOutputService.h"
 #include <fstream>
 #include "TRandom3.h"
 
@@ -36,7 +37,9 @@ public:
   ~FakeBeamMonitor() override;
 
 protected:
-  // BeginRun
+  //BeginRun
+  void dqmBeginRun(edm::Run const&, edm::EventSetup const&) override;
+
   void bookHistograms(DQMStore::IBooker& i, const edm::Run& r, const edm::EventSetup& c) override;
 
   void analyze(const edm::Event& e, const edm::EventSetup& c) override;
@@ -53,6 +56,7 @@ private:
   void scrollTH1(TH1*, std::time_t);
   bool testScroll(std::time_t&, std::time_t&);
   void formatFitTime(char*, const std::time_t&);
+  std::string getGMTstring(const std::time_t&);
 
   const int dxBin_;
   const double dxMin_;
@@ -70,7 +74,9 @@ private:
   const double dzMin_;
   const double dzMax_;
   std::string monitorName_;
-  std::string recordName_;  // output BeamSpotOnline Record name
+  std::string recordName_;                                              // output BeamSpotOnline Record name
+  edm::Service<cond::service::OnlineDBOutputService> onlineDbService_;  // DB service
+  int DBloggerReturn_;                                                  // DB logger return value
 
   int fitNLumi_;
   int fitPVNLumi_;
@@ -106,7 +112,7 @@ private:
   int countGapLumi_;
 
   bool processed_;
-
+  bool useLockRecords_;
   // ----------member data ---------------------------
 
   //   std::vector<BSTrkParameters> fBSvector;

@@ -35,6 +35,8 @@
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "RecoEcal/EgammaCoreTools/interface/EcalClusterLazyTools.h"
 #include "RecoEgamma/EgammaTools/interface/EGEnergyCorrector.h"
+#include "RecoEgamma/EgammaTools/interface/EGEnergyCorrectorFactoryFromEventSetup.h"
+#include "RecoEgamma/EgammaTools/interface/egEnergyCorrectorFactoryFromRootFile.h"
 #include "DataFormats/EgammaCandidates/interface/Photon.h"
 
 //
@@ -53,17 +55,20 @@ private:
   void analyze(const edm::Event&, const edm::EventSetup&) override;
   void endJob() override;
 
+  EGEnergyCorrectorFactoryFromEventSetup corddbFactory_;
   EGEnergyCorrector corfile;
-  EGEnergyCorrector cordb;
+  std::optional<EGEnergyCorrector> cordb;
 
   edm::EDGetTokenT<EcalRecHitCollection> ebRHToken_, eeRHToken_;
   const EcalClusterLazyTools::ESGetTokens ecalClusterToolsESGetTokens_;
 };
 
 EGEnergyAnalyzer::EGEnergyAnalyzer(const edm::ParameterSet& iConfig)
-    : ecalClusterToolsESGetTokens_{consumesCollector()} {
-  ebRHToken_ = consumes<EcalRecHitCollection>(edm::InputTag("reducedEcalRecHitsEB"));
-  eeRHToken_ = consumes<EcalRecHitCollection>(edm::InputTag("reducedEcalRecHitsEE"));
+    : corddbFactory_(consumesCollector(), "wgbrph"),
+      corfile(egEnergyCorrectorFactoryFromRootFile("/afs/cern.ch/user/b/bendavid/cmspublic/gbrv3ph.root")),
+      ecalClusterToolsESGetTokens_{consumesCollector()} {
+  ebRHToken_ = consumes(edm::InputTag("reducedEcalRecHitsEB"));
+  eeRHToken_ = consumes(edm::InputTag("reducedEcalRecHitsEE"));
 }
 
 EGEnergyAnalyzer::~EGEnergyAnalyzer() {
@@ -79,31 +84,27 @@ EGEnergyAnalyzer::~EGEnergyAnalyzer() {
 void EGEnergyAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
-  if (!corfile.IsInitialized()) {
-    corfile.Initialize(iSetup, "/afs/cern.ch/user/b/bendavid/cmspublic/gbrv3ph.root");
-    //corfile.Initialize(iSetup,"wgbrph",true);
-  }
-
-  if (!cordb.IsInitialized()) {
-    //cordb.Initialize(iSetup,"/afs/cern.ch/user/b/bendavid/cmspublic/regweights/gbrph.root");
-    cordb.Initialize(iSetup, "wgbrph", true);
+  if (!cordb) {
+    cordb = EGEnergyCorrector(corddbFactory_.build(iSetup));
   }
 
   // get photon collection
   Handle<reco::PhotonCollection> hPhotonProduct;
   iEvent.getByLabel("photons", hPhotonProduct);
 
-  EcalClusterLazyTools lazyTools(iEvent, ecalClusterToolsESGetTokens_.get(iSetup), ebRHToken_, eeRHToken_);
+  auto const& ecalClusterToolsESData = ecalClusterToolsESGetTokens_.get(iSetup);
+  auto const& caloGeometry = ecalClusterToolsESData.caloGeometry;
+  EcalClusterLazyTools lazyTools(iEvent, ecalClusterToolsESData, ebRHToken_, eeRHToken_);
 
   Handle<reco::VertexCollection> hVertexProduct;
   iEvent.getByLabel("offlinePrimaryVerticesWithBS", hVertexProduct);
 
-  for (reco::PhotonCollection::const_iterator it = hPhotonProduct->begin(); it != hPhotonProduct->end(); ++it) {
-    std::pair<double, double> corsfile = corfile.CorrectedEnergyWithError(*it, *hVertexProduct, lazyTools, iSetup);
-    std::pair<double, double> corsdb = cordb.CorrectedEnergyWithError(*it, *hVertexProduct, lazyTools, iSetup);
+  for (auto const& it : *hPhotonProduct) {
+    std::pair<double, double> corsfile = corfile.CorrectedEnergyWithError(it, *hVertexProduct, lazyTools, caloGeometry);
+    std::pair<double, double> corsdb = cordb->CorrectedEnergyWithError(it, *hVertexProduct, lazyTools, caloGeometry);
 
-    printf("file: default = %5f, correction = %5f, uncertainty = %5f\n", it->energy(), corsfile.first, corsfile.second);
-    printf("db:   default = %5f, correction = %5f, uncertainty = %5f\n", it->energy(), corsdb.first, corsdb.second);
+    printf("file: default = %5f, correction = %5f, uncertainty = %5f\n", it.energy(), corsfile.first, corsfile.second);
+    printf("db:   default = %5f, correction = %5f, uncertainty = %5f\n", it.energy(), corsdb.first, corsdb.second);
   }
 }
 

@@ -1,7 +1,9 @@
 import FWCore.ParameterSet.Config as cms
+
+from Configuration.Eras.Era_Phase2C11I13M9_cff import Phase2C11I13M9
 from Configuration.ProcessModifiers.dd4hep_cff import dd4hep
 
-process = cms.Process("GeometryTest",dd4hep)
+process = cms.Process("GeometryTest",Phase2C11I13M9,dd4hep)
 
 process.source = cms.Source("EmptyIOVSource",
                             lastValue = cms.uint64(1),
@@ -14,53 +16,39 @@ process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32(1)
 )
 
-process.MessageLogger = cms.Service(
-    "MessageLogger",
-    statistics = cms.untracked.vstring('cout'),
-    categories = cms.untracked.vstring('MTDUnitTest',
-                                       'GeometricTimingDetAnalyzer',
-                                       'MTDTopologyAnalyzer'),
-    cout = cms.untracked.PSet(
-        threshold = cms.untracked.string('INFO'),
-        INFO = cms.untracked.PSet(
-            limit = cms.untracked.int32(-1)
-            ),
-        GeometricTimingDetAnalyzer = cms.untracked.PSet(
-            limit = cms.untracked.int32(-1)
-            ),
-        MTDTopologyAnalyzer = cms.untracked.PSet(
-            limit = cms.untracked.int32(-1)
-            ),
-        noLineBreaks = cms.untracked.bool(True)
-        ),
-    mtdNumberingDD4hep = cms.untracked.PSet(
-        INFO = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        FWKINFO = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        noLineBreaks = cms.untracked.bool(True),
-        DEBUG = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        WARNING = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        ERROR = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        threshold = cms.untracked.string('INFO'),
-        MTDUnitTest = cms.untracked.PSet(
-            limit = cms.untracked.int32(-1)
-            ),
-        ),
-    destinations = cms.untracked.vstring('cout',
-                                         'mtdNumberingDD4hep')
+process.load("FWCore.MessageLogger.MessageLogger_cfi")
+process.MessageLogger.cerr.threshold = cms.untracked.string('INFO')
+process.MessageLogger.cerr.INFO = cms.untracked.PSet(
+    limit = cms.untracked.int32(0)
+)
+process.MessageLogger.cerr.GeometricTimingDetAnalyzer = cms.untracked.PSet(
+    limit = cms.untracked.int32(-1)
+)
+process.MessageLogger.files.mtdNumberingDD4hep = cms.untracked.PSet(
+    DEBUG = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    ERROR = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    FWKINFO = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    INFO = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    MTDUnitTest = cms.untracked.PSet(
+        limit = cms.untracked.int32(-1)
+    ),
+    WARNING = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    noLineBreaks = cms.untracked.bool(True),
+    threshold = cms.untracked.string('INFO')
 )
 
 process.DDDetectorESProducer = cms.ESSource("DDDetectorESProducer",
-                                            confGeomXMLFiles = cms.FileInPath('Geometry/MTDCommonData/data/dd4hep/cms-mtdD50-geometry.xml'),
+                                            confGeomXMLFiles = cms.FileInPath('Geometry/MTDCommonData/data/dd4hep/cms-mtdD76-geometry.xml'),
                                             appendToDataLabel = cms.string('')
 )
 
@@ -79,10 +67,6 @@ process.load("Geometry.MTDGeometryBuilder.mtdParameters_cff")
 
 process.prod = cms.EDAnalyzer("GeometricTimingDetAnalyzer")
 
-process.prod1 = cms.EDAnalyzer("DD4hep_MTDTopologyAnalyzer",
-                               DDDetector = cms.ESInputTag('',''),
-)
-
 process.Timing = cms.Service("Timing")
 
-process.p1 = cms.Path(process.prod+process.prod1)
+process.p1 = cms.Path(process.prod)

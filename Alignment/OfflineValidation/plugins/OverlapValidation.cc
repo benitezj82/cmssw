@@ -25,8 +25,9 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
-#include "FWCore/Framework/interface/ESHandle.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "FWCore/Utilities/interface/EDGetToken.h"
+#include "FWCore/Utilities/interface/ESGetToken.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
@@ -101,9 +102,14 @@ private:
   int layerFromId(const DetId&, const TrackerTopology* const tTopo) const;
 
   // ----------member data ---------------------------
+
+  const edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
+  const edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> magFieldToken_;
+  const edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> topoToken_;
+
   edm::ParameterSet config_;
   edm::InputTag trajectoryTag_;
-  SiStripDetInfoFileReader* reader;
+  SiStripDetInfo detInfo_;
   bool doSimHit_;
   const TrackerGeometry* trackerGeometry_;
   const MagneticField* magField_;
@@ -113,6 +119,7 @@ private:
 
   TTree* rootTree_;
   edm::FileInPath FileInPath_;
+  const int compressionSettings_;
   const bool addExtraBranches_;
   const int minHitsCut_;
   const float chi2ProbCut_;
@@ -180,9 +187,13 @@ using std::vector;
 // constructors and destructor
 //
 OverlapValidation::OverlapValidation(const edm::ParameterSet& iConfig)
-    : config_(iConfig),
+    : geomToken_(esConsumes()),
+      magFieldToken_(esConsumes()),
+      topoToken_(esConsumes()),
+      config_(iConfig),
       rootTree_(nullptr),
-      FileInPath_("CalibTracker/SiStripCommon/data/SiStripDetInfo.dat"),
+      FileInPath_(SiStripDetInfoFileReader::kDefaultFile),
+      compressionSettings_(iConfig.getUntrackedParameter<int>("compressionSettings", -1)),
       addExtraBranches_(false),
       minHitsCut_(6),
       chi2ProbCut_(0.001) {
@@ -191,7 +202,7 @@ OverlapValidation::OverlapValidation(const edm::ParameterSet& iConfig)
   trajectoryTag_ = iConfig.getParameter<edm::InputTag>("trajectories");
   trajectoryToken_ = iC.consumes<TrajectoryCollection>(trajectoryTag_);
   doSimHit_ = iConfig.getParameter<bool>("associateStrip");
-  reader = new SiStripDetInfoFileReader(FileInPath_.fullPath());
+  detInfo_ = SiStripDetInfoFileReader::read(FileInPath_.fullPath());
 
   overlapCounts_[0] = 0;  // #trajectories
   overlapCounts_[1] = 0;  // #hits
@@ -209,6 +220,10 @@ OverlapValidation::OverlapValidation(const edm::ParameterSet& iConfig)
   //
   // root output
   //
+  if (compressionSettings_ > 0) {
+    fs->file().SetCompressionSettings(compressionSettings_);
+  }
+
   rootTree_ = fs->make<TTree>("Overlaps", "Overlaps");
   if (addExtraBranches_) {
     rootTree_->Branch("hitCounts", hitCounts_, "found/s:lost/s");
@@ -277,20 +292,15 @@ void OverlapValidation::analyze(const edm::Event& iEvent, const edm::EventSetup&
   //
   // mag field & search tracker
   //
-  edm::ESHandle<MagneticField> magFieldHandle;
-  iSetup.get<IdealMagneticFieldRecord>().get(magFieldHandle);
-  magField_ = magFieldHandle.product();
+  const MagneticField* magField_ = &iSetup.getData(magFieldToken_);
   //
   // propagator
   //
   AnalyticalPropagator propagator(magField_, anyDirection);
   //
   // geometry
-
   //
-  edm::ESHandle<TrackerGeometry> geometryHandle;
-  iSetup.get<TrackerDigiGeometryRecord>().get(geometryHandle);
-  trackerGeometry_ = geometryHandle.product();
+  trackerGeometry_ = &iSetup.getData(geomToken_);
   //
   // make associator for SimHits
   //
@@ -314,9 +324,7 @@ void OverlapValidation::analyze(const edm::Event& iEvent, const edm::EventSetup&
 
   //
   // loop over trajectories from refit
-  edm::ESHandle<TrackerTopology> tTopoHandle;
-  iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);
-  const TrackerTopology* const tTopo = tTopoHandle.product();
+  const TrackerTopology* const tTopo = &iSetup.getData(topoToken_);
   for (const auto& trajectory : *trajectoryCollection)
     analyze(trajectory, propagator, *associator, tTopo);
 
@@ -645,7 +653,7 @@ void OverlapValidation::analyze(const Trajectory& trajectory,
         uint16_t firstStrip = cluster1->firstStrip();
         uint16_t lastStrip = firstStrip + (cluster1->amplitudes()).size() - 1;
         unsigned short Nstrips;
-        Nstrips = reader->getNumberOfApvsAndStripLength(id1).first * 128;
+        Nstrips = detInfo_.getNumberOfApvsAndStripLength(id1).first * 128;
         bool atEdge = false;
         if (firstStrip == 0 || lastStrip == (Nstrips - 1))
           atEdge = true;
@@ -674,7 +682,7 @@ void OverlapValidation::analyze(const Trajectory& trajectory,
         uint16_t firstStrip = cluster2->firstStrip();
         uint16_t lastStrip = firstStrip + (cluster2->amplitudes()).size() - 1;
         unsigned short Nstrips;
-        Nstrips = reader->getNumberOfApvsAndStripLength(id2).first * 128;
+        Nstrips = detInfo_.getNumberOfApvsAndStripLength(id2).first * 128;
         bool atEdge = false;
         if (firstStrip == 0 || lastStrip == (Nstrips - 1))
           atEdge = true;

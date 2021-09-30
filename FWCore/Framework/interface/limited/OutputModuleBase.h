@@ -32,6 +32,8 @@
 #include "DataFormats/Provenance/interface/ModuleDescription.h"
 #include "DataFormats/Provenance/interface/SelectedProducts.h"
 
+#include "FWCore/Common/interface/FWCoreCommonFwd.h"
+#include "FWCore/Common/interface/OutputProcessBlockHelper.h"
 #include "FWCore/Framework/interface/TriggerResultsBasedEventSelector.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/ProductSelectorRules.h"
@@ -41,6 +43,7 @@
 #include "FWCore/ParameterSet/interface/ParameterSetfwd.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
 #include "FWCore/Concurrency/interface/LimitedTaskQueue.h"
+#include "FWCore/Concurrency/interface/WaitingTaskHolder.h"
 
 // forward declarations
 namespace edm {
@@ -50,7 +53,6 @@ namespace edm {
   class PreallocationConfiguration;
   class ActivityRegistry;
   class ThinnedAssociationsHelper;
-  class WaitingTask;
 
   template <typename T>
   class OutputModuleCommunicatorT;
@@ -88,7 +90,7 @@ namespace edm {
 
       bool selected(BranchDescription const& desc) const;
 
-      void selectProducts(ProductRegistry const& preg, ThinnedAssociationsHelper const&);
+      void selectProducts(ProductRegistry const& preg, ThinnedAssociationsHelper const&, ProcessBlockHelperBase const&);
       std::string const& processName() const { return process_name_; }
       SelectedProductsForBranchType const& keptProducts() const { return keptProducts_; }
       std::array<bool, NumBranchTypes> const& hasNewlyDroppedBranch() const { return hasNewlyDroppedBranch_; }
@@ -101,6 +103,8 @@ namespace edm {
       bool wantAllEvents() const { return wantAllEvents_; }
 
       BranchIDLists const* branchIDLists() const;
+
+      OutputProcessBlockHelper const& outputProcessBlockHelper() const { return outputProcessBlockHelper_; }
 
       ThinnedAssociationsHelper const* thinnedAssociationsHelper() const;
 
@@ -133,8 +137,9 @@ namespace edm {
 
       bool doEvent(EventTransitionInfo const&, ActivityRegistry*, ModuleCallingContext const*);
       //For now this is a placeholder
-      /*virtual*/ void preActionBeforeRunEventAsync(WaitingTask*, ModuleCallingContext const&, Principal const&) const {
-      }
+      /*virtual*/ void preActionBeforeRunEventAsync(WaitingTaskHolder,
+                                                    ModuleCallingContext const&,
+                                                    Principal const&) const {}
 
       void doBeginProcessBlock(ProcessBlockPrincipal const&, ModuleCallingContext const*) {}
       void doAccessInputProcessBlock(ProcessBlockPrincipal const&, ModuleCallingContext const*) {}
@@ -196,6 +201,9 @@ namespace edm {
 
       edm::propagate_const<std::unique_ptr<ThinnedAssociationsHelper>> thinnedAssociationsHelper_;
       std::map<BranchID, bool> keepAssociation_;
+
+      OutputProcessBlockHelper outputProcessBlockHelper_;
+
       LimitedTaskQueue queue_;
 
       //------------------------------------------------------------------
@@ -204,12 +212,13 @@ namespace edm {
 
       void updateBranchIDListsWithKeptAliases();
 
-      void doWriteProcessBlock(ProcessBlockPrincipal const&, ModuleCallingContext const*) {}
+      void doWriteProcessBlock(ProcessBlockPrincipal const&, ModuleCallingContext const*);
       void doWriteRun(RunPrincipal const& rp, ModuleCallingContext const*, MergeableRunProductMetadata const*);
       void doWriteLuminosityBlock(LuminosityBlockPrincipal const& lbp, ModuleCallingContext const*);
       void doOpenFile(FileBlock const& fb);
       void doRespondToOpenInputFile(FileBlock const& fb);
       void doRespondToCloseInputFile(FileBlock const& fb);
+      void doRespondToCloseOutputFile() {}
       void doRegisterThinnedAssociations(ProductRegistry const&, ThinnedAssociationsHelper&) {}
 
       std::string workerType() const { return "WorkerT<edm::limited::OutputModuleBase>"; }
@@ -235,6 +244,7 @@ namespace edm {
       virtual void endJob() {}
       virtual void writeLuminosityBlock(LuminosityBlockForOutput const&) = 0;
       virtual void writeRun(RunForOutput const&) = 0;
+      virtual void writeProcessBlock(ProcessBlockForOutput const&) {}
       virtual void openFile(FileBlock const&) const {}
       virtual bool isFileOpen() const { return true; }
 

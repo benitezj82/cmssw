@@ -7,6 +7,8 @@
 #include "FWCore/Framework/interface/EDConsumerBase.h"
 #include "FWCore/Framework/interface/SharedResourcesAcquirer.h"
 #include "FWCore/Concurrency/interface/SerialTaskQueue.h"
+#include "FWCore/Concurrency/interface/WaitingTaskHolder.h"
+#include "FWCore/Utilities/interface/deprecated_macro.h"
 
 #include <string>
 
@@ -18,14 +20,13 @@ namespace edm {
   class PreallocationConfiguration;
   class ActivityRegistry;
   class ThinnedAssociationsHelper;
-  class WaitingTask;
 
   namespace maker {
     template <typename T>
     class ModuleHolderT;
   }
 
-  class EDAnalyzer : public EDConsumerBase {
+  class CMS_DEPRECATED EDAnalyzer : public EDConsumerBase {
   public:
     template <typename T>
     friend class maker::ModuleHolderT;
@@ -60,7 +61,7 @@ namespace edm {
   private:
     bool doEvent(EventTransitionInfo const&, ActivityRegistry*, ModuleCallingContext const*);
     //Needed by Worker but not something supported
-    void preActionBeforeRunEventAsync(WaitingTask*, ModuleCallingContext const&, Principal const&) const {}
+    void preActionBeforeRunEventAsync(WaitingTaskHolder, ModuleCallingContext const&, Principal const&) const {}
 
     void doPreallocate(PreallocationConfiguration const&) {}
     void doBeginJob();
@@ -74,6 +75,7 @@ namespace edm {
     bool doEndLuminosityBlock(LumiTransitionInfo const&, ModuleCallingContext const*);
     void doRespondToOpenInputFile(FileBlock const& fb);
     void doRespondToCloseInputFile(FileBlock const& fb);
+    void doRespondToCloseOutputFile() {}
     void doRegisterThinnedAssociations(ProductRegistry const&, ThinnedAssociationsHelper&) {}
 
     void registerProductsAndCallbacks(EDAnalyzer const*, ProductRegistry* reg);

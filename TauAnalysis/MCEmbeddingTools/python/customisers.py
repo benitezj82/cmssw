@@ -5,7 +5,6 @@
 from __future__ import print_function
 import FWCore.ParameterSet.Config as cms
 
-import six
 
 ################################ Customizer for skimming ###########################
 ### There are four different parts.
@@ -67,7 +66,7 @@ to_bemanipulate.append(module_manipulate(module_name = 'rpcRecHits', manipulator
 
 
 def modify_outputModules(process, keep_drop_list = [], module_veto_list = [] ):
-    outputModulesList = [key for key,value in six.iteritems(process.outputModules)]
+    outputModulesList = [key for key,value in process.outputModules.items()]
     for outputModule in outputModulesList:
         if outputModule in module_veto_list:
             continue
@@ -112,7 +111,7 @@ def customiseSelecting(process,reselect=False):
     process.selecting = cms.Path(process.makePatMuonsZmumuSelection)
     process.schedule.insert(-1, process.selecting)
 
-    outputModulesList = [key for key,value in six.iteritems(process.outputModules)]
+    outputModulesList = [key for key,value in process.outputModules.items()]
     for outputModule in outputModulesList:
         outputModule = getattr(process, outputModule)
         outputModule.SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring("selecting"))
@@ -408,10 +407,14 @@ def customiseMerging(process, changeProcessname=True,reselect=False):
  #   process.merge_step.remove(process.gedPhotonsTmp)
  #   process.merge_step.remove(process.particleFlowTmp)
     process.merge_step.remove(process.hcalnoise)
+    process.merge_step.remove(process.lowPtGsfElectronTask)
+    process.merge_step.remove(process.gsfTracksOpenConversions)
 
     process.load('CommonTools.ParticleFlow.genForPF2PAT_cff')
 
     process.merge_step += process.genForPF2PATSequence
+
+    process.slimmingTask.remove(process.slimmedLowPtElectronsTask)
 
     process.schedule.insert(0,process.merge_step)
     # process.load('PhysicsTools.PatAlgos.slimming.slimmedGenJets_cfi')
@@ -462,7 +465,7 @@ def customiseFilterTTbartoMuMu(process):
 
 def customiseMCFilter(process):
     process.schedule.insert(-1,process.MCFilter)
-    outputModulesList = [key for key,value in six.iteritems(process.outputModules)]
+    outputModulesList = [key for key,value in process.outputModules.items()]
     for outputModule in outputModulesList:
         outputModule = getattr(process, outputModule)
         outputModule.SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring("MCFilter"))

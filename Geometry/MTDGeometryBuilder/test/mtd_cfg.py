@@ -1,6 +1,8 @@
 import FWCore.ParameterSet.Config as cms
 
-process = cms.Process("GeometryTest")
+from Configuration.Eras.Era_Phase2C11I13M9_cff import Phase2C11I13M9
+
+process = cms.Process("GeometryTest",Phase2C11I13M9)
 
 process.source = cms.Source("EmptyIOVSource",
                             lastValue = cms.uint64(1),
@@ -13,51 +15,38 @@ process.maxEvents = cms.untracked.PSet(
     input = cms.untracked.int32(1)
 )
 
-process.MessageLogger = cms.Service(
-    "MessageLogger",
-    statistics = cms.untracked.vstring('cout'),
-    categories = cms.untracked.vstring('MTDUnitTest',
-                                       'MTDDigiGeometryAnalyzer'),
-    cout = cms.untracked.PSet(
-        threshold = cms.untracked.string('INFO'),
-        INFO = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        FWKINFO = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        MTDDigiGeometryAnalyzer = cms.untracked.PSet(
-            limit = cms.untracked.int32(-1)
-            ),
-        noLineBreaks = cms.untracked.bool(True)
-        ),
-    mtdGeometryDDD = cms.untracked.PSet(
-        INFO = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        FWKINFO = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        noLineBreaks = cms.untracked.bool(True),
-        DEBUG = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        WARNING = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        ERROR = cms.untracked.PSet(
-            limit = cms.untracked.int32(0)
-            ),
-        threshold = cms.untracked.string('INFO'),
-        MTDUnitTest = cms.untracked.PSet(
-            limit = cms.untracked.int32(-1)
-            ),
-        ),
-    destinations = cms.untracked.vstring('cout',
-                                         'mtdGeometryDDD')
+process.load("FWCore.MessageLogger.MessageLogger_cfi")
+process.MessageLogger.cerr.threshold = cms.untracked.string('INFO')
+process.MessageLogger.cerr.INFO = cms.untracked.PSet(
+    limit = cms.untracked.int32(0)
+)
+process.MessageLogger.cerr.MTDDigiGeometryAnalyzer = cms.untracked.PSet(
+    limit = cms.untracked.int32(-1)
+)
+process.MessageLogger.files.mtdGeometryDDD = cms.untracked.PSet(
+    DEBUG = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    ERROR = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    FWKINFO = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    INFO = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    MTDUnitTest = cms.untracked.PSet(
+        limit = cms.untracked.int32(-1)
+    ),
+    WARNING = cms.untracked.PSet(
+        limit = cms.untracked.int32(0)
+    ),
+    noLineBreaks = cms.untracked.bool(True),
+    threshold = cms.untracked.string('INFO')
 )
 
-process.load("Configuration.Geometry.GeometryExtended2026D50_cff")
+process.load("Configuration.Geometry.GeometryExtended2026D76_cff")
 
 process.load("Geometry.MTDNumberingBuilder.mtdNumberingGeometry_cff")
 

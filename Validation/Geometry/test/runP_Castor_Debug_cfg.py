@@ -6,8 +6,8 @@ process.load('FWCore.MessageService.MessageLogger_cfi')
 
 #Geometry
 #
-process.load("Geometry.CMSCommonData.cmsAllGeometryXML_cfi")
-process.load("Geometry.TrackerNumberingBuilder.trackerNumberingGeometry_cfi")
+process.load("Configuration.Geometry.GeometrySimAll_cff")
+process.load("Configuration.Geometry.GeometryReco_cff")
 
 #Magnetic Field
 #
@@ -22,7 +22,7 @@ process.RandomNumberGeneratorService.generator.initialSeed = 456789
 process.RandomNumberGeneratorService.g4SimHits.initialSeed = 9876
 
 if hasattr(process,'MessageLogger'):
-    process.MessageLogger.categories.append('MaterialBudget')
+    process.MessageLogger.MaterialBudget=dict()
 
 process.source = cms.Source("EmptySource",
     firstRun        = cms.untracked.uint32(1),

@@ -2,10 +2,13 @@ import FWCore.ParameterSet.Config as cms
 
 process = cms.Process("CALIB")
 process.MessageLogger = cms.Service("MessageLogger",
-    cout = cms.untracked.PSet(
-        threshold = cms.untracked.string('INFO')
+    cerr = cms.untracked.PSet(
+        enable = cms.untracked.bool(False)
     ),
-    destinations = cms.untracked.vstring('cout')
+    cout = cms.untracked.PSet(
+        enable = cms.untracked.bool(True),
+        threshold = cms.untracked.string('INFO')
+    )
 )
 
 process.source = cms.Source("EmptyIOVSource",
@@ -77,12 +80,11 @@ process.SiStripQualityESProducer = cms.ESProducer("SiStripQualityESProducer",
 #process.trackerTopology = cms.ESProducer("TrackerTopologyEP")
 ####
 
-from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
-process.stat = DQMEDAnalyzer("SiStripQualityStatistics",
-                             #TkMapFileName = cms.untracked.string('TkMaps/TkMapBadComponents_full.png'),
-                             TkMapFileName = cms.untracked.string(''),
-                             dataLabel = cms.untracked.string('test')
-                             )
+from CalibTracker.SiStripQuality.siStripQualityStatistics_cfi import siStripQualityStatistics
+process.stat = siStripQualityStatistics.clone(
+        #TkMapFileName = cms.untracked.string('TkMaps/TkMapBadComponents_full.png'),
+        StripQualityLabel = cms.string("test")
+        )
 
 process.out = cms.OutputModule("AsciiOutputModule")
 
