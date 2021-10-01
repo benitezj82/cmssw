@@ -49,6 +49,7 @@ private:
   const std::string csvOutLabel_;
   mutable std::mutex fileLock_;
   const bool saveCSVFile_;
+  const bool saveCSVHIST_;
 
   const bool applyCorr_;
 };
@@ -66,6 +67,8 @@ RawPCCProducer::RawPCCProducer(const edm::ParameterSet& iConfig)
                        .getUntrackedParameter<std::string>("label", std::string("rawPCC.csv"))},
       saveCSVFile_{iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
                        .getUntrackedParameter<bool>("saveCSVFile", false)},
+      saveCSVHIST_{iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+                       .getUntrackedParameter<bool>("saveCSVHIST", false)},
       applyCorr_{iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
                      .getUntrackedParameter<bool>("ApplyCorrections", false)} {
   auto pccSource =
@@ -188,6 +191,12 @@ void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiS
 
     csfile.close();
   }
+
+
+  if (saveCSVHIST_) {
+    ///fill 2D histogram
+  }
+
   lumiSeg.emplace(putToken_, std::move(outputLumiInfo));
 }
 
