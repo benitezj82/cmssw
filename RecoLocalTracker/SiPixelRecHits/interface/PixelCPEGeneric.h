@@ -49,7 +49,7 @@
 #endif
 
 class MagneticField;
-class PixelCPEGeneric final : public PixelCPEGenericBase {
+class PixelCPEGeneric : public PixelCPEGenericBase {
 public:
   PixelCPEGeneric(edm::ParameterSet const &conf,
                   const MagneticField *,
@@ -63,7 +63,7 @@ public:
 
   static void fillPSetDescription(edm::ParameterSetDescription &desc);
 
-private:
+protected:
   LocalPoint localPosition(DetParam const &theDetParam, ClusterParam &theClusterParam) const override;
   LocalError localError(DetParam const &theDetParam, ClusterParam &theClusterParam) const override;
 

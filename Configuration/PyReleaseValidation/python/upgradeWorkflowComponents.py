@@ -150,7 +150,9 @@ class UpgradeWorkflow_baseline(UpgradeWorkflow):
         era=properties.get('Era', None)
         modifier=properties.get('ProcessModifier',None)
         if cust is not None: stepDict[stepName][k]['--customise']=cust
-        if era is not None: stepDict[stepName][k]['--era']=era
+        if era is not None: 
+            stepDict[stepName][k]['--era']=era
+            if 'RecNan' in stepName: stepDict[stepName][k]['--era'] += ',run3_nanoAOD_devel'
         if modifier is not None: stepDict[stepName][k]['--procModifier']=modifier
     def condition(self, fragment, stepList, key, hasHarvest):
         return True
@@ -168,12 +170,14 @@ upgradeWFs['baseline'] = UpgradeWorkflow_baseline(
         'RecoGlobal',
         'HARVEST',
         'HARVESTFakeHLT',
+        'HARVESTRecNan',
         'FastSim',
         'HARVESTFast',
         'HARVESTGlobal',
         'ALCA',
         'Nano',
         'MiniAOD',
+        'RecNan',
     ],
     PU =  [
         'DigiTrigger',
@@ -184,9 +188,11 @@ upgradeWFs['baseline'] = UpgradeWorkflow_baseline(
         'RecoFakeHLT',
         'HARVEST',
         'HARVESTFakeHLT',
+        'HARVESTRecNan',
         'HARVESTGlobal',
         'MiniAOD',
         'Nano',
+        'RecNan',
     ],
     suffix = '',
     offset = 0.0,
@@ -660,7 +666,7 @@ class UpgradeWorkflow_ProdLike(UpgradeWorkflow):
             # remove step
             stepDict[stepName][k] = None
         if 'Nano' in step:
-            stepDict[stepName][k] = merge([{'--filein':'file:step4.root'}, stepDict[step][k]])
+            stepDict[stepName][k] = merge([{'--filein':'file:step4.root','-s':'NANO','--datatier':'NANOAODSIM','--eventcontent':'NANOEDMAODSIM'}, stepDict[step][k]])
     def condition(self, fragment, stepList, key, hasHarvest):
         return fragment=="TTbar_14TeV" and ('2026' in key or '2021' in key)
 upgradeWFs['ProdLike'] = UpgradeWorkflow_ProdLike(
@@ -1104,7 +1110,7 @@ upgradeWFs['DD4hep'].allowReuse = False
 class UpgradeWorkflow_DD4hepDB(UpgradeWorkflow):
     def setup_(self, step, stepName, stepDict, k, properties):
         if 'Run3' in stepDict[step][k]['--era']:
-            stepDict[stepName][k] = merge([{'--conditions': '121X_mcRun3_2021_realistic_dd4hep_v3', '--geometry': 'DB:Extended', '--procModifiers': 'dd4hep'}, stepDict[step][k]])
+            stepDict[stepName][k] = merge([{'--conditions': 'auto:phase1_2021_dd4hep', '--geometry': 'DB:Extended', '--procModifiers': 'dd4hep'}, stepDict[step][k]])
     def condition(self, fragment, stepList, key, hasHarvest):
         return '2021' in key
 upgradeWFs['DD4hepDB'] = UpgradeWorkflow_DD4hepDB(
@@ -1351,11 +1357,11 @@ upgradeProperties[2026] = {
         'ScenToRun' : ['GenSimHLBeamSpot','DigiTrigger','RecoGlobal', 'HARVESTGlobal'],
     },
     '2026D87' : {
-        'Geom' : 'Extended2026D87', # N.B.: Geometry with 3D pixels in the Inner Tracker L1.
+        'Geom' : 'Extended2026D87', # N.B.: Geometry with bricked pixels in the Inner Tracker (+others)
         'HLTmenu': '@fake2',
         'GT' : 'auto:phase2_realistic_T27',
-        'Era' : 'Phase2C11I13T25M9', # customized for 3D pixels and Muon M9
-        'ScenToRun' : ['GenSimHLBeamSpot','DigiTrigger'],
+        'Era' : 'Phase2C11I13T27M9', # customized for bricked pixels and Muon M9
+        'ScenToRun' : ['GenSimHLBeamSpot','DigiTrigger','RecoGlobal', 'HARVESTGlobal'],
     },
 }
 
