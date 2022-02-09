@@ -8,10 +8,9 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
-#include "FWCore/Framework/interface/EDProducer.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "DataFormats/Common/interface/Ref.h"
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -32,23 +31,18 @@
 #include "CondFormats/HcalObjects/interface/HcalRespCorrs.h"
 #include "CondFormats/DataRecord/interface/HcalRespCorrsRcd.h"
 
-#include "TFile.h"
-#include "TH1.h"
-#include "TH2.h"
-#include "TTree.h"
-#include <vector>
 #include <map>
-
 #include <string>
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 //
 // class decleration
 //
 namespace cms {
-  class HcalConstantsASCIIWriter : public edm::EDAnalyzer {
+  class HcalConstantsASCIIWriter : public edm::one::EDAnalyzer<> {
   public:
     explicit HcalConstantsASCIIWriter(const edm::ParameterSet &);
     ~HcalConstantsASCIIWriter();

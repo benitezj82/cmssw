@@ -76,22 +76,20 @@ void SiPixel2DTemplateDBObjectUploader::beginJob() {}
 
 void SiPixel2DTemplateDBObjectUploader::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   //--- Make the POOL-ORA object to store the database object
-  SiPixel2DTemplateDBObject* obj = new SiPixel2DTemplateDBObject;
+  SiPixel2DTemplateDBObject obj;
 
   // Local variables
-  const char* tempfile;
   int m;
 
   // Set the number of templates to be passed to the dbobject
-  obj->setNumOfTempl(theTemplateCalibrations.size());
+  obj.setNumOfTempl(theTemplateCalibrations.size());
   // Set the version of the template dbobject - this is an external parameter
-  obj->setVersion(theVersion);
+  obj.setVersion(theVersion);
 
   // Open the template file(s)
-  for (m = 0; m < obj->numOfTempl(); ++m) {
+  for (m = 0; m < obj.numOfTempl(); ++m) {
     edm::FileInPath file(theTemplateCalibrations[m].c_str());
-    tempfile = (file.fullPath()).c_str();
-    std::ifstream in_file(tempfile, std::ios::in);
+    std::ifstream in_file(file.fullPath().c_str(), std::ios::in);
     if (in_file.is_open()) {
       edm::LogInfo("Template Info") << "Opened Template File: " << file.fullPath().c_str();
 
@@ -116,22 +114,22 @@ void SiPixel2DTemplateDBObjectUploader::analyze(const edm::Event& iEvent, const 
         temp.c[1] = title_char[j + 1];
         temp.c[2] = title_char[j + 2];
         temp.c[3] = title_char[j + 3];
-        obj->push_back(temp.f);
-        obj->setMaxIndex(obj->maxIndex() + 1);
+        obj.push_back(temp.f);
+        obj.setMaxIndex(obj.maxIndex() + 1);
       }
 
       // Fill the dbobject
       in_file >> tempstore;
       while (!in_file.eof()) {
-        obj->setMaxIndex(obj->maxIndex() + 1);
-        obj->push_back(tempstore);
+        obj.setMaxIndex(obj.maxIndex() + 1);
+        obj.push_back(tempstore);
         in_file >> tempstore;
       }
 
       in_file.close();
     } else {
       // If file didn't open, report this
-      edm::LogError("SiPixel2DTemplateDBObjectUploader") << "Error opening File" << tempfile;
+      edm::LogError("SiPixel2DTemplateDBObjectUploader") << "Error opening File " << (file.fullPath()).c_str();
     }
   }
 
@@ -165,8 +163,6 @@ void SiPixel2DTemplateDBObjectUploader::analyze(const edm::Event& iEvent, const 
       //Barrel Pixels first
       if ((phase == 1 && detid.subdetId() == static_cast<int>(PixelSubdetector::PixelBarrel)) ||
           (phase == 2 && tGeo->geomDetSubDetector(detid.subdetId()) == GeomDetEnumerators::P2PXB)) {
-        edm::LogPrint("SiPixel2DTemplateDBObjectUploader") << "--- IN THE BARREL ---\n";
-
         //Get the layer, ladder, and module corresponding to this detID
         layer = tTopo->pxbLayer(detid.rawId());
         ladder = tTopo->pxbLadder(detid.rawId());
@@ -197,20 +193,15 @@ void SiPixel2DTemplateDBObjectUploader::analyze(const edm::Event& iEvent, const 
             thisID = (short)theBarrelTemplateIds[iter];
         }
 
-        if (thisID == 10000 || (!(*obj).putTemplateID(detid.rawId(), thisID)))
+        if (thisID == 10000 || (!obj.putTemplateID(detid.rawId(), thisID)))
           edm::LogPrint("SiPixel2DTemplateDBObjectUploader")
               << " Could not fill barrel layer " << layer << ", module " << module << "\n";
-        // ----- debug:
         edm::LogPrint("SiPixel2DTemplateDBObjectUploader")
-            << "This is a barrel element with: layer " << layer << ", ladder " << ladder << " and module " << module
-            << ".\n";  //Uncomment to read out exact position of each element.
-                       // -----
+            << "This is a barrel element with: layer " << layer << ", ladder " << ladder << " and module " << module;
       }
       //Now endcaps
       else if ((phase == 1 && detid.subdetId() == static_cast<int>(PixelSubdetector::PixelEndcap)) ||
                (phase == 2 && tGeo->geomDetSubDetector(detid.subdetId()) == GeomDetEnumerators::P2PXEC)) {
-        edm::LogPrint("SiPixel2DTemplateDBObjectUploader") << "--- IN AN ENDCAP ---\n";
-
         //Get the DetId's disk, blade, side, panel, and module
         disk = tTopo->pxfDisk(detid.rawId());    //1,2,3
         blade = tTopo->pxfBlade(detid.rawId());  //1-56 (Ring 1 is 1-22, Ring 2 is 23-56)
@@ -247,25 +238,22 @@ void SiPixel2DTemplateDBObjectUploader::analyze(const edm::Event& iEvent, const 
             thisID = (short)theEndcapTemplateIds[iter];
         }
 
-        if (thisID == 10000 || (!(*obj).putTemplateID(detid.rawId(), thisID)))
+        if (thisID == 10000 || (!obj.putTemplateID(detid.rawId(), thisID)))
           edm::LogPrint("SiPixel2DTemplateDBObjectUploader")
               << " Could not fill endcap det unit" << side << ", disk " << disk << ", blade " << blade << ", and panel "
               << panel << ".\n";
-        // ----- debug:
         edm::LogPrint("SiPixel2DTemplateDBObjectUploader")
             << "This is an endcap element with: side " << side << ", disk " << disk << ", blade " << blade
-            << ", and panel " << panel << ".\n";  //Uncomment to read out exact position of each element.
-                                                  // -----
+            << ", and panel " << panel;
       } else {
         continue;
       }
 
       //Print out the assignment of this detID
       short mapnum;
-      edm::LogPrint("SiPixel2DTemplateDBObjectUploader") << "checking map:\n";
-      mapnum = (*obj).getTemplateID(detid.rawId());
+      mapnum = obj.getTemplateID(detid.rawId());
       edm::LogPrint("SiPixel2DTemplateDBObjectUploader")
-          << "The DetID: " << detid.rawId() << " is mapped to the template: " << mapnum << ".\n\n";
+          << "The DetID: " << detid.rawId() << " is mapped to the template: " << mapnum << "\n";
     }
   }
 
@@ -274,9 +262,9 @@ void SiPixel2DTemplateDBObjectUploader::analyze(const edm::Event& iEvent, const 
   if (!poolDbService.isAvailable())  // Die if not available
     throw cms::Exception("NotAvailable") << "PoolDBOutputService not available";
   if (poolDbService->isNewTagRequest("SiPixel2DTemplateDBObjectRcd"))
-    poolDbService->writeOne(obj, poolDbService->beginOfTime(), "SiPixel2DTemplateDBObjectRcd");
+    poolDbService->writeOneIOV(obj, poolDbService->beginOfTime(), "SiPixel2DTemplateDBObjectRcd");
   else
-    poolDbService->writeOne(obj, poolDbService->currentTime(), "SiPixel2DTemplateDBObjectRcd");
+    poolDbService->writeOneIOV(obj, poolDbService->currentTime(), "SiPixel2DTemplateDBObjectRcd");
 }
 
 void SiPixel2DTemplateDBObjectUploader::endJob() {}

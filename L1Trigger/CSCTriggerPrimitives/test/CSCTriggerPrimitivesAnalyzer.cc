@@ -20,6 +20,7 @@
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 
 #include "TH1F.h"
+#include "TH2F.h"
 #include "TPostScript.h"
 #include "TCanvas.h"
 #include "TFile.h"
@@ -57,6 +58,8 @@ private:
                 TPostScript *ps,
                 TCanvas *c1) const;
 
+  void make2DPlot(TH2F *effMon, TPostScript *ps, TCanvas *c1) const;
+
   // plots of data vs emulator
   std::string rootFileName_;
   unsigned runNumber_;
@@ -67,12 +70,6 @@ private:
   std::vector<std::string> lctVars_;
   bool dataVsEmulatorPlots_;
   void makeDataVsEmulatorPlots();
-
-  // plots of efficiencies in MC
-  bool mcEfficiencyPlots_;
-
-  // plots of resolution in MC
-  bool mcResolutionPlots_;
 
   /*
     When set to True, we assume that the data comes from
@@ -96,8 +93,6 @@ CSCTriggerPrimitivesAnalyzer::CSCTriggerPrimitivesAnalyzer(const edm::ParameterS
       clctVars_(conf.getParameter<std::vector<std::string>>("clctVars")),
       lctVars_(conf.getParameter<std::vector<std::string>>("lctVars")),
       dataVsEmulatorPlots_(conf.getParameter<bool>("dataVsEmulatorPlots")),
-      mcEfficiencyPlots_(conf.getParameter<bool>("mcEfficiencyPlots")),
-      mcResolutionPlots_(conf.getParameter<bool>("mcResolutionPlots")),
       useB904ME11_(conf.getParameter<bool>("useB904ME11")),
       useB904ME21_(conf.getParameter<bool>("useB904ME21")),
       useB904ME234s2_(conf.getParameter<bool>("useB904ME234s2")),
@@ -106,9 +101,7 @@ CSCTriggerPrimitivesAnalyzer::CSCTriggerPrimitivesAnalyzer(const edm::ParameterS
   useB904_ = useB904ME11_ or useB904ME21_ or useB904ME234s2_;
 }
 
-void CSCTriggerPrimitivesAnalyzer::analyze(const edm::Event &ev, const edm::EventSetup &setup) {
-  // efficiency and resolution analysis is done here
-}
+void CSCTriggerPrimitivesAnalyzer::analyze(const edm::Event &ev, const edm::EventSetup &setup) {}
 
 void CSCTriggerPrimitivesAnalyzer::endJob() {
   if (dataVsEmulatorPlots_)
@@ -213,6 +206,22 @@ void CSCTriggerPrimitivesAnalyzer::makeDataVsEmulatorPlots() {
     }
   }
 
+  if (!useB904_) {
+    TH2F *h_lctDataSummary_eff = (TH2F *)directory->Get("lct_csctp_data_summary_eff");
+    make2DPlot(h_lctDataSummary_eff, ps, c1);
+    TH2F *h_alctDataSummary_eff = (TH2F *)directory->Get("alct_csctp_data_summary_eff");
+    make2DPlot(h_alctDataSummary_eff, ps, c1);
+    TH2F *h_clctDataSummary_eff = (TH2F *)directory->Get("clct_csctp_data_summary_eff");
+    make2DPlot(h_clctDataSummary_eff, ps, c1);
+
+    TH2F *h_lctEmulSummary_eff = (TH2F *)directory->Get("lct_csctp_emul_summary_eff");
+    make2DPlot(h_lctEmulSummary_eff, ps, c1);
+    TH2F *h_alctEmulSummary_eff = (TH2F *)directory->Get("alct_csctp_emul_summary_eff");
+    make2DPlot(h_alctEmulSummary_eff, ps, c1);
+    TH2F *h_clctEmulSummary_eff = (TH2F *)directory->Get("clct_csctp_emul_summary_eff");
+    make2DPlot(h_clctEmulSummary_eff, ps, c1);
+  }
+
   ps->Close();
   // close the DQM file
   theFile->Close();
@@ -272,6 +281,18 @@ void CSCTriggerPrimitivesAnalyzer::makePlot(TH1F *dataMon,
   diffMon->GetXaxis()->SetTitleSize(0.05);
   diffMon->GetYaxis()->SetTitleSize(0.05);
   diffMon->Draw("ep");
+  c1->Update();
+}
+
+void CSCTriggerPrimitivesAnalyzer::make2DPlot(TH2F *effMon, TPostScript *ps, TCanvas *c1) const {
+  ps->NewPage();
+
+  TString runTitle = "(CMS Run " + std::to_string(runNumber_) + ")";
+  if (useB904_)
+    runTitle = "(B904 Cosmic Run " + TString(B904RunNumber_) + ")";
+  gStyle->SetOptStat(0);
+  effMon->SetTitle(effMon->GetTitle() + runTitle);
+  effMon->Draw("colz");
   c1->Update();
 }
 

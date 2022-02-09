@@ -6,6 +6,9 @@ from Configuration.Eras.Modifier_fastSim_cff import fastSim
 from Configuration.ProcessModifiers.trackdnn_cff import trackdnn
 from RecoTracker.IterativeTracking.dnnQualityCuts import qualityCutDictionary
 
+# for no-loopers
+from Configuration.ProcessModifiers.trackingNoLoopers_cff import trackingNoLoopers
+
 ###############################################
 # Low pT and detached tracks from pixel quadruplets
 ###############################################
@@ -148,14 +151,15 @@ trackingPhase2PU140.toModify(detachedQuadStepChi2Est,
 # TRACK BUILDING
 import RecoTracker.CkfPattern.GroupedCkfTrajectoryBuilder_cfi
 detachedQuadStepTrajectoryBuilder = RecoTracker.CkfPattern.GroupedCkfTrajectoryBuilder_cfi.GroupedCkfTrajectoryBuilder.clone(
-    MeasurementTrackerName = '',
     trajectoryFilter = dict(refToPSet_ = 'detachedQuadStepTrajectoryFilter'),
     maxCand = 3,
     alwaysUseInvalidHits = True,
     estimator = 'detachedQuadStepChi2Est',
-    maxDPhiForLooperReconstruction = cms.double(2.0),
-    maxPtForLooperReconstruction = cms.double(0.7)
+    maxDPhiForLooperReconstruction = 2.0,
+    maxPtForLooperReconstruction = 0.7,
 )
+trackingNoLoopers.toModify(detachedQuadStepTrajectoryBuilder,
+                           maxPtForLooperReconstruction = 0.0)
 trackingPhase2PU140.toModify(detachedQuadStepTrajectoryBuilder,
     maxCand              = 2,
     alwaysUseInvalidHits = False,
@@ -172,18 +176,18 @@ detachedQuadStepTrajectoryCleanerBySharedHits = trajectoryCleanerBySharedHits.cl
 import RecoTracker.CkfPattern.CkfTrackCandidates_cfi
 detachedQuadStepTrackCandidates = RecoTracker.CkfPattern.CkfTrackCandidates_cfi.ckfTrackCandidates.clone(
     src = 'detachedQuadStepSeeds',
-    clustersToSkip = cms.InputTag('detachedQuadStepClusters'),
+    clustersToSkip = 'detachedQuadStepClusters',
     ### these two parameters are relevant only for the CachingSeedCleanerBySharedInput
-    numHitsForSeedCleaner = cms.int32(50),
-    onlyPixelHitsForSeedCleaner = cms.bool(True),
+    numHitsForSeedCleaner = 50,
+    onlyPixelHitsForSeedCleaner = True,
     TrajectoryBuilderPSet = dict(refToPSet_ = 'detachedQuadStepTrajectoryBuilder'),
     TrajectoryCleaner = 'detachedQuadStepTrajectoryCleanerBySharedHits',
     doSeedingRegionRebuilding = True,
     useHitsSplitting = True
 )
 trackingPhase2PU140.toModify(detachedQuadStepTrackCandidates,
-    clustersToSkip       = None,
-    phase2clustersToSkip = cms.InputTag('detachedQuadStepClusters')
+    clustersToSkip = '',
+    phase2clustersToSkip = 'detachedQuadStepClusters'
 )
 
 from Configuration.ProcessModifiers.trackingMkFitDetachedQuadStep_cff import trackingMkFitDetachedQuadStep
@@ -235,12 +239,14 @@ detachedQuadStep = TrackMVAClassifierDetached.clone(
     qualityCuts = [-0.5,0.0,0.5]
 )
 
-from RecoTracker.FinalTrackSelectors.TrackTfClassifier_cfi import *
+from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
-trackdnn.toReplaceWith(detachedQuadStep, TrackTfClassifier.clone(
+from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
+trackdnn.toReplaceWith(detachedQuadStep, trackTfClassifier.clone(
     src = 'detachedQuadStepTracks',
-    qualityCuts = qualityCutDictionary['DetachedQuadStep']
+    qualityCuts = qualityCutDictionary.DetachedQuadStep.value()
 ))
+
 
 highBetaStar_2018.toModify(detachedQuadStep,qualityCuts = [-0.7,0.0,0.5])
 pp_on_AA.toModify(detachedQuadStep, 

@@ -7,6 +7,9 @@ from Configuration.Eras.Modifier_fastSim_cff import fastSim
 from Configuration.ProcessModifiers.trackdnn_cff import trackdnn
 from RecoTracker.IterativeTracking.dnnQualityCuts import qualityCutDictionary
 
+# for no-loopers
+from Configuration.ProcessModifiers.trackingNoLoopers_cff import trackingNoLoopers
+
 ###############################################################
 # Large impact parameter Tracking using mixed-triplet seeding #
 ###############################################################
@@ -267,30 +270,29 @@ trackingLowPU.toModify(mixedTripletStepChi2Est,
 # TRACK BUILDING
 import RecoTracker.CkfPattern.GroupedCkfTrajectoryBuilder_cfi
 mixedTripletStepTrajectoryBuilder = RecoTracker.CkfPattern.GroupedCkfTrajectoryBuilder_cfi.GroupedCkfTrajectoryBuilder.clone(
-    MeasurementTrackerName = '',
-    trajectoryFilter       = cms.PSet(refToPSet_ = cms.string('mixedTripletStepTrajectoryFilter')),
+    trajectoryFilter       = dict(refToPSet_ = 'mixedTripletStepTrajectoryFilter'),
     propagatorAlong        = 'mixedTripletStepPropagator',
     propagatorOpposite     = 'mixedTripletStepPropagatorOpposite',
     maxCand                = 2,
     estimator              = 'mixedTripletStepChi2Est',
-    maxDPhiForLooperReconstruction = cms.double(2.0),
-    maxPtForLooperReconstruction = cms.double(0.7) 
+    maxDPhiForLooperReconstruction = 2.0,
+    maxPtForLooperReconstruction = 0.7,
 )
-
+trackingNoLoopers.toModify(mixedTripletStepTrajectoryBuilder,
+                           maxPtForLooperReconstruction = 0.0)
 # MAKING OF TRACK CANDIDATES
 import RecoTracker.CkfPattern.CkfTrackCandidates_cfi
 # Give handle for CKF for HI
 _mixedTripletStepTrackCandidatesCkf = RecoTracker.CkfPattern.CkfTrackCandidates_cfi.ckfTrackCandidates.clone(
     src            = 'mixedTripletStepSeeds',
-    clustersToSkip = cms.InputTag('mixedTripletStepClusters'),
+    clustersToSkip = 'mixedTripletStepClusters',
     ### these two parameters are relevant only for the CachingSeedCleanerBySharedInput
-    numHitsForSeedCleaner     = cms.int32(50),
-    #onlyPixelHitsForSeedCleaner = cms.bool(True),
-
-    TrajectoryBuilderPSet     = cms.PSet(refToPSet_ = cms.string('mixedTripletStepTrajectoryBuilder')),
+    numHitsForSeedCleaner     = 50,
+    #onlyPixelHitsForSeedCleaner = True,
+    TrajectoryBuilderPSet     = dict(refToPSet_ = 'mixedTripletStepTrajectoryBuilder'),
     doSeedingRegionRebuilding = True,
     useHitsSplitting          = True,
-    TrajectoryCleaner         = 'mixedTripletStepTrajectoryCleanerBySharedHits'
+    TrajectoryCleaner         = 'mixedTripletStepTrajectoryCleanerBySharedHits',
 )
 mixedTripletStepTrackCandidates = _mixedTripletStepTrackCandidatesCkf.clone()
 
@@ -371,11 +373,12 @@ trackingPhase1.toReplaceWith(mixedTripletStep, mixedTripletStepClassifier1.clone
     qualityCuts = [-0.5,0.0,0.5]
 ))
 
-from RecoTracker.FinalTrackSelectors.TrackTfClassifier_cfi import *
+from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
-trackdnn.toReplaceWith(mixedTripletStep, TrackTfClassifier.clone(
+from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
+trackdnn.toReplaceWith(mixedTripletStep, trackTfClassifier.clone(
     src = 'mixedTripletStepTracks',
-    qualityCuts = qualityCutDictionary['MixedTripletStep']
+    qualityCuts = qualityCutDictionary.MixedTripletStep.value()
 ))
 (trackdnn & fastSim).toModify(mixedTripletStep,vertices = 'firstStepPrimaryVerticesBeforeMixing')
 

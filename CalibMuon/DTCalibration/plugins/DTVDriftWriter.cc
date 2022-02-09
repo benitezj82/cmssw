@@ -33,14 +33,15 @@ using namespace std;
 using namespace edm;
 
 DTVDriftWriter::DTVDriftWriter(const ParameterSet& pset)
-    : mTimeMapToken_(esConsumes()),
-      vDriftMapToken_(esConsumes()),
-      dtGeomToken_(esConsumes()),
+    : mTimeMapToken_(esConsumes<edm::Transition::BeginRun>()),
+      vDriftMapToken_(esConsumes<edm::Transition::BeginRun>()),
+      dtGeomToken_(esConsumes<edm::Transition::BeginRun>()),
       granularity_(pset.getUntrackedParameter<string>("calibGranularity", "bySL")),
       mTimeMap_(nullptr),
       vDriftMap_(nullptr),
       vDriftAlgo_{DTVDriftPluginFactory::get()->create(pset.getParameter<string>("vDriftAlgo"),
-                                                       pset.getParameter<ParameterSet>("vDriftAlgoConfig"))} {
+                                                       pset.getParameter<ParameterSet>("vDriftAlgoConfig"),
+                                                       consumesCollector())} {
   LogVerbatim("Calibration") << "[DTVDriftWriter]Constructor called!";
 
   if (granularity_ != "bySL")
@@ -75,12 +76,12 @@ void DTVDriftWriter::beginRun(const edm::Run& run, const edm::EventSetup& setup)
 
 void DTVDriftWriter::endJob() {
   // Create the object to be written to DB
-  DTMtime* mTimeNewMap = nullptr;
-  DTRecoConditions* vDriftNewMap = nullptr;
+  std::unique_ptr<DTMtime> mTimeNewMap;
+  std::unique_ptr<DTRecoConditions> vDriftNewMap;
   if (writeLegacyVDriftDB) {
-    mTimeNewMap = new DTMtime();
+    mTimeNewMap = std::make_unique<DTMtime>();
   } else {
-    vDriftNewMap = new DTRecoConditions();
+    vDriftNewMap = std::make_unique<DTRecoConditions>();
     vDriftNewMap->setFormulaExpr("[0]");
     //vDriftNewMap->setFormulaExpr("[0]*(1-[1]*x)"); // add parametrization for dependency along Y
     vDriftNewMap->setVersion(1);
@@ -136,8 +137,8 @@ void DTVDriftWriter::endJob() {
   LogVerbatim("Calibration") << "[DTVDriftWriter]Writing vdrift object to DB!";
   if (writeLegacyVDriftDB) {
     string record = "DTMtimeRcd";
-    DTCalibDBUtils::writeToDB<DTMtime>(record, mTimeNewMap);
+    DTCalibDBUtils::writeToDB<DTMtime>(record, *mTimeNewMap);
   } else {
-    DTCalibDBUtils::writeToDB<DTRecoConditions>("DTRecoConditionsVdriftRcd", vDriftNewMap);
+    DTCalibDBUtils::writeToDB<DTRecoConditions>("DTRecoConditionsVdriftRcd", *vDriftNewMap);
   }
 }

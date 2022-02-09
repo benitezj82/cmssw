@@ -17,7 +17,7 @@ from .Modules import *
 from .Modules import _Module
 from .SequenceTypes import *
 from .SequenceTypes import _ModuleSequenceType, _Sequenceable  #extend needs it
-from .SequenceVisitors import PathValidator, EndPathValidator, ScheduleTaskValidator, NodeVisitor, CompositeVisitor, ModuleNamesFromGlobalsVisitor
+from .SequenceVisitors import PathValidator, EndPathValidator, FinalPathValidator, ScheduleTaskValidator, NodeVisitor, CompositeVisitor, ModuleNamesFromGlobalsVisitor
 from .MessageLogger import MessageLogger
 from . import DictTypes
 
@@ -120,6 +120,7 @@ class Process(object):
         self.__dict__['_Process__outputmodules'] = {}
         self.__dict__['_Process__paths'] = DictTypes.SortedKeysDict()    # have to keep the order
         self.__dict__['_Process__endpaths'] = DictTypes.SortedKeysDict() # of definition
+        self.__dict__['_Process__finalpaths'] = DictTypes.SortedKeysDict() # of definition
         self.__dict__['_Process__sequences'] = {}
         self.__dict__['_Process__tasks'] = {}
         self.__dict__['_Process__services'] = {}
@@ -289,6 +290,10 @@ class Process(object):
         """returns a dict of the endpaths that have been added to the Process"""
         return DictTypes.SortedAndFixedKeysDict(self.__endpaths)
     endpaths = property(endpaths_,doc="dictionary containing the endpaths for the process")
+    def finalpaths_(self):
+        """returns a dict of the finalpaths that have been added to the Process"""
+        return DictTypes.SortedAndFixedKeysDict(self.__finalpaths)
+    finalpaths = property(finalpaths_,doc="dictionary containing the finalpaths for the process")
     def sequences_(self):
         """returns a dict of the sequences that have been added to the Process"""
         return DictTypes.FixedKeysDict(self.__sequences)
@@ -477,6 +482,9 @@ class Process(object):
                     s = self.__findFirstUsingModule(self.endpaths,oldValue)
                     if s is not None:
                         raise ValueError(msg1+"endpath "+s.label_()+msg2)
+                    s = self.__findFirstUsingModule(self.finalpaths,oldValue)
+                    if s is not None:
+                        raise ValueError(msg1+"finalpath "+s.label_()+msg2)
 
             # In case of EDAlias, raise Exception always to avoid surprises
             if isinstance(newValue, EDAlias):
@@ -503,6 +511,12 @@ class Process(object):
                 s = self.__findFirstUsingModule(self.endpaths,oldValue)
                 if s is not None:
                     raise ValueError(msg1+"endpath "+s.label_()+msg2)
+                s = self.__findFirstUsingModule(self.finalpaths,oldValue)
+                if s is not None:
+                    raise ValueError(msg1+"finalpath "+s.label_()+msg2)
+
+            if not self.__InExtendCall and (Schedule._itemIsValid(newValue) or isinstance(newValue, Task)):
+                self._replaceInScheduleDirectly(name, newValue)
 
             self._delattrFromSetattr(name)
         self.__dict__[name]=newValue
@@ -561,6 +575,8 @@ class Process(object):
                     self._replaceInSchedule(name, None)
                 if isinstance(obj, _Sequenceable) or obj._isTaskComponent():
                     self._replaceInSequences(name, None)
+                if Schedule._itemIsValid(obj) or isinstance(obj, Task):
+                    self._replaceInScheduleDirectly(name, None)
         # now remove it from the process itself
         try:
             del self.__dict__[name]
@@ -644,6 +660,13 @@ class Process(object):
         except ModuleCloneError as msg:
             context = format_outerframe(4)
             raise Exception("%sThe module %s in endpath %s is unknown to the process %s." %(context, msg, name, self._Process__name))
+    def _placeFinalPath(self,name,mod):
+        self._validateSequence(mod, name)
+        try:
+            self._place(name, mod, self.__finalpaths)
+        except ModuleCloneError as msg:
+            context = format_outerframe(4)
+            raise Exception("%sThe module %s in finalpath %s is unknown to the process %s." %(context, msg, name, self._Process__name))
     def _placeSequence(self,name,mod):
         self._validateSequence(mod, name)
         self._place(name, mod, self.__sequences)
@@ -798,6 +821,9 @@ class Process(object):
                                   options)
         config+=self._dumpConfigNamedList(self.endpaths_().items(),
                                   'endpath',
+                                  options)
+        config+=self._dumpConfigNamedList(self.finalpaths_().items(),
+                                  'finalpath',
                                   options)
         config+=self._dumpConfigUnnamedList(self.services_().items(),
                                   'service',
@@ -984,6 +1010,7 @@ class Process(object):
         result+=self._dumpPythonList(self._itemsInDependencyOrder(self.sequences), options)
         result+=self._dumpPythonList(self.paths_(), options)
         result+=self._dumpPythonList(self.endpaths_(), options)
+        result+=self._dumpPythonList(self.finalpaths_(), options)
         result+=self._dumpPythonList(self.aliases_(), options)
         if not self.schedule_() == None:
             result += 'process.schedule = ' + self.schedule.dumpPython(options)
@@ -1030,6 +1057,7 @@ class Process(object):
         parts.update(self._splitPythonList('sequences', self._itemsInDependencyOrder(self.sequences), options))
         parts.update(self._splitPythonList('paths', self.paths_(), options))
         parts.update(self._splitPythonList('paths', self.endpaths_(), options))
+        parts.update(self._splitPythonList('paths', self.finalpaths_(), options))
         parts.update(self._splitPythonList('modules', self.aliases_(), options))
 
         if options.targetDirectory is not None:
@@ -1078,6 +1106,8 @@ class Process(object):
             sequenceable.replace(old,new)
         for sequenceable in self.endpaths.values():
             sequenceable.replace(old,new)
+        for sequenceable in self.finalpaths.values():
+            sequenceable.replace(old,new)
     def _replaceInTasks(self, label, new):
         old = getattr(self,label)
         for task in self.tasks.values():
@@ -1088,6 +1118,11 @@ class Process(object):
         old = getattr(self,label)
         for task in self.schedule_()._tasks:
             task.replace(old, new)
+    def _replaceInScheduleDirectly(self, label, new):
+        if self.schedule_() == None:
+            return
+        old = getattr(self,label)
+        self.schedule_()._replaceIfHeldDirectly(old, new)
     def globalReplace(self,label,new):
         """ Replace the item with label 'label' by object 'new' in the process and all sequences/paths/tasks"""
         if not hasattr(self,label):
@@ -1138,6 +1173,7 @@ class Process(object):
         scheduledPaths = []
         triggerPaths = []
         endpaths = []
+        finalpaths = []
         if self.schedule_() == None:
             # make one from triggerpaths & endpaths
             for name in self.paths_():
@@ -1146,19 +1182,47 @@ class Process(object):
             for name in self.endpaths_():
                 scheduledPaths.append(name)
                 endpaths.append(name)
+            for name in self.finalpaths_():
+                finalpaths.append(name)
         else:
             for path in self.schedule_():
                 pathname = path.label_()
-                scheduledPaths.append(pathname)
                 if pathname in self.endpaths_():
                     endpaths.append(pathname)
+                    scheduledPaths.append(pathname)
+                elif pathname in self.finalpaths_():
+                    finalpaths.append(pathname)
                 else:
+                    scheduledPaths.append(pathname)
                     triggerPaths.append(pathname)
             for task in self.schedule_()._tasks:
                 task.resolve(self.__dict__)
                 scheduleTaskValidator = ScheduleTaskValidator()
                 task.visit(scheduleTaskValidator)
                 task.visit(nodeVisitor)
+        # consolidate all final_paths into one EndPath
+        endPathWithFinalPathModulesName ="@finalPath"
+        finalPathEndPath = EndPath()
+        if finalpaths:
+          endpaths.append(endPathWithFinalPathModulesName)
+          scheduledPaths.append(endPathWithFinalPathModulesName)
+          finalpathValidator = FinalPathValidator()
+          modulesOnFinalPath = []
+          for finalpathname in finalpaths:
+              iFinalPath = self.finalpaths_()[finalpathname]
+              iFinalPath.resolve(self.__dict__)
+              finalpathValidator.setLabel(finalpathname)
+              iFinalPath.visit(finalpathValidator)
+              if finalpathValidator.filtersOnFinalpaths or finalpathValidator.producersOnFinalpaths:
+                  names = [p.label_ for p in finalpathValidator.filtersOnFinalpaths]
+                  names.extend( [p.label_ for p in finalpathValidator.producersOnFinalpaths])
+                  raise RuntimeError("FinalPath %s has non OutputModules %s" % (finalpathname, ",".join(names)))
+              modulesOnFinalPath.extend(iFinalPath.moduleNames())
+          for m in modulesOnFinalPath:
+            mod = getattr(self, m)
+            setattr(mod, "@onFinalPath", untracked.bool(True))
+            finalPathEndPath += mod
+            
         processPSet.addVString(True, "@end_paths", endpaths)
         processPSet.addVString(True, "@paths", scheduledPaths)
         # trigger_paths are a little different
@@ -1180,18 +1244,24 @@ class Process(object):
             iPath.visit(pathCompositeVisitor)
             iPath.insertInto(processPSet, triggername, decoratedList)
         for endpathname in endpaths:
-            iEndPath = self.endpaths_()[endpathname]
+            if endpathname is not endPathWithFinalPathModulesName:
+              iEndPath = self.endpaths_()[endpathname]
+            else:
+              iEndPath = finalPathEndPath
             iEndPath.resolve(self.__dict__)
             endpathValidator.setLabel(endpathname)
             lister.initialize()
             iEndPath.visit(endpathCompositeVisitor)
             iEndPath.insertInto(processPSet, endpathname, decoratedList)
         processPSet.addVString(False, "@filters_on_endpaths", endpathValidator.filtersOnEndpaths)
+          
 
     def resolve(self,keepUnresolvedSequencePlaceholders=False):
         for x in self.paths.values():
             x.resolve(self.__dict__,keepUnresolvedSequencePlaceholders)
         for x in self.endpaths.values():
+            x.resolve(self.__dict__,keepUnresolvedSequencePlaceholders)
+        for x in self.finalpaths.values():
             x.resolve(self.__dict__,keepUnresolvedSequencePlaceholders)
         if not self.schedule_() == None:
             for task in self.schedule_()._tasks:
@@ -1221,6 +1291,7 @@ class Process(object):
             schedNames = set(( x.label_() for x in self.schedule_()))
             names = set(self.paths)
             names.update(set(self.endpaths))
+            names.update(set(self.finalpaths))
             unneededPaths = names - schedNames
             for n in unneededPaths:
                 delattr(self,n)
@@ -1231,6 +1302,7 @@ class Process(object):
         else:
             pths = list(self.paths.values())
             pths.extend(self.endpaths.values())
+            pths.extend(self.finalpaths.values())
             temp = Schedule(*pths)
             usedModules=set(temp.moduleNames())
         unneededModules = self._pruneModules(self.producers_(), usedModules)
@@ -1244,6 +1316,9 @@ class Process(object):
             p.visit(sv)
             p.visit(tv)
         for p in self.endpaths.values():
+            p.visit(sv)
+            p.visit(tv)
+        for p in self.finalpaths.values():
             p.visit(sv)
             p.visit(tv)
         def removeUnneeded(seqOrTasks, allSequencesOrTasks):
@@ -1262,7 +1337,7 @@ class Process(object):
             print("  modules:"+",".join(unneededModules))
             print("  tasks:"+",".join(unneededTaskLabels))
             print("  sequences:"+",".join(unneededSeqLabels))
-            print("  paths/endpaths:"+",".join(unneededPaths))
+            print("  paths/endpaths/finalpaths:"+",".join(unneededPaths))
     def _pruneModules(self, d, scheduledNames):
         moduleNames = set(d.keys())
         junk = moduleNames - scheduledNames
@@ -2339,6 +2414,16 @@ process.s2 = cms.Sequence(process.a+(process.a+process.a))""")
             listOfTasks[0].visit(visitor6)
             self.assertTrue(visitor6.modules == set([new2]))
 
+            p.d2 = EDProducer("YourProducer")
+            p.schedule = Schedule(p.p, p.p2, p.e3, tasks=[p.t1])
+            self.assertEqual(p.schedule.dumpPython()[:-1], "cms.Schedule(*[ process.p, process.p2, process.e3 ], tasks=[process.t1])")
+            p.p = Path(p.c+s)
+            self.assertEqual(p.schedule.dumpPython()[:-1], "cms.Schedule(*[ process.p, process.p2, process.e3 ], tasks=[process.t1])")
+            p.e3 = EndPath(p.c)
+            self.assertEqual(p.schedule.dumpPython()[:-1], "cms.Schedule(*[ process.p, process.p2, process.e3 ], tasks=[process.t1])")
+            p.t1 = Task(p.d2)
+            self.assertEqual(p.schedule.dumpPython()[:-1], "cms.Schedule(*[ process.p, process.p2, process.e3 ], tasks=[process.t1])")
+
         def testSequence(self):
             p = Process('test')
             p.a = EDAnalyzer("MyAnalyzer")
@@ -2615,6 +2700,36 @@ process.s2 = cms.Sequence(process.a+(process.a+process.a))""")
             t = Path(p.a, p.t1, Task(), p.t1)
             self.assertTrue(t.dumpPython(PrintOptions()) == 'cms.Path(process.a, cms.Task(), process.t1)\n')
 
+        def testFinalPath(self):
+            p = Process("test")
+            p.a = OutputModule("MyOutputModule")
+            p.b = OutputModule("YourOutputModule")
+            p.c = OutputModule("OurOutputModule")
+            path = FinalPath(p.a)
+            path *= p.b
+            path += p.c
+            self.assertEqual(str(path),'a+b+c')
+            path = FinalPath(p.a*p.b+p.c)
+            self.assertEqual(str(path),'a+b+c')
+            path = FinalPath(p.a+ p.b*p.c)
+            self.assertEqual(str(path),'a+b+c')
+            path = FinalPath(p.a*(p.b+p.c))
+            self.assertEqual(str(path),'a+b+c')
+            p.es = ESProducer("AnESProducer")
+            self.assertRaises(TypeError,FinalPath,p.es)
+
+            t = FinalPath()
+            self.assertTrue(t.dumpPython(PrintOptions()) == 'cms.FinalPath()\n')
+
+            t = FinalPath(p.a)
+            self.assertTrue(t.dumpPython(PrintOptions()) == 'cms.FinalPath(process.a)\n')
+
+            self.assertRaises(TypeError, FinalPath, Task())
+            self.assertRaises(TypeError, FinalPath, p.a, Task())
+
+            p.prod = EDProducer("prodName")
+            p.t1 = Task(p.prod)
+            self.assertRaises(TypeError, FinalPath, p.a, p.t1, Task(), p.t1)
         def testCloneSequence(self):
             p = Process("test")
             a = EDAnalyzer("MyAnalyzer")
@@ -3284,10 +3399,13 @@ process.schedule = cms.Schedule(*[ process.path1, process.endpath1 ], tasks=[pro
             p.t1 = Task(p.g, p.h)
             t2 = Task(p.g, p.h)
             t3 = Task(p.g, p.h)
+            p.t4 = Task(p.h)
             p.s = Sequence(p.d+p.e)
             p.path1 = Path(p.a+p.f+p.s,t2)
+            p.path2 = Path(p.a)
+            p.endpath2 = EndPath(p.b)
             p.endpath1 = EndPath(p.b+p.f)
-            p.schedule = Schedule(tasks=[t3])
+            p.schedule = Schedule(p.path2, p.endpath2, tasks=[t3, p.t4])
             self.assertTrue(hasattr(p, 'f'))
             self.assertTrue(hasattr(p, 'g'))
             del p.e
@@ -3295,13 +3413,19 @@ process.schedule = cms.Schedule(*[ process.path1, process.endpath1 ], tasks=[pro
             del p.g
             self.assertFalse(hasattr(p, 'f'))
             self.assertFalse(hasattr(p, 'g'))
-            self.assertTrue(p.t1.dumpPython() == 'cms.Task(process.h)\n')
-            self.assertTrue(p.s.dumpPython() == 'cms.Sequence(process.d)\n')
-            self.assertTrue(p.path1.dumpPython() == 'cms.Path(process.a+process.s, cms.Task(process.h))\n')
-            self.assertTrue(p.endpath1.dumpPython() == 'cms.EndPath(process.b)\n')
+            self.assertEqual(p.t1.dumpPython(), 'cms.Task(process.h)\n')
+            self.assertEqual(p.s.dumpPython(), 'cms.Sequence(process.d)\n')
+            self.assertEqual(p.path1.dumpPython(), 'cms.Path(process.a+process.s, cms.Task(process.h))\n')
+            self.assertEqual(p.endpath1.dumpPython(), 'cms.EndPath(process.b)\n')
             del p.s
-            self.assertTrue(p.path1.dumpPython() == 'cms.Path(process.a+(process.d), cms.Task(process.h))\n')
-            self.assertTrue(p.schedule_().dumpPython() == 'cms.Schedule(tasks=[cms.Task(process.h)])\n')
+            self.assertEqual(p.path1.dumpPython(), 'cms.Path(process.a+(process.d), cms.Task(process.h))\n')
+            self.assertEqual(p.schedule_().dumpPython(), 'cms.Schedule(*[ process.path2, process.endpath2 ], tasks=[cms.Task(process.h), process.t4])\n')
+            del p.path2
+            self.assertEqual(p.schedule_().dumpPython(), 'cms.Schedule(*[ process.endpath2 ], tasks=[cms.Task(process.h), process.t4])\n')
+            del p.endpath2
+            self.assertEqual(p.schedule_().dumpPython(), 'cms.Schedule(tasks=[cms.Task(process.h), process.t4])\n')
+            del p.t4
+            self.assertEqual(p.schedule_().dumpPython(), 'cms.Schedule(tasks=[cms.Task(process.h)])\n')
         def testModifier(self):
             m1 = Modifier()
             p = Process("test",m1)

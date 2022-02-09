@@ -22,6 +22,9 @@
 #include "CommonTools/RecoAlgos/interface/PrimaryVertexSorting.h"
 #include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 
+#include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
+#include "TrackingTools/Records/interface/TransientTrackRecord.h"
+
 /**\class PrimaryVertexSorter
  * \author Andrea Rizzi
 
@@ -43,6 +46,8 @@ public:
 
   void produce(edm::Event&, const edm::EventSetup&) override;
 
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
+
 private:
   PrimaryVertexAssignment assignmentAlgo_;
   PrimaryVertexSorting sortingAlgo_;
@@ -56,6 +61,8 @@ private:
   edm::EDGetTokenT<edm::ValueMap<float>> tokenTrackTimeTag_;
   edm::EDGetTokenT<edm::ValueMap<float>> tokenTrackTimeResoTag_;
 
+  edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> tokenBuilder_;
+
   bool produceOriginalMapping_;
   bool produceSortedVertices_;
   bool producePFPileUp_;
@@ -63,6 +70,8 @@ private:
   int qualityCut_;
   bool useMET_;
   bool useTiming_;
+
+  static void fillDescriptionsCommon(edm::ParameterSetDescription& descriptions);
 
   void doConsumesForTiming(const edm::ParameterSet& iConfig);
   bool needsProductsForTiming();
@@ -75,8 +84,6 @@ private:
 };
 
 #include "DataFormats/VertexReco/interface/Vertex.h"
-#include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
-#include "TrackingTools/Records/interface/TransientTrackRecord.h"
 #include "FWCore/Framework/interface/ESHandle.h"
 
 // #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -90,6 +97,7 @@ PrimaryVertexSorter<ParticlesCollection>::PrimaryVertexSorter(const edm::Paramet
       tokenCandidates_(consumes<ParticlesCollection>(iConfig.getParameter<edm::InputTag>("particles"))),
       tokenVertices_(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("vertices"))),
       tokenJets_(consumes<edm::View<reco::Candidate>>(iConfig.getParameter<edm::InputTag>("jets"))),
+      tokenBuilder_(esConsumes(edm::ESInputTag("", "TransientTrackBuilder"))),
       produceOriginalMapping_(iConfig.getParameter<bool>("produceAssociationToOriginalVertices")),
       produceSortedVertices_(iConfig.getParameter<bool>("produceSortedVertices")),
       producePFPileUp_(iConfig.getParameter<bool>("producePileUpCollection")),
@@ -140,8 +148,7 @@ void PrimaryVertexSorter<ParticlesCollection>::produce(edm::Event& iEvent, const
   Handle<edm::View<reco::Candidate>> jets;
   iEvent.getByToken(tokenJets_, jets);
 
-  edm::ESHandle<TransientTrackBuilder> builder;
-  iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder", builder);
+  TransientTrackBuilder const& builder = iSetup.getData(tokenBuilder_);
 
   Handle<VertexCollection> vertices;
   iEvent.getByToken(tokenVertices_, vertices);
@@ -174,7 +181,7 @@ void PrimaryVertexSorter<ParticlesCollection>::produce(edm::Event& iEvent, const
 
   for (auto const& pf : particles) {
     std::pair<int, PrimaryVertexAssignment::Quality> vtxWithQuality =
-        runAlgo(*vertices, pf, trackTimeTag, trackTimeResoTag, *jets, *builder);
+        runAlgo(*vertices, pf, trackTimeTag, trackTimeResoTag, *jets, builder);
     pfToPVVector.push_back(vtxWithQuality.first);
     pfToPVQualityVector.push_back(vtxWithQuality.second);
   }
@@ -299,6 +306,86 @@ void PrimaryVertexSorter<ParticlesCollection>::produce(edm::Event& iEvent, const
     iEvent.put(std::move(pfCollectionNOPUOriginalOutput), "originalNoPileUp");
   if (producePFPileUp_ && produceOriginalMapping_)
     iEvent.put(std::move(pfCollectionPUOriginalOutput), "originalPileUp");
+}
+
+template <>
+inline void PrimaryVertexSorter<std::vector<reco::RecoChargedRefCandidate>>::fillDescriptions(
+    edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  fillDescriptionsCommon(desc);
+  desc.add<edm::InputTag>("trackTimeTag", edm::InputTag(""));
+  desc.add<edm::InputTag>("trackTimeResoTag", edm::InputTag(""));
+  desc.add<edm::InputTag>("particles", edm::InputTag("trackRefsForJets"));
+  desc.add<edm::InputTag>("vertices", edm::InputTag("offlinePrimaryVertices"));
+  desc.add<edm::InputTag>("jets", edm::InputTag("ak4CaloJetsForTrk"));
+  desc.add<bool>("produceAssociationToOriginalVertices", false);
+  desc.add<bool>("produceSortedVertices", true);
+  desc.add<bool>("producePileUpCollection", false);
+  desc.add<bool>("produceNoPileUpCollection", false);
+  descriptions.add("sortedPrimaryVertices", desc);
+}
+
+template <>
+inline void PrimaryVertexSorter<std::vector<reco::PFCandidate>>::fillDescriptions(
+    edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  fillDescriptionsCommon(desc);
+  desc.add<edm::InputTag>("particles", edm::InputTag("particleFlow"));
+  desc.add<edm::InputTag>("vertices", edm::InputTag("offlinePrimaryVertices"));
+  desc.add<edm::InputTag>("jets", edm::InputTag("ak4PFJets"));
+  desc.add<bool>("produceAssociationToOriginalVertices", true);
+  desc.add<bool>("produceSortedVertices", true);
+  desc.add<bool>("producePileUpCollection", true);
+  desc.add<bool>("produceNoPileUpCollection", true);
+  descriptions.add("sortedPFPrimaryVertices", desc);
+}
+
+template <>
+inline void PrimaryVertexSorter<std::vector<pat::PackedCandidate>>::fillDescriptions(
+    edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  fillDescriptionsCommon(desc);
+  desc.add<edm::InputTag>("particles", edm::InputTag("packedPFCandidates"));
+  desc.add<edm::InputTag>("vertices", edm::InputTag("offlineSlimmedPrimaryVertices"));
+  desc.add<edm::InputTag>("jets", edm::InputTag("slimmedJets"));
+  desc.add<bool>("produceAssociationToOriginalVertices", true);
+  desc.add<bool>("produceSortedVertices", true);
+  desc.add<bool>("producePileUpCollection", true);
+  desc.add<bool>("produceNoPileUpCollection", true);
+  descriptions.add("sortedPackedPrimaryVertices", desc);
+}
+
+template <class ParticlesCollection>
+inline void PrimaryVertexSorter<ParticlesCollection>::fillDescriptionsCommon(edm::ParameterSetDescription& desc) {
+  {
+    edm::ParameterSetDescription psd0;
+    desc.add<edm::ParameterSetDescription>("sorting", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<double>("maxDzSigForPrimaryAssignment", 5.0);
+    psd0.add<double>("maxDzForPrimaryAssignment", 0.1);
+    psd0.add<double>("maxDzErrorForPrimaryAssignment", 0.05);
+    psd0.add<double>("maxDtSigForPrimaryAssignment", 3.0);
+    psd0.add<double>("maxJetDeltaR", 0.5);
+    psd0.add<double>("minJetPt", 25);
+    psd0.add<double>("maxDistanceToJetAxis", 0.07);
+    psd0.add<double>("maxDzForJetAxisAssigment", 0.1);
+    psd0.add<double>("maxDxyForJetAxisAssigment", 0.1);
+    psd0.add<double>("maxDxySigForNotReconstructedPrimary", 2);
+    psd0.add<double>("maxDxyForNotReconstructedPrimary", 0.01);
+    psd0.add<bool>("useTiming", false);
+    psd0.add<bool>("useVertexFit", true);
+    psd0.add<bool>("preferHighRanked", false);
+    psd0.add<unsigned int>("NumOfPUVtxsForCharged", 0);
+    psd0.add<double>("DzCutForChargedFromPUVtxs", 0.2);
+    psd0.add<double>("PtMaxCharged", -1);
+    psd0.add<double>("EtaMinUseDz", -1);
+    psd0.add<bool>("OnlyUseFirstDz", false);
+    desc.add<edm::ParameterSetDescription>("assignment", psd0);
+  }
+  desc.add<int>("qualityForPrimary", 3);
+  desc.add<bool>("usePVMET", true);
 }
 
 template <>

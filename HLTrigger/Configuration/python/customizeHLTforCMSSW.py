@@ -20,18 +20,6 @@ from HLTrigger.Configuration.common import *
 #                     pset.minGoodStripCharge = cms.PSet(refToPSet_ = cms.string('HLTSiStripClusterChargeCutNone'))
 #     return process
 
-# Eta Extended Electrons 
-def customiseFor35309(process):
-    for pset in process._Process__psets.values():
-        if hasattr(pset,'ComponentType'):
-            if (pset.ComponentType == 'CkfBaseTrajectoryFilter'):
-                if not hasattr(pset, 'highEtaSwitch'):
-                    pset.highEtaSwitch = cms.double(5.0)
-                if not hasattr(pset, 'minHitsAtHighEta'):
-                    pset.minHitsAtHighEta = cms.int32(5)
-
-    return process
-
 def customiseHCALFor2018Input(process):
     """Customise the HLT to run on Run 2 data/MC using the old readout for the HCAL barel"""
 
@@ -78,7 +66,6 @@ def customiseHCALFor2018Input(process):
 
     # done
     return process
-
 
 def customiseFor2017DtUnpacking(process):
     """Adapt the HLT to run the legacy DT unpacking
@@ -135,40 +122,49 @@ def customisePixelGainForRun2Input(process):
 
     return process
 
+def customisePixelL1ClusterThresholdForRun2Input(process):
+    # revert the pixel Layer 1 cluster threshold to be compatible with Run2:
+    for producer in producers_by_type(process, "SiPixelClusterProducer"):
+        if hasattr(producer,"ClusterThreshold_L1"):
+            producer.ClusterThreshold_L1 = 2000
+    for producer in producers_by_type(process, "SiPixelRawToClusterCUDA"):
+        if hasattr(producer,"clusterThreshold_layer1"):
+            producer.clusterThreshold_layer1 = 2000
+
+    return process
 
 def customiseFor2018Input(process):
     """Customise the HLT to run on Run 2 data/MC"""
     process = customisePixelGainForRun2Input(process)
+    process = customisePixelL1ClusterThresholdForRun2Input(process)
     process = customiseHCALFor2018Input(process)
 
     return process
 
+# HLT customisation for https://github.com/cms-sw/cmssw/pull/36639
+def customiseFor36639(process):
+    """Customisation for change of cfi template of the EDProducer "PFCandidatePrimaryVertexSorter" wrt 12_3_0_pre4.
+    This customisation can be removed once menus are migrated to 12_3_0_pre5.
+    Ref: https://github.com/cms-sw/cmssw/pull/36639
+    """
+    for producer in producers_by_type(process, 'PFCandidatePrimaryVertexSorter'):
+        if hasattr(producer, 'assignment') and hasattr(producer.assignment, 'NumOfPUVtxsForCharged'):
+            if isinstance(producer.assignment.NumOfPUVtxsForCharged, cms.int32):
+                producer.assignment.NumOfPUVtxsForCharged = cms.uint32(max(0, producer.assignment.NumOfPUVtxsForCharged.value()))
+            elif not isinstance(producer.assignment.NumOfPUVtxsForCharged, cms.uint32):
+                raise Exception('invalid type for parameter "assignment.NumOfPUVtxsForCharged":\n'+producer.dumpPython())
 
-def customiseFor35315(process):
-    """Update the HLT configuration for the changes in #35315"""
-    for module in filters_by_type(process, "HLTHcalCalibTypeFilter"):
-        if hasattr(module, "FilterSummary"):
-            delattr(module, "FilterSummary")
-
-    return process
-
-# MultipleScatteringParametrisationMakerESProducer
-def customiseFor35269(process):
-    process.load("RecoTracker.TkMSParametrization.multipleScatteringParametrisationMakerESProducer_cfi")
     return process
 
 # CMSSW version specific customizations
 def customizeHLTforCMSSW(process, menuType="GRun"):
-    
+
     # if the gpu modifier is enabled, make the Pixel, ECAL and HCAL reconstruction offloadable to a GPU
     from HLTrigger.Configuration.customizeHLTforPatatrack import customizeHLTforPatatrack
     gpu.makeProcessModifier(customizeHLTforPatatrack).apply(process)
 
     # add call to action function in proper order: newest last!
     # process = customiseFor12718(process)
-
-    process = customiseFor35309(process)
-    process = customiseFor35315(process)
-    process = customiseFor35269(process)
+    process = customiseFor36639(process)
 
     return process

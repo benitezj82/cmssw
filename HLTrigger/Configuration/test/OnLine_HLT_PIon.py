@@ -1,13 +1,15 @@
-# hltGetConfiguration --full --data /dev/CMSSW_12_1_0/PIon --type PIon --unprescale --process HLTPIon --globaltag auto:run3_hlt_PIon --input file:RelVal_Raw_PIon_DATA.root
+# hltGetConfiguration --full --data /dev/CMSSW_12_3_0/PIon --type PIon --unprescale --process HLTPIon --globaltag auto:run3_hlt_PIon --input file:RelVal_Raw_PIon_DATA.root
 
-# /dev/CMSSW_12_1_0/PIon/V1 (CMSSW_12_1_0_pre2)
+# /dev/CMSSW_12_3_0/PIon/V29 (CMSSW_12_3_0_pre4)
 
 import FWCore.ParameterSet.Config as cms
+
+from HeterogeneousCore.CUDACore.SwitchProducerCUDA import SwitchProducerCUDA
 
 process = cms.Process( "HLTPIon" )
 
 process.HLTConfigVersion = cms.PSet(
-  tableName = cms.string('/dev/CMSSW_12_1_0/PIon/V1')
+  tableName = cms.string('/dev/CMSSW_12_3_0/PIon/V29')
 )
 
 process.transferSystem = cms.PSet( 
@@ -107,7 +109,9 @@ process.HLTPSetInitialCkfTrajectoryFilterForHI = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter0PSetTrajectoryBuilderIT = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
@@ -125,13 +129,11 @@ process.HLTIter0PSetTrajectoryBuilderIT = cms.PSet(
 )
 process.HLTIter4PSetTrajectoryBuilderIT = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltIter4ESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialParabolicMfOpposite" ),
   trajectoryFilter = cms.PSet(  refToPSet_ = cms.string( "HLTIter4PSetTrajectoryFilterIT" ) ),
   propagatorAlong = cms.string( "PropagatorWithMaterialParabolicMf" ),
-  minNrOfHitsForRebuild = cms.untracked.int32( 4 ),
   maxCand = cms.int32( 1 ),
   alwaysUseInvalidHits = cms.bool( False ),
   estimator = cms.string( "hltESPChi2ChargeMeasurementEstimator16" ),
@@ -159,7 +161,9 @@ process.HLTPSetTobTecStepInOutTrajectoryFilterBase = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter0GroupedCkfTrajectoryBuilderIT = cms.PSet( 
   keepOriginalIfRebuildFails = cms.bool( False ),
@@ -167,20 +171,16 @@ process.HLTIter0GroupedCkfTrajectoryBuilderIT = cms.PSet(
   maxDPhiForLooperReconstruction = cms.double( 2.0 ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialParabolicMfOpposite" ),
   trajectoryFilter = cms.PSet(  refToPSet_ = cms.string( "HLTIter0PSetTrajectoryFilterIT" ) ),
-  doSeedingRegionRebuilding = cms.bool( False ),
-  useHitsSplitting = cms.bool( False ),
   maxCand = cms.int32( 2 ),
   estimator = cms.string( "hltESPChi2ChargeMeasurementEstimator9" ),
   intermediateCleaning = cms.bool( True ),
   bestHitOnly = cms.bool( True ),
   useSameTrajFilter = cms.bool( True ),
-  MeasurementTrackerName = cms.string( "hltESPMeasurementTracker" ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
   lostHitPenalty = cms.double( 30.0 ),
   requireSeedHitsInRebuild = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   maxPtForLooperReconstruction = cms.double( 0.7 ),
-  cleanTrajectoryAfterInOut = cms.bool( False ),
   propagatorAlong = cms.string( "PropagatorWithMaterialParabolicMf" ),
   minNrOfHitsForRebuild = cms.int32( 5 ),
   alwaysUseInvalidHits = cms.bool( False ),
@@ -210,7 +210,9 @@ process.HLTPSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter4PSetTrajectoryFilterIT = cms.PSet( 
   minimumNumberOfHits = cms.int32( 6 ),
@@ -232,11 +234,12 @@ process.HLTIter4PSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetTrajectoryBuilderForElectrons = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 90.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "hltESPBwdElectronPropagator" ),
@@ -275,11 +278,12 @@ process.HLTPSetMixedStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialCkfTrajectoryBuilderForHI = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialOppositeForHI" ),
@@ -295,7 +299,6 @@ process.HLTPSetInitialCkfTrajectoryBuilderForHI = cms.PSet(
 process.HLTPSetMuonCkfTrajectoryBuilder = cms.PSet( 
   rescaleErrorIfFail = cms.double( 1.0 ),
   ComponentType = cms.string( "MuonCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialOpposite" ),
@@ -332,7 +335,9 @@ process.HLTIter0HighPtTkMuPSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPvClusterComparerForBTag = cms.PSet( 
   track_chi2_max = cms.double( 20.0 ),
@@ -356,20 +361,16 @@ process.HLTIter2GroupedCkfTrajectoryBuilderIT = cms.PSet(
   maxDPhiForLooperReconstruction = cms.double( 2.0 ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialParabolicMfOpposite" ),
   trajectoryFilter = cms.PSet(  refToPSet_ = cms.string( "HLTIter2PSetTrajectoryFilterIT" ) ),
-  doSeedingRegionRebuilding = cms.bool( False ),
-  useHitsSplitting = cms.bool( False ),
   maxCand = cms.int32( 2 ),
   estimator = cms.string( "hltESPChi2ChargeMeasurementEstimator16" ),
   intermediateCleaning = cms.bool( True ),
   bestHitOnly = cms.bool( True ),
   useSameTrajFilter = cms.bool( True ),
-  MeasurementTrackerName = cms.string( "hltESPMeasurementTracker" ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
   lostHitPenalty = cms.double( 30.0 ),
   requireSeedHitsInRebuild = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   maxPtForLooperReconstruction = cms.double( 0.7 ),
-  cleanTrajectoryAfterInOut = cms.bool( False ),
   propagatorAlong = cms.string( "PropagatorWithMaterialParabolicMf" ),
   minNrOfHitsForRebuild = cms.int32( 5 ),
   alwaysUseInvalidHits = cms.bool( False ),
@@ -380,7 +381,6 @@ process.HLTIter2GroupedCkfTrajectoryBuilderIT = cms.PSet(
 )
 process.HLTIter3PSetTrajectoryBuilderIT = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltIter3ESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialParabolicMfOpposite" ),
@@ -414,7 +414,9 @@ process.HLTPSetCkf3HitTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetDetachedStepTrajectoryFilterBase = cms.PSet( 
   minimumNumberOfHits = cms.int32( 3 ),
@@ -436,7 +438,9 @@ process.HLTPSetDetachedStepTrajectoryFilterBase = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetMuonTrackingRegionBuilder8356 = cms.PSet( 
   Rescale_Dz = cms.double( 3.0 ),
@@ -486,7 +490,9 @@ process.HLTPSetDetachedCkfTrajectoryFilterForHI = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter3PSetTrajectoryFilterIT = cms.PSet( 
   minimumNumberOfHits = cms.int32( 3 ),
@@ -508,7 +514,9 @@ process.HLTIter3PSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetJetCoreStepTrajectoryFilter = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -530,7 +538,9 @@ process.HLTPSetJetCoreStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter2PSetTrajectoryFilterIT = cms.PSet( 
   minimumNumberOfHits = cms.int32( 3 ),
@@ -552,11 +562,12 @@ process.HLTIter2PSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetMuTrackJpsiTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialOpposite" ),
@@ -571,7 +582,6 @@ process.HLTPSetMuTrackJpsiTrajectoryBuilder = cms.PSet(
 )
 process.HLTPSetTrajectoryBuilderForGsfElectrons = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 90.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "hltESPBwdElectronPropagator" ),
@@ -605,7 +615,9 @@ process.HLTPSetTobTecStepTrajectoryFilterBase = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetMuonCkfTrajectoryFilter = cms.PSet( 
   minimumNumberOfHits = cms.int32( 5 ),
@@ -627,7 +639,9 @@ process.HLTPSetMuonCkfTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetbJetRegionalTrajectoryFilter = cms.PSet( 
   minimumNumberOfHits = cms.int32( 5 ),
@@ -649,7 +663,9 @@ process.HLTPSetbJetRegionalTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetDetachedStepTrajectoryFilter = cms.PSet( 
   ComponentType = cms.string( "CompositeTrajectoryFilter" ),
@@ -677,7 +693,9 @@ process.HLTIter1PSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetDetachedCkfTrajectoryFilterForHIGlobalPt8 = cms.PSet( 
   minimumNumberOfHits = cms.int32( 6 ),
@@ -699,12 +717,13 @@ process.HLTPSetDetachedCkfTrajectoryFilterForHIGlobalPt8 = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetMixedStepTrajectoryBuilder = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -746,7 +765,9 @@ process.HLTPSetMixedStepTrajectoryFilterBase = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetCkfTrajectoryFilter = cms.PSet( 
   minimumNumberOfHits = cms.int32( 5 ),
@@ -768,7 +789,9 @@ process.HLTPSetCkfTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTSeedFromProtoTracks = cms.PSet( 
   TTRHBuilder = cms.string( "hltESPTTRHBuilderPixelOnly" ),
@@ -800,11 +823,12 @@ process.HLTPSetInitialStepTrajectoryFilterBase = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter2PSetTrajectoryBuilderIT = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltIter2ESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialParabolicMfOpposite" ),
@@ -837,7 +861,9 @@ process.HLTPSetMuTrackJpsiTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTSeedFromConsecutiveHitsCreatorIT = cms.PSet( 
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
@@ -869,12 +895,13 @@ process.HLTPSetTrajectoryFilterL3 = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetDetachedStepTrajectoryBuilder = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -916,10 +943,12 @@ process.HLTPSetPixelPairCkfTrajectoryFilterForHIGlobalPt8 = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 100 )
+  maxLostHits = cms.int32( 100 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter0PSetTrajectoryFilterIT = cms.PSet( 
-  minimumNumberOfHits = cms.int32( 4 ),
+  minimumNumberOfHits = cms.int32( 3 ),
   ComponentType = cms.string( "CkfBaseTrajectoryFilter" ),
   seedExtension = cms.int32( 0 ),
   chargeSignificance = cms.double( -1.0 ),
@@ -936,9 +965,11 @@ process.HLTIter0PSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsForLoopers = cms.int32( 13 ),
   minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutNone" ) ),
   minNumberOfHitsPerLoop = cms.int32( 4 ),
-  minHitsMinPt = cms.int32( 4 ),
+  minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter2HighPtTkMuPSetTrajectoryFilterIT = cms.PSet( 
   minimumNumberOfHits = cms.int32( 5 ),
@@ -960,7 +991,9 @@ process.HLTIter2HighPtTkMuPSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetMuTrackJpsiEffTrajectoryFilter = cms.PSet( 
   minimumNumberOfHits = cms.int32( 5 ),
@@ -982,12 +1015,13 @@ process.HLTPSetMuTrackJpsiEffTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelPairCkfTrajectoryBuilderForHIGlobalPt8 = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -1029,7 +1063,9 @@ process.HLTPSetPixelPairStepTrajectoryFilterBase = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetLowPtStepTrajectoryFilter = cms.PSet( 
   minimumNumberOfHits = cms.int32( 3 ),
@@ -1051,7 +1087,9 @@ process.HLTPSetLowPtStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTSeedFromConsecutiveHitsCreator = cms.PSet( 
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
@@ -1066,7 +1104,6 @@ process.HLTSeedFromConsecutiveHitsCreator = cms.PSet(
 process.HLTPSetPixelPairCkfTrajectoryBuilderForHI = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -1091,7 +1128,6 @@ process.HLTPSetPixelPairCkfTrajectoryBuilderForHI = cms.PSet(
 process.HLTPSetDetachedCkfTrajectoryBuilderForHI = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -1114,9 +1150,7 @@ process.HLTPSetDetachedCkfTrajectoryBuilderForHI = cms.PSet(
   seedAs5DHit = cms.bool( False )
 )
 process.HLTIter1PSetTrajectoryBuilderIT = cms.PSet( 
-  useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltIter1ESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialParabolicMfOpposite" ),
@@ -1132,7 +1166,6 @@ process.HLTIter1PSetTrajectoryBuilderIT = cms.PSet(
 process.HLTPSetDetachedCkfTrajectoryBuilderForHIGlobalPt8 = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -1158,7 +1191,6 @@ process.HLTSiStripClusterChargeCutForHI = cms.PSet(  value = cms.double( 2069.0 
 process.HLTPSetLowPtStepTrajectoryBuilder = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -1182,7 +1214,6 @@ process.HLTPSetLowPtStepTrajectoryBuilder = cms.PSet(
 )
 process.HLTPSetMuTrackJpsiEffTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialOpposite" ),
@@ -1215,12 +1246,13 @@ process.HLTPSetTrajectoryFilterForElectrons = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( -1 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetJetCoreStepTrajectoryBuilder = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -1282,12 +1314,13 @@ process.HLTPSetPixelLessStepTrajectoryFilterBase = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter1GroupedCkfTrajectoryBuilderIT = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltIter1ESPMeasurementTracker" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -1304,12 +1337,12 @@ process.HLTIter1GroupedCkfTrajectoryBuilderIT = cms.PSet(
   foundHitBonus = cms.double( 5.0 ),
   updator = cms.string( "hltESPKFUpdator" ),
   bestHitOnly = cms.bool( True ),
-  seedAs5DHit = cms.bool( False )
+  seedAs5DHit = cms.bool( False ),
+  inOutTrajectoryFilter = cms.PSet(  refToPSet_ = cms.string( "HLTIter1PSetTrajectoryFilterIT" ) )
 )
 process.HLTPSetMuonCkfTrajectoryBuilderSeedHit = cms.PSet( 
   rescaleErrorIfFail = cms.double( 1.0 ),
   ComponentType = cms.string( "MuonCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialOpposite" ),
@@ -1346,7 +1379,9 @@ process.HLTPSetPixelPairCkfTrajectoryFilterForHI = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 100 )
+  maxLostHits = cms.int32( 100 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -1359,7 +1394,6 @@ process.HLTPSetInitialStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -1393,7 +1427,9 @@ process.HLTPSetInitialStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 0 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetLowPtQuadStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -1406,7 +1442,6 @@ process.HLTPSetLowPtQuadStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -1440,7 +1475,9 @@ process.HLTPSetLowPtQuadStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 0 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetHighPtTripletStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -1453,7 +1490,6 @@ process.HLTPSetHighPtTripletStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -1487,7 +1523,9 @@ process.HLTPSetHighPtTripletStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 0 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetLowPtTripletStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -1500,7 +1538,6 @@ process.HLTPSetLowPtTripletStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -1534,7 +1571,9 @@ process.HLTPSetLowPtTripletStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 0 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetDetachedQuadStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -1547,7 +1586,6 @@ process.HLTPSetDetachedQuadStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -1581,7 +1619,9 @@ process.HLTPSetDetachedQuadStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 0 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetDetachedTripletStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -1594,7 +1634,6 @@ process.HLTPSetDetachedTripletStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -1628,7 +1667,9 @@ process.HLTPSetDetachedTripletStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 0 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetMixedTripletStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -1641,7 +1682,6 @@ process.HLTPSetMixedTripletStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -1675,7 +1715,9 @@ process.HLTPSetMixedTripletStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 9999 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutNone" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutNone" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelLessStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -1688,7 +1730,6 @@ process.HLTPSetPixelLessStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -1722,7 +1763,9 @@ process.HLTPSetPixelLessStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 9999 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutNone" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutNone" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetTobTecStepTrajectoryFilter = cms.PSet( 
   ComponentType = cms.string( "CkfBaseTrajectoryFilter" ),
@@ -1744,7 +1787,9 @@ process.HLTPSetTobTecStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 9999 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutNone" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutNone" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetTobTecStepInOutTrajectoryFilter = cms.PSet( 
   ComponentType = cms.string( "CkfBaseTrajectoryFilter" ),
@@ -1766,7 +1811,9 @@ process.HLTPSetTobTecStepInOutTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 9999 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutNone" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutNone" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetTobTecStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -1779,7 +1826,6 @@ process.HLTPSetTobTecStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -1806,7 +1852,6 @@ process.HLTPSetGroupedCkfTrajectoryBuilderIterL3ForOI = cms.PSet(
   deltaEta = cms.double( -1.0 ),
   useSeedLayer = cms.bool( False ),
   useSameTrajFilter = cms.bool( True ),
-  MeasurementTrackerName = cms.string( "hltSiStripClusters" ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
   lostHitPenalty = cms.double( 30.0 ),
   requireSeedHitsInRebuild = cms.bool( False ),
@@ -1824,7 +1869,6 @@ process.HLTPSetGroupedCkfTrajectoryBuilderIterL3ForOI = cms.PSet(
 process.HLTIter0IterL3MuonPSetGroupedCkfTrajectoryBuilderIT = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( True ),
   lostHitPenalty = cms.double( 1.0 ),
   lockHits = cms.bool( True ),
@@ -1864,12 +1908,13 @@ process.HLTIter0IterL3FromL1MuonGroupedCkfTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter0IterL3FromL1MuonPSetGroupedCkfTrajectoryBuilderIT = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( True ),
   lostHitPenalty = cms.double( 1.0 ),
   lockHits = cms.bool( True ),
@@ -1909,11 +1954,12 @@ process.HLTIter0IterL3MuonGroupedCkfTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter2HighPtTkMuPSetTrajectoryBuilderIT = cms.PSet( 
   ComponentType = cms.string( "CkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltIter2HighPtTkMuESPMeasurementTracker" ),
   lostHitPenalty = cms.double( 30.0 ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   propagatorOpposite = cms.string( "PropagatorWithMaterialParabolicMfOpposite" ),
@@ -1946,12 +1992,13 @@ process.HLTIter2IterL3FromL1MuonPSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter2IterL3FromL1MuonPSetGroupedCkfTrajectoryBuilderIT = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltIter2HighPtTkMuESPMeasurementTracker" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -1968,7 +2015,8 @@ process.HLTIter2IterL3FromL1MuonPSetGroupedCkfTrajectoryBuilderIT = cms.PSet(
   foundHitBonus = cms.double( 1000.0 ),
   updator = cms.string( "hltESPKFUpdator" ),
   bestHitOnly = cms.bool( True ),
-  seedAs5DHit = cms.bool( False )
+  seedAs5DHit = cms.bool( False ),
+  inOutTrajectoryFilter = cms.PSet(  refToPSet_ = cms.string( "HLTIter2IterL3FromL1MuonPSetTrajectoryFilterIT" ) )
 )
 process.HLTIter2IterL3MuonPSetTrajectoryFilterIT = cms.PSet( 
   minimumNumberOfHits = cms.int32( 5 ),
@@ -1990,12 +2038,13 @@ process.HLTIter2IterL3MuonPSetTrajectoryFilterIT = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTIter2IterL3MuonPSetGroupedCkfTrajectoryBuilderIT = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "hltIter2HighPtTkMuESPMeasurementTracker" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2012,7 +2061,8 @@ process.HLTIter2IterL3MuonPSetGroupedCkfTrajectoryBuilderIT = cms.PSet(
   foundHitBonus = cms.double( 1000.0 ),
   updator = cms.string( "hltESPKFUpdator" ),
   bestHitOnly = cms.bool( True ),
-  seedAs5DHit = cms.bool( False )
+  seedAs5DHit = cms.bool( False ),
+  inOutTrajectoryFilter = cms.PSet(  refToPSet_ = cms.string( "HLTIter2IterL3MuonPSetTrajectoryFilterIT" ) )
 )
 process.HLTPSetCkfTrajectoryFilterIterL3OI = cms.PSet( 
   minimumNumberOfHits = cms.int32( 5 ),
@@ -2034,7 +2084,9 @@ process.HLTPSetCkfTrajectoryFilterIterL3OI = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 999.0 ),
-  maxLostHits = cms.int32( 1 )
+  maxLostHits = cms.int32( 1 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelPairStepTrajectoryFilter = cms.PSet( 
   ComponentType = cms.string( "CkfBaseTrajectoryFilter" ),
@@ -2056,7 +2108,9 @@ process.HLTPSetPixelPairStepTrajectoryFilter = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 0 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelPairStepTrajectoryFilterInOut = cms.PSet( 
   ComponentType = cms.string( "CkfBaseTrajectoryFilter" ),
@@ -2078,7 +2132,9 @@ process.HLTPSetPixelPairStepTrajectoryFilterInOut = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   extraNumberOfHitsBeforeTheFirstLoop = cms.int32( 4 ),
   maxCCCLostHits = cms.int32( 0 ),
-  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) )
+  minGoodStripCharge = cms.PSet(  refToPSet_ = cms.string( "HLTSiStripClusterChargeCutLoose" ) ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelPairStepTrajectoryBuilder = cms.PSet( 
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
@@ -2091,7 +2147,6 @@ process.HLTPSetPixelPairStepTrajectoryBuilder = cms.PSet(
   intermediateCleaning = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   foundHitBonus = cms.double( 10.0 ),
-  MeasurementTrackerName = cms.string( "" ),
   lockHits = cms.bool( True ),
   TTRHBuilder = cms.string( "hltESPTTRHBWithTrackAngle" ),
   updator = cms.string( "hltESPKFUpdator" ),
@@ -2108,7 +2163,6 @@ process.HLTPSetPixelPairStepTrajectoryBuilder = cms.PSet(
 process.HLTPSetTobTecStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( False ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2150,7 +2204,9 @@ process.HLTPSetLowPtTripletStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetDetachedQuadStepTrajectoryFilterPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 3 ),
@@ -2172,7 +2228,9 @@ process.HLTPSetDetachedQuadStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetCkfBaseTrajectoryFilter_block = cms.PSet( 
   minimumNumberOfHits = cms.int32( 5 ),
@@ -2194,12 +2252,13 @@ process.HLTPSetCkfBaseTrajectoryFilter_block = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2224,7 +2283,6 @@ process.HLTPSetInitialStepTrajectoryBuilderPPOnAA = cms.PSet(
 process.HLTPSetLowPtTripletStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2266,7 +2324,9 @@ process.HLTPSetTobTecStepInOutTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialStepTrajectoryFilterBasePreSplittingPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -2288,12 +2348,13 @@ process.HLTPSetInitialStepTrajectoryFilterBasePreSplittingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetDetachedTripletStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2318,7 +2379,6 @@ process.HLTPSetDetachedTripletStepTrajectoryBuilderPPOnAA = cms.PSet(
 process.HLTPSetHighPtTripletStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2360,12 +2420,13 @@ process.HLTPSetDetachedTripletStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialStepTrajectoryBuilderPreSplittingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2407,12 +2468,13 @@ process.HLTPSetLowPtQuadStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetJetCoreStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2454,7 +2516,9 @@ process.HLTPSetMixedTripletStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetJetCoreStepTrajectoryFilterPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -2476,7 +2540,9 @@ process.HLTPSetJetCoreStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialStepTrajectoryFilterPreSplittingPPOnAA = cms.PSet( 
   ComponentType = cms.string( "CompositeTrajectoryFilter" ),
@@ -2488,7 +2554,6 @@ process.HLTPSetInitialStepTrajectoryFilterPreSplittingPPOnAA = cms.PSet(
 process.HLTPSetMixedTripletStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2530,12 +2595,13 @@ process.HLTPSetHighPtTripletStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetLowPtQuadStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2560,7 +2626,6 @@ process.HLTPSetLowPtQuadStepTrajectoryBuilderPPOnAA = cms.PSet(
 process.HLTPSetPixelLessStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2586,7 +2651,6 @@ process.HLTSiStripClusterChargeCutLoose = cms.PSet(  value = cms.double( 1620.0 
 process.HLTPSetDetachedQuadStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2648,7 +2712,9 @@ process.HLTPSetInitialStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetTobTecStepTrajectoryFilterPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 5 ),
@@ -2670,7 +2736,9 @@ process.HLTPSetTobTecStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelLessStepTrajectoryFilterPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -2692,7 +2760,9 @@ process.HLTPSetPixelLessStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelPairStepTrajectoryFilterPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -2714,7 +2784,9 @@ process.HLTPSetPixelPairStepTrajectoryFilterPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelPairStepTrajectoryFilterInOutPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -2736,12 +2808,13 @@ process.HLTPSetPixelPairStepTrajectoryFilterInOutPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelPairStepTrajectoryBuilderPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( False ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2783,12 +2856,13 @@ process.HLTPSetInitialStepTrajectoryFilterBasePreSplittingForFullTrackingPPOnAA 
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialStepTrajectoryBuilderPreSplittingForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2837,12 +2911,13 @@ process.HLTPSetInitialStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2884,12 +2959,13 @@ process.HLTPSetLowPtQuadStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetLowPtQuadStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -2931,7 +3007,9 @@ process.HLTPSetHighPtTripletStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetHighPtTripletStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
@@ -2977,12 +3055,13 @@ process.HLTPSetLowPtTripletStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetLowPtTripletStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3024,7 +3103,9 @@ process.HLTPSetDetachedQuadStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetDetachedTripletStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 3 ),
@@ -3046,7 +3127,9 @@ process.HLTPSetDetachedTripletStepTrajectoryFilterForFullTrackingPPOnAA = cms.PS
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelPairStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -3068,12 +3151,13 @@ process.HLTPSetPixelPairStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelPairStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( False ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3115,7 +3199,9 @@ process.HLTPSetMixedTripletStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelLessStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -3137,12 +3223,13 @@ process.HLTPSetPixelLessStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetPixelLessStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3184,7 +3271,9 @@ process.HLTPSetTobTecStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetTobTecStepInOutTrajectoryFilterForFullTrackingPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -3206,12 +3295,13 @@ process.HLTPSetTobTecStepInOutTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 0 )
+  maxLostHits = cms.int32( 0 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetTobTecStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( False ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3253,12 +3343,13 @@ process.HLTPSetJetCoreStepTrajectoryFilterForFullTrackingPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetJetCoreStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3300,12 +3391,13 @@ process.HLTPSetPixelPairStepTrajectoryFilterInOutForFullTrackingPPOnAA = cms.PSe
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetMixedTripletStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3330,7 +3422,6 @@ process.HLTPSetMixedTripletStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet
 process.HLTPSetDetachedQuadStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3355,7 +3446,6 @@ process.HLTPSetDetachedQuadStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet
 process.HLTPSetDetachedTripletStepTrajectoryBuilderForFullTrackingPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3397,7 +3487,9 @@ process.HLTPSetInitialStepTrajectoryFilterBasePreSplittingForDmesonPPOnAA = cms.
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialStepTrajectoryFilterForDmesonPPOnAA = cms.PSet( 
   minimumNumberOfHits = cms.int32( 4 ),
@@ -3419,12 +3511,13 @@ process.HLTPSetInitialStepTrajectoryFilterForDmesonPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetInitialStepTrajectoryBuilderForDmesonPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( True ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3466,12 +3559,13 @@ process.HLTPSetLowPtQuadStepTrajectoryFilterForDmesonPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetLowPtQuadStepTrajectoryBuilderForDmesonPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3513,7 +3607,9 @@ process.HLTPSetHighPtTripletStepTrajectoryFilterForDmesonPPOnAA = cms.PSet(
   minNumberOfHitsPerLoop = cms.int32( 4 ),
   minHitsMinPt = cms.int32( 3 ),
   maxLostHitsFraction = cms.double( 0.1 ),
-  maxLostHits = cms.int32( 999 )
+  maxLostHits = cms.int32( 999 ),
+  highEtaSwitch = cms.double( 5.0 ),
+  minHitsAtHighEta = cms.int32( 5 )
 )
 process.HLTPSetHighPtTripletStepTrajectoryBuilderForDmesonPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
@@ -3549,7 +3645,6 @@ process.HLTPSetInitialStepTrajectoryFilterPreSplittingForDmesonPPOnAA = cms.PSet
 process.HLTPSetInitialStepTrajectoryBuilderPreSplittingForDmesonPPOnAA = cms.PSet( 
   useSameTrajFilter = cms.bool( True ),
   ComponentType = cms.string( "GroupedCkfTrajectoryBuilder" ),
-  MeasurementTrackerName = cms.string( "" ),
   keepOriginalIfRebuildFails = cms.bool( False ),
   lostHitPenalty = cms.double( 30.0 ),
   lockHits = cms.bool( True ),
@@ -3702,6 +3797,21 @@ process.hltESSHcalSeverityLevel = cms.ESSource( "EmptyESSource",
     iovIsRunNotTime = cms.bool( True ),
     firstValid = cms.vuint32( 1 )
 )
+process.ppsPixelTopologyESSource = cms.ESSource( "PPSPixelTopologyESSource",
+    RunType = cms.string( "Run3" ),
+    PitchSimY = cms.double( 0.15 ),
+    PitchSimX = cms.double( 0.1 ),
+    thickness = cms.double( 0.23 ),
+    noOfPixelSimX = cms.int32( 160 ),
+    noOfPixelSimY = cms.int32( 104 ),
+    noOfPixels = cms.int32( 16640 ),
+    simXWidth = cms.double( 16.6 ),
+    simYWidth = cms.double( 16.2 ),
+    deadEdgeWidth = cms.double( 0.2 ),
+    activeEdgeSigma = cms.double( 0.02 ),
+    physActiveEdgeDist = cms.double( 0.15 ),
+    appendToDataLabel = cms.string( "" )
+)
 
 process.AnyDirectionAnalyticalPropagator = cms.ESProducer( "AnalyticalPropagatorESProducer",
   MaxDPhi = cms.double( 1.6 ),
@@ -3762,7 +3872,7 @@ process.ClusterShapeHitFilterESProducer = cms.ESProducer( "ClusterShapeHitFilter
 process.DTGeometryESModule = cms.ESProducer( "DTGeometryESModule",
   fromDDD = cms.bool( False ),
   fromDD4hep = cms.bool( False ),
-  DDDetector = cms.ESInputTag( "" ),
+  DDDetector = cms.ESInputTag( "","" ),
   alignmentsLabel = cms.string( "" ),
   appendToDataLabel = cms.string( "" ),
   attribute = cms.string( "MuStructure" ),
@@ -3785,6 +3895,13 @@ process.EcalLaserCorrectionService = cms.ESProducer( "EcalLaserCorrectionService
 )
 process.EcalPreshowerGeometryFromDBEP = cms.ESProducer( "EcalPreshowerGeometryFromDBEP",
   applyAlignment = cms.bool( True )
+)
+process.GEMGeometryESModule = cms.ESProducer( "GEMGeometryESModule",
+  fromDDD = cms.bool( False ),
+  fromDD4hep = cms.bool( False ),
+  applyAlignment = cms.bool( False ),
+  alignmentsLabel = cms.string( "" ),
+  appendToDataLabel = cms.string( "" )
 )
 process.GlobalParameters = cms.ESProducer( "StableParametersTrivialProducer",
   TotalBxInEvent = cms.int32( 5 ),
@@ -3890,6 +4007,37 @@ process.ParametrizedMagneticFieldProducer = cms.ESProducer( "AutoParametrizedMag
   version = cms.string( "Parabolic" ),
   label = cms.untracked.string( "ParabolicMf" ),
   valueOverride = cms.int32( -1 )
+)
+process.PixelCPEFastESProducer = cms.ESProducer( "PixelCPEFastESProducer",
+  LoadTemplatesFromDB = cms.bool( True ),
+  Alpha2Order = cms.bool( True ),
+  ClusterProbComputationFlag = cms.int32( 0 ),
+  useLAWidthFromDB = cms.bool( True ),
+  lAOffset = cms.double( 0.0 ),
+  lAWidthBPix = cms.double( 0.0 ),
+  lAWidthFPix = cms.double( 0.0 ),
+  doLorentzFromAlignment = cms.bool( False ),
+  useLAFromDB = cms.bool( True ),
+  xerr_barrel_l1 = cms.vdouble( 0.00115, 0.0012, 8.8E-4 ),
+  yerr_barrel_l1 = cms.vdouble( 0.00375, 0.0023, 0.0025, 0.0025, 0.0023, 0.0023, 0.0021, 0.0021, 0.0024 ),
+  xerr_barrel_ln = cms.vdouble( 0.00115, 0.0012, 8.8E-4 ),
+  yerr_barrel_ln = cms.vdouble( 0.00375, 0.0023, 0.0025, 0.0025, 0.0023, 0.0023, 0.0021, 0.0021, 0.0024 ),
+  xerr_endcap = cms.vdouble( 0.002, 0.002 ),
+  yerr_endcap = cms.vdouble( 0.0021 ),
+  xerr_barrel_l1_def = cms.double( 0.0103 ),
+  yerr_barrel_l1_def = cms.double( 0.0021 ),
+  xerr_barrel_ln_def = cms.double( 0.0103 ),
+  yerr_barrel_ln_def = cms.double( 0.0021 ),
+  xerr_endcap_def = cms.double( 0.002 ),
+  yerr_endcap_def = cms.double( 7.5E-4 ),
+  isPhase2 = cms.bool( False ),
+  EdgeClusterErrorX = cms.double( 50.0 ),
+  EdgeClusterErrorY = cms.double( 85.0 ),
+  UseErrorsFromTemplates = cms.bool( True ),
+  TruncatePixelCharge = cms.bool( True ),
+  ComponentName = cms.string( "PixelCPEFast" ),
+  MagneticFieldRecord = cms.ESInputTag( "","" ),
+  appendToDataLabel = cms.string( "" )
 )
 process.PropagatorWithMaterialForLoopers = cms.ESProducer( "PropagatorWithMaterialESProducer",
   SimpleMagneticField = cms.string( "ParabolicMf" ),
@@ -4033,6 +4181,21 @@ process.caloDetIdAssociator = cms.ESProducer( "DetIdAssociatorESProducer",
 process.cosmicsNavigationSchoolESProducer = cms.ESProducer( "NavigationSchoolESProducer",
   ComponentName = cms.string( "CosmicNavigationSchool" ),
   SimpleMagneticField = cms.string( "" )
+)
+process.ctppsGeometryESModule = cms.ESProducer( "CTPPSGeometryESModule",
+  verbosity = cms.untracked.uint32( 1 ),
+  buildMisalignedGeometry = cms.bool( False ),
+  isRun2 = cms.bool( False ),
+  dbTag = cms.string( "" ),
+  compactViewTag = cms.string( "" ),
+  fromPreprocessedDB = cms.untracked.bool( True ),
+  fromDD4hep = cms.untracked.bool( False ),
+  appendToDataLabel = cms.string( "" )
+)
+process.ctppsInterpolatedOpticalFunctionsESSource = cms.ESProducer( "CTPPSInterpolatedOpticalFunctionsESSource",
+  lhcInfoLabel = cms.string( "" ),
+  opticsLabel = cms.string( "" ),
+  appendToDataLabel = cms.string( "" )
 )
 process.ecalDetIdAssociator = cms.ESProducer( "DetIdAssociatorESProducer",
   ComponentName = cms.string( "EcalDetIdAssociator" ),
@@ -4646,6 +4809,8 @@ process.hltESPFittingSmootherIT = cms.ESProducer( "KFFittingSmootherESProducer",
   MinDof = cms.int32( 2 ),
   NoOutliersBeginEnd = cms.bool( False ),
   MinNumberOfHits = cms.int32( 3 ),
+  MinNumberOfHitsHighEta = cms.int32( 5 ),
+  HighEtaSwitch = cms.double( 5.0 ),
   RejectTracks = cms.bool( True ),
   BreakTrajWith2ConsecutiveMissing = cms.bool( True ),
   NoInvalidHitsBeginEnd = cms.bool( True ),
@@ -4662,6 +4827,8 @@ process.hltESPFittingSmootherRK = cms.ESProducer( "KFFittingSmootherESProducer",
   MinDof = cms.int32( 2 ),
   NoOutliersBeginEnd = cms.bool( False ),
   MinNumberOfHits = cms.int32( 5 ),
+  MinNumberOfHitsHighEta = cms.int32( 5 ),
+  HighEtaSwitch = cms.double( 5.0 ),
   RejectTracks = cms.bool( True ),
   BreakTrajWith2ConsecutiveMissing = cms.bool( False ),
   NoInvalidHitsBeginEnd = cms.bool( False ),
@@ -4697,6 +4864,8 @@ process.hltESPGsfElectronFittingSmoother = cms.ESProducer( "KFFittingSmootherESP
   MinDof = cms.int32( 2 ),
   NoOutliersBeginEnd = cms.bool( False ),
   MinNumberOfHits = cms.int32( 5 ),
+  MinNumberOfHitsHighEta = cms.int32( 5 ),
+  HighEtaSwitch = cms.double( 5.0 ),
   RejectTracks = cms.bool( True ),
   BreakTrajWith2ConsecutiveMissing = cms.bool( True ),
   NoInvalidHitsBeginEnd = cms.bool( True ),
@@ -4762,6 +4931,8 @@ process.hltESPKFFittingSmoother = cms.ESProducer( "KFFittingSmootherESProducer",
   MinDof = cms.int32( 2 ),
   NoOutliersBeginEnd = cms.bool( False ),
   MinNumberOfHits = cms.int32( 5 ),
+  MinNumberOfHitsHighEta = cms.int32( 5 ),
+  HighEtaSwitch = cms.double( 5.0 ),
   RejectTracks = cms.bool( True ),
   BreakTrajWith2ConsecutiveMissing = cms.bool( False ),
   NoInvalidHitsBeginEnd = cms.bool( False ),
@@ -4778,6 +4949,8 @@ process.hltESPKFFittingSmootherForL2Muon = cms.ESProducer( "KFFittingSmootherESP
   MinDof = cms.int32( 2 ),
   NoOutliersBeginEnd = cms.bool( False ),
   MinNumberOfHits = cms.int32( 5 ),
+  MinNumberOfHitsHighEta = cms.int32( 5 ),
+  HighEtaSwitch = cms.double( 5.0 ),
   RejectTracks = cms.bool( True ),
   BreakTrajWith2ConsecutiveMissing = cms.bool( False ),
   NoInvalidHitsBeginEnd = cms.bool( False ),
@@ -4794,6 +4967,8 @@ process.hltESPKFFittingSmootherForLoopers = cms.ESProducer( "KFFittingSmootherES
   MinDof = cms.int32( 2 ),
   NoOutliersBeginEnd = cms.bool( False ),
   MinNumberOfHits = cms.int32( 3 ),
+  MinNumberOfHitsHighEta = cms.int32( 5 ),
+  HighEtaSwitch = cms.double( 5.0 ),
   RejectTracks = cms.bool( True ),
   BreakTrajWith2ConsecutiveMissing = cms.bool( True ),
   NoInvalidHitsBeginEnd = cms.bool( True ),
@@ -4810,6 +4985,8 @@ process.hltESPKFFittingSmootherWithOutliersRejectionAndRK = cms.ESProducer( "KFF
   MinDof = cms.int32( 2 ),
   NoOutliersBeginEnd = cms.bool( False ),
   MinNumberOfHits = cms.int32( 3 ),
+  MinNumberOfHitsHighEta = cms.int32( 5 ),
+  HighEtaSwitch = cms.double( 5.0 ),
   RejectTracks = cms.bool( True ),
   BreakTrajWith2ConsecutiveMissing = cms.bool( True ),
   NoInvalidHitsBeginEnd = cms.bool( True ),
@@ -5063,7 +5240,7 @@ process.hltESPPixelCPEGeneric = cms.ESProducer( "PixelCPEGenericESProducer",
   Upgrade = cms.bool( False ),
   SmallPitch = cms.bool( False ),
   ComponentName = cms.string( "hltESPPixelCPEGeneric" ),
-  MagneticFieldRecord = cms.ESInputTag( "" ),
+  MagneticFieldRecord = cms.ESInputTag( "","" ),
   appendToDataLabel = cms.string( "" )
 )
 process.hltESPPixelCPETemplateReco = cms.ESProducer( "PixelCPETemplateRecoESProducer",
@@ -5307,6 +5484,8 @@ process.hltESPTobTecStepFittingSmoother = cms.ESProducer( "KFFittingSmootherESPr
   MinDof = cms.int32( 2 ),
   NoOutliersBeginEnd = cms.bool( False ),
   MinNumberOfHits = cms.int32( 7 ),
+  MinNumberOfHitsHighEta = cms.int32( 5 ),
+  HighEtaSwitch = cms.double( 5.0 ),
   RejectTracks = cms.bool( True ),
   BreakTrajWith2ConsecutiveMissing = cms.bool( False ),
   NoInvalidHitsBeginEnd = cms.bool( False ),
@@ -5323,6 +5502,8 @@ process.hltESPTobTecStepFittingSmootherForLoopers = cms.ESProducer( "KFFittingSm
   MinDof = cms.int32( 2 ),
   NoOutliersBeginEnd = cms.bool( False ),
   MinNumberOfHits = cms.int32( 7 ),
+  MinNumberOfHitsHighEta = cms.int32( 5 ),
+  HighEtaSwitch = cms.double( 5.0 ),
   RejectTracks = cms.bool( True ),
   BreakTrajWith2ConsecutiveMissing = cms.bool( False ),
   NoInvalidHitsBeginEnd = cms.bool( False ),
@@ -5437,6 +5618,9 @@ process.hoDetIdAssociator = cms.ESProducer( "DetIdAssociatorESProducer",
   includeGEM = cms.bool( False ),
   includeME0 = cms.bool( False )
 )
+process.multipleScatteringParametrisationMakerESProducer = cms.ESProducer( "MultipleScatteringParametrisationMakerESProducer",
+  appendToDataLabel = cms.string( "" )
+)
 process.muonDetIdAssociator = cms.ESProducer( "DetIdAssociatorESProducer",
   ComponentName = cms.string( "MuonDetIdAssociator" ),
   etaBinSize = cms.double( 0.125 ),
@@ -5506,6 +5690,21 @@ process.trackerTopology = cms.ESProducer( "TrackerTopologyEP",
   appendToDataLabel = cms.string( "" )
 )
 
+process.CUDAService = cms.Service( "CUDAService",
+    enabled = cms.untracked.bool( True ),
+    verbose = cms.untracked.bool( False ),
+    limits = cms.untracked.PSet( 
+      cudaLimitDevRuntimePendingLaunchCount = cms.untracked.int32( -1 ),
+      cudaLimitDevRuntimeSyncDepth = cms.untracked.int32( -1 ),
+      cudaLimitStackSize = cms.untracked.int32( -1 ),
+      cudaLimitPrintfFifoSize = cms.untracked.int32( -1 ),
+      cudaLimitMallocHeapSize = cms.untracked.int32( -1 )
+    ),
+    allocator = cms.untracked.PSet( 
+      hostPreallocate = cms.untracked.vuint32(  ),
+      devicePreallocate = cms.untracked.vuint32(  )
+    )
+)
 process.FastTimerService = cms.Service( "FastTimerService",
     printEventSummary = cms.untracked.bool( False ),
     printRunSummary = cms.untracked.bool( True ),
@@ -5604,6 +5803,9 @@ process.hltPSetMap = cms.EDProducer( "ParameterSetBlobProducer" )
 process.hltBoolFalse = cms.EDFilter( "HLTBool",
     result = cms.bool( False )
 )
+process.statusOnGPUFilter = cms.EDFilter( "BooleanFilter",
+    src = cms.InputTag( "statusOnGPU" )
+)
 process.hltTriggerType = cms.EDFilter( "HLTTriggerTypeFilter",
     SelectedTriggerType = cms.int32( 1 )
 )
@@ -5635,6 +5837,7 @@ process.hltGtStage2Digis = cms.EDProducer( "L1TRawToDigi",
 )
 process.hltGtStage2ObjectMap = cms.EDProducer( "L1TGlobalProducer",
     MuonInputTag = cms.InputTag( 'hltGtStage2Digis','Muon' ),
+    MuonShowerInputTag = cms.InputTag( "" ),
     EGammaInputTag = cms.InputTag( 'hltGtStage2Digis','EGamma' ),
     TauInputTag = cms.InputTag( 'hltGtStage2Digis','Tau' ),
     JetInputTag = cms.InputTag( 'hltGtStage2Digis','Jet' ),
@@ -5645,6 +5848,7 @@ process.hltGtStage2ObjectMap = cms.EDProducer( "L1TGlobalProducer",
     AlgorithmTriggersUnprescaled = cms.bool( True ),
     RequireMenuToMatchAlgoBlkInput = cms.bool( True ),
     AlgorithmTriggersUnmasked = cms.bool( True ),
+    useMuonShowers = cms.bool( False ),
     ProduceL1GtDaqRecord = cms.bool( True ),
     ProduceL1GtObjectMapRecord = cms.bool( True ),
     EmulateBxInEvent = cms.int32( 1 ),
@@ -5659,6 +5863,9 @@ process.hltGtStage2ObjectMap = cms.EDProducer( "L1TGlobalProducer",
 )
 process.hltScalersRawToDigi = cms.EDProducer( "ScalersRawToDigi",
     scalersInputTag = cms.InputTag( "rawDataCollector" )
+)
+process.hltOnlineMetaDataDigis = cms.EDProducer( "OnlineMetaDataRawToDigi",
+    onlineMetaDataInputLabel = cms.InputTag( "rawDataCollector" )
 )
 process.hltOnlineBeamSpot = cms.EDProducer( "BeamSpotOnlineProducer",
     changeToCMSCoordinates = cms.bool( False ),
@@ -5756,6 +5963,12 @@ process.hltPreDQMOutputSmart = cms.EDFilter( "TriggerResultsFilter",
       'HLT_ZeroBias_v6 / 3' )
 )
 
+process.statusOnGPU = SwitchProducerCUDA(
+   cpu = cms.EDProducer( "BooleanProducer",
+       value = cms.bool( False )
+   ),
+ )
+
 process.hltOutputPhysicsCommissioning = cms.OutputModule( "PoolOutputModule",
     fileName = cms.untracked.string( "outputPhysicsCommissioning.root" ),
     fastCloning = cms.untracked.bool( False ),
@@ -5816,13 +6029,15 @@ process.hltOutputDQM = cms.OutputModule( "PoolOutputModule",
 )
 
 process.HLTL1UnpackerSequence = cms.Sequence( process.hltGtStage2Digis + process.hltGtStage2ObjectMap )
-process.HLTBeamSpot = cms.Sequence( process.hltScalersRawToDigi + process.hltOnlineBeamSpot )
+process.HLTBeamSpot = cms.Sequence( process.hltScalersRawToDigi + process.hltOnlineMetaDataDigis + process.hltOnlineBeamSpot )
 process.HLTBeginSequenceL1Fat = cms.Sequence( process.hltTriggerType + process.hltL1EventNumberL1Fat + process.HLTL1UnpackerSequence + process.HLTBeamSpot )
 process.HLTEndSequence = cms.Sequence( process.hltBoolEnd )
 process.HLTBeginSequenceRandom = cms.Sequence( process.hltRandomEventsFilter + process.hltGtStage2Digis )
 process.HLTBeginSequence = cms.Sequence( process.hltTriggerType + process.HLTL1UnpackerSequence + process.HLTBeamSpot )
 
 process.HLTriggerFirstPath = cms.Path( process.hltGetConditions + process.hltGetRaw + process.hltPSetMap + process.hltBoolFalse )
+process.Status_OnCPU = cms.Path( process.statusOnGPU + ~process.statusOnGPUFilter )
+process.Status_OnGPU = cms.Path( process.statusOnGPU + process.statusOnGPUFilter )
 process.HLT_Physics_v7 = cms.Path( process.HLTBeginSequenceL1Fat + process.hltPrePhysics + process.HLTEndSequence )
 process.HLT_Random_v3 = cms.Path( process.HLTBeginSequenceRandom + process.hltPreRandom + process.HLTEndSequence )
 process.HLT_ZeroBias_v6 = cms.Path( process.HLTBeginSequence + process.hltL1sZeroBias + process.hltPreZeroBias + process.HLTEndSequence )
@@ -5839,9 +6054,10 @@ process.dqmOutput = cms.OutputModule("DQMRootOutputModule",
 process.DQMOutput = cms.EndPath( process.dqmOutput + process.hltGtStage2Digis + process.hltPreDQMOutput + process.hltPreDQMOutputSmart + process.hltOutputDQM )
 
 
-process.HLTSchedule = cms.Schedule( *(process.HLTriggerFirstPath, process.HLT_Physics_v7, process.HLT_Random_v3, process.HLT_ZeroBias_v6, process.HLTriggerFinalPath, process.HLTAnalyzerEndpath, process.PhysicsCommissioningOutput, process.DQMOutput ))
+process.schedule = cms.Schedule( *(process.HLTriggerFirstPath, process.Status_OnCPU, process.Status_OnGPU, process.HLT_Physics_v7, process.HLT_Random_v3, process.HLT_ZeroBias_v6, process.HLTriggerFinalPath, process.HLTAnalyzerEndpath, process.PhysicsCommissioningOutput, process.DQMOutput, ))
 
 
+# source module (EDM inputs)
 process.source = cms.Source( "PoolSource",
     fileNames = cms.untracked.vstring(
         'file:RelVal_Raw_PIon_DATA.root',
@@ -5868,6 +6084,7 @@ if 'GlobalTag' in process.__dict__:
     from Configuration.AlCa.GlobalTag import GlobalTag as customiseGlobalTag
     process.GlobalTag = customiseGlobalTag(process.GlobalTag, globaltag = 'auto:run3_hlt_PIon')
 
+# show summaries from trigger analysers used at HLT
 if 'MessageLogger' in process.__dict__:
     process.MessageLogger.TriggerSummaryProducerAOD = cms.untracked.PSet()
     process.MessageLogger.L1GtTrigReport = cms.untracked.PSet()
@@ -5889,6 +6106,7 @@ _customInfo['maxEvents' ]=  100
 _customInfo['globalTag' ]= "auto:run3_hlt_PIon"
 _customInfo['inputFile' ]=  ['file:RelVal_Raw_PIon_DATA.root']
 _customInfo['realData'  ]=  True
+
 from HLTrigger.Configuration.customizeHLTforALL import customizeHLTforAll
 process = customizeHLTforAll(process,"PIon",_customInfo)
 

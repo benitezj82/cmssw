@@ -7,6 +7,9 @@ from Configuration.Eras.Modifier_fastSim_cff import fastSim
 from Configuration.ProcessModifiers.trackdnn_cff import trackdnn
 from RecoTracker.IterativeTracking.dnnQualityCuts import qualityCutDictionary
 
+# for no-loopers
+from Configuration.ProcessModifiers.trackingNoLoopers_cff import trackingNoLoopers
+
 # NEW CLUSTERS (remove previously used clusters)
 lowPtTripletStepClusters = _cfg.clusterRemoverForIter('LowPtTripletStep')
 for _eraName, _postfix, _era in _cfg.nonDefaultEras():
@@ -207,15 +210,16 @@ _tracker_apv_vfp30_2016.toModify(lowPtTripletStepChi2Est,
 # TRACK BUILDING
 import RecoTracker.CkfPattern.GroupedCkfTrajectoryBuilder_cfi
 lowPtTripletStepTrajectoryBuilder = RecoTracker.CkfPattern.GroupedCkfTrajectoryBuilder_cfi.GroupedCkfTrajectoryBuilder.clone(
-    MeasurementTrackerName = '',
-    trajectoryFilter       = cms.PSet(refToPSet_ = cms.string('lowPtTripletStepTrajectoryFilter')),
+    trajectoryFilter       = dict(refToPSet_ = 'lowPtTripletStepTrajectoryFilter'),
     maxCand                = 4,
     estimator              = 'lowPtTripletStepChi2Est',
-    maxDPhiForLooperReconstruction = cms.double(2.0),
+    maxDPhiForLooperReconstruction = 2.0,
     # 0.63 GeV is the maximum pT for a charged particle to loop within the 1.1m radius
     # of the outermost Tracker barrel layer (with B=3.8T)
-    maxPtForLooperReconstruction = cms.double(0.7) 
+    maxPtForLooperReconstruction = 0.7,
 )
+trackingNoLoopers.toModify(lowPtTripletStepTrajectoryBuilder,
+                           maxPtForLooperReconstruction = 0.0)
 trackingLowPU.toModify(lowPtTripletStepTrajectoryBuilder, maxCand = 3)
 trackingPhase2PU140.toModify(lowPtTripletStepTrajectoryBuilder, 
     inOutTrajectoryFilter = dict(refToPSet_ = 'lowPtTripletStepTrajectoryFilterInOut'),
@@ -229,19 +233,19 @@ import RecoTracker.CkfPattern.CkfTrackCandidates_cfi
 _lowPtTripletStepTrackCandidatesCkf = RecoTracker.CkfPattern.CkfTrackCandidates_cfi.ckfTrackCandidates.clone(
     src = 'lowPtTripletStepSeeds',
     ### these two parameters are relevant only for the CachingSeedCleanerBySharedInput
-    numHitsForSeedCleaner       = cms.int32(50),
-    onlyPixelHitsForSeedCleaner = cms.bool(True),
-    TrajectoryBuilderPSet       = cms.PSet(refToPSet_ = cms.string('lowPtTripletStepTrajectoryBuilder')),
-    clustersToSkip              = cms.InputTag('lowPtTripletStepClusters'),
+    numHitsForSeedCleaner       = 50,
+    onlyPixelHitsForSeedCleaner = True,
+    TrajectoryBuilderPSet       = dict(refToPSet_ = 'lowPtTripletStepTrajectoryBuilder'),
+    clustersToSkip              = 'lowPtTripletStepClusters',
     doSeedingRegionRebuilding   = True,
     useHitsSplitting            = True,
-    TrajectoryCleaner           = 'lowPtTripletStepTrajectoryCleanerBySharedHits'
+    TrajectoryCleaner           = 'lowPtTripletStepTrajectoryCleanerBySharedHits',
 )
 lowPtTripletStepTrackCandidates = _lowPtTripletStepTrackCandidatesCkf.clone()
 
 trackingPhase2PU140.toModify(lowPtTripletStepTrackCandidates,
-    clustersToSkip = None,
-    phase2clustersToSkip = cms.InputTag('lowPtTripletStepClusters')
+    clustersToSkip = '',
+    phase2clustersToSkip = 'lowPtTripletStepClusters'
 )
 
 from Configuration.ProcessModifiers.trackingMkFitLowPtTripletStep_cff import trackingMkFitLowPtTripletStep
@@ -305,13 +309,13 @@ trackingPhase1.toReplaceWith(lowPtTripletStep, lowPtTripletStep.clone(
      qualityCuts = [-0.4,0.0,0.3],
 ))
 
-from RecoTracker.FinalTrackSelectors.TrackTfClassifier_cfi import *
+from RecoTracker.FinalTrackSelectors.trackTfClassifier_cfi import *
 from RecoTracker.FinalTrackSelectors.trackSelectionTf_cfi import *
-trackdnn.toReplaceWith(lowPtTripletStep, TrackTfClassifier.clone(
+from RecoTracker.FinalTrackSelectors.trackSelectionTf_CKF_cfi import *
+trackdnn.toReplaceWith(lowPtTripletStep, trackTfClassifier.clone(
     src = 'lowPtTripletStepTracks',
-    qualityCuts = qualityCutDictionary['LowPtTripletStep']
+    qualityCuts = qualityCutDictionary.LowPtTripletStep.value()
 ))
-
 highBetaStar_2018.toModify(lowPtTripletStep,qualityCuts = [-0.7,-0.3,-0.1])
 pp_on_AA.toModify(lowPtTripletStep, 
         mva         = dict(GBRForestLabel = 'HIMVASelectorLowPtTripletStep_Phase1'),

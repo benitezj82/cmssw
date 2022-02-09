@@ -115,6 +115,7 @@ from Calibration.HcalAlCaRecoProducers.ALCARECOHcalCalHBHEMuonProducerFilter_Out
 from Calibration.HcalAlCaRecoProducers.ALCARECOHcalCalLowPUHBHEMuonFilter_Output_cff import *
 # HCAL calibration with muons (HE)
 from Calibration.HcalAlCaRecoProducers.ALCARECOHcalCalHEMuonFilter_Output_cff import *
+from Calibration.HcalAlCaRecoProducers.ALCARECOHcalCalHEMuonProducerFilter_Output_cff import *
 ###############################################################
 # Muon Alignment (incl. stream for calibration)
 ###############################################################
@@ -146,8 +147,9 @@ from CalibMuon.DTCalibration.ALCARECODtCalibCosmics_Output_cff import *
 # PPS calibration
 ###############################################################
 from CalibPPS.TimingCalibration.ALCARECOPPSCalTrackBasedSel_Output_cff import *
-from CalibPPS.TimingCalibration.ALCARECOPPSTimingCalib_Output_cff import *
-from CalibPPS.TimingCalibration.ALCARECOPPSDiamondSampicTimingCalib_Output_cff import *
+from CalibPPS.TimingCalibration.ALCARECOPromptCalibProdPPSTimingCalib_Output_cff import *
+from CalibPPS.TimingCalibration.ALCARECOPromptCalibProdPPSDiamondSampicTimingCalib_Output_cff import *
+from CalibPPS.AlignmentGlobal.ALCARECOPromptCalibProdPPSAlignment_Output_cff import *
 
 ###############################################################
 # stream for prompt-calibration @ Tier0
@@ -158,7 +160,7 @@ from Calibration.TkAlCaRecoProducers.ALCARECOPromptCalibProdBeamSpotHPLowPU_Outp
 from Calibration.TkAlCaRecoProducers.ALCARECOPromptCalibProdSiStrip_Output_cff import *
 from Calibration.TkAlCaRecoProducers.ALCARECOPromptCalibProdSiStripGains_Output_cff import *
 from Calibration.TkAlCaRecoProducers.ALCARECOPromptCalibProdSiStripGainsAAG_Output_cff import *
-
+from Calibration.TkAlCaRecoProducers.ALCARECOPromptCalibProdSiPixelLorentzAngle_Output_cff import *
 from Calibration.TkAlCaRecoProducers.ALCARECOSiStripPCLHistos_Output_cff import *
 from Alignment.CommonAlignmentProducer.ALCARECOPromptCalibProdSiPixelAli_Output_cff import *
 

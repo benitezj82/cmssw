@@ -81,21 +81,27 @@ if __name__ == '__main__':
                      1306.0, #SingleMu Pt1 UP15
                      1325.81, #test NanoAOD from existing MINI UL 106Xv1
                      136.8523, #test NanoAOD from existing reMINI UL 106Xv2
-                     1330, #Run2 MC Zmm
-                     135.4, #Run 2 Zee ttbar
+                     1330, #Run2 2015/2016 MC Zmm
+                     135.4, #Run 2 2015/2016 Zee ttbar fastsim
                      10042.0, #2017 ZMM
                      10024.0, #2017 ttbar
-                     10224.0, #2017 ttbar PU
                      10824.0, #2018 ttbar
+                     2018.1, #2018 ttbar fastsim
                      11634.911, #2021 DD4hep ttbar reading geometry from XML
-                     11634.912, #2021 DD4hep ttbar reading geometry from the DB
-                     11634.0, #2021 ttbar
+                     11634.914, #2021 DDD ttbar reading geometry from the DB
+                     11634.0, #2021 ttbar (switching to DD4hep by default)
                      11634.7, #2021 ttbar mkFit
+                     11834.0, #2021 ttbar PU
                      12434.0, #2023 ttbar
                      23234.0, #2026D49 ttbar (HLT TDR baseline w/ HGCal v11)
                      28234.0, #2026D60 (exercise HF nose)
-                     34634.0, #2026D76 ttbar (2021 new baseline)
-                     34834.999, #2026D76 ttbar premixing stage1+stage2, PU50
+                     35034.0, #2026D77 ttbar (2021 new baseline)
+                     35234.999, #2026D77 ttbar premixing stage1+stage2, PU50 (to be removed when migration to D88 is complete)
+                     38634.0, #2026D86 ttbar (to be removed when migration to D88 is complete)
+                     39434.0, #2026D88 ttbar
+                     #39634.999, #2026D88 ttbar premixing stage1+stage2, PU50
+                     39496.0, #CE_E_Front_120um D88
+                     39500.0, #CE_H_Coarse_Scint D88 
                      25202.0, #2016 ttbar UP15 PU
                      250202.181, #2018 ttbar stage1 + stage2 premix
                      ],
@@ -370,8 +376,7 @@ if __name__ == '__main__':
     if opt.command: opt.command = ' '.join(opt.command)
     os.environ["CMSSW_DAS_QUERY_SITES"]=opt.dasSites
     if opt.IBEos:
-      try:from commands import getstatusoutput as run_cmd
-      except:from subprocess import getstatusoutput as run_cmd
+      from subprocess import getstatusoutput as run_cmd
 
       ibeos_cache = os.path.join(os.getenv("LOCALRT"), "ibeos_cache.txt")
       if not os.path.exists(ibeos_cache):
@@ -442,6 +447,7 @@ if __name__ == '__main__':
                 self.matrices_ = {}
                 tmp = MatrixReader(self.opt_)
                 for what in tmp.files:
+                    what = what.replace('relval_','')
                     self.opt_.what = what
                     self.matrices_[what] = MatrixReader(self.opt_)
                     self.matrices_[what].prepare(self.opt_.useInput, self.opt_.refRel,
@@ -572,7 +578,7 @@ if __name__ == '__main__':
                 maxLen = 100
                 for wflid in wflids:
                     dump = True
-                    for key, mrd in self.matrices_.iteritems():
+                    for key, mrd in self.matrices_.items():
                         for wfl in mrd.workFlows:
                             if wfl.numId == float(wflid):
                                 wfName, stepNames = wfl.nameId.split('+',1)
