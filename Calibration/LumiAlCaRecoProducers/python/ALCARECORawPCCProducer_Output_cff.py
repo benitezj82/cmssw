@@ -6,7 +6,7 @@ OutALCARECORawPCCProducer_noDrop = cms.PSet(
         SelectEvents = cms.vstring('pathALCARECORawPCCProducer')
     ),
     outputCommands = cms.untracked.vstring(
-        'keep *_ALCARECORawPCCProd_*_*'
+        'keep *_ALCARECORawPCCProd*_*_*'
     )
 )
 
