@@ -40,41 +40,44 @@ private:
   void globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiSeg, const edm::EventSetup& iSetup) const final;
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const final;
 
-  edm::EDGetTokenT<reco::PixelClusterCounts> pccToken_;//input object labels
-  const edm::ESGetToken<LumiCorrections, LumiCorrectionsRcd> lumiCorrectionsToken_;//background corrections from DB
-  const std::vector<int> modVeto_;  //The list of modules to skip in the lumi calc.
-  const bool applyCorr_; //background corrections
+  edm::EDGetTokenT<reco::PixelClusterCounts> pccToken_;                              //input object labels
+  const edm::ESGetToken<LumiCorrections, LumiCorrectionsRcd> lumiCorrectionsToken_;  //background corrections from DB
+  const std::vector<int> modVeto_;      //The list of modules to skip in the lumi calc.
+  const bool applyCorr_;                //background corrections
   const std::string takeAverageValue_;  //Output average values
 
-  const edm::EDPutTokenT<LumiInfo> putToken_; //output object labels
+  const edm::EDPutTokenT<LumiInfo> putToken_;  //output object labels
 
-  const bool saveCSVFile_;//produce csv lumi file
+  const bool saveCSVFile_;  //produce csv lumi file
   const std::string csvOutLabel_;
   mutable std::mutex fileLock_;
-
 };
 
 //--------------------------------------------------------------------------------------------------
-RawPCCProducer::RawPCCProducer(const edm::ParameterSet& iConfig):
-  lumiCorrectionsToken_(esConsumes<edm::Transition::EndLuminosityBlock>()),
-  modVeto_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::vector<int>>("modVeto")),
-  applyCorr_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getUntrackedParameter<bool>("ApplyCorrections", false)),
-  takeAverageValue_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getUntrackedParameter<std::string>("OutputValue", std::string("Average"))),
-  putToken_(produces<LumiInfo, edm::Transition::EndLuminosityBlock>(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getUntrackedParameter<std::string>("outputProductName", "alcaLumi"))),
-  saveCSVFile_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getUntrackedParameter<bool>("saveCSVFile", false)),
-  csvOutLabel_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getUntrackedParameter<std::string>("label", std::string("rawPCC.csv")))
-{
-
-
-  auto pccSource = iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::string>("inputPccLabel");
-  auto prodInst = iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::string>("ProdInst");
+RawPCCProducer::RawPCCProducer(const edm::ParameterSet& iConfig)
+    : lumiCorrectionsToken_(esConsumes<edm::Transition::EndLuminosityBlock>()),
+      modVeto_(
+          iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::vector<int>>("modVeto")),
+      applyCorr_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+                     .getUntrackedParameter<bool>("ApplyCorrections", false)),
+      takeAverageValue_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+                            .getUntrackedParameter<std::string>("OutputValue", std::string("Average"))),
+      putToken_(produces<LumiInfo, edm::Transition::EndLuminosityBlock>(
+          iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+              .getUntrackedParameter<std::string>("outputProductName", "alcaLumi"))),
+      saveCSVFile_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+                       .getUntrackedParameter<bool>("saveCSVFile", false)),
+      csvOutLabel_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+                       .getUntrackedParameter<std::string>("label", std::string("rawPCC.csv"))) {
+  auto pccSource =
+      iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::string>("inputPccLabel");
+  auto prodInst =
+      iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::string>("ProdInst");
   pccToken_ = consumes<reco::PixelClusterCounts, edm::InLumi>(edm::InputTag(pccSource, prodInst));
 
-  
-  std::cout<<"RawPCCProducer veto list size: "<<modVeto_.size()<<std::endl;
-  std::cout<<"RawPCCProducer applyCorr: "<<applyCorr_<<std::endl;
-  std::cout<<"RawPCCProducer takeAverage: "<<takeAverageValue_.c_str()<<std::endl;
-  
+  std::cout << "RawPCCProducer veto list size: " << modVeto_.size() << std::endl;
+  std::cout << "RawPCCProducer applyCorr: " << applyCorr_ << std::endl;
+  std::cout << "RawPCCProducer takeAverage: " << takeAverageValue_.c_str() << std::endl;
 }
 
 //--------------------------------------------------------------------------------------------------
@@ -100,9 +103,9 @@ void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiS
   edm::Handle<reco::PixelClusterCounts> pccHandle;
   lumiSeg.getByToken(pccToken_, pccHandle);
   const reco::PixelClusterCounts& inputPcc = *(pccHandle.product());
-  auto modID = inputPcc.readModID();   //vector with Module IDs 1-1 map to bunch x-ing in clusers
-  auto events = inputPcc.readEvents();   //vector with total events at each bxid.
-  auto clustersPerBXInput = inputPcc.readCounts(); //cluster counts per module per bx
+  auto modID = inputPcc.readModID();                //vector with Module IDs 1-1 map to bunch x-ing in clusers
+  auto events = inputPcc.readEvents();              //vector with total events at each bxid.
+  auto clustersPerBXInput = inputPcc.readCounts();  //cluster counts per module per bx
 
   ////////////////////////////
   ///Apply the module veto
@@ -118,7 +121,6 @@ void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiS
       clustersPerBXOutput.at(bx) += clustersPerBXInput.at(goodMods.at(i) * int(LumiConstants::numBX) + bx);
     }
   }
-
 
   //////////////////////////////
   //// Apply afterglow corrections
@@ -144,7 +146,6 @@ void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiS
   std::vector<float> errorPerBX;  //Stat error (or number of events)
   errorPerBX.assign(events.begin(), events.end());
 
-
   //////////////////////////////////
   /// Compute average number of clusters per event
   ////////////////////////////////
@@ -163,8 +164,6 @@ void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiS
     }
   }
 
-
-
   ///////////////////////////////////////////////////////
   ///Lumi saved in the LuminosityBlocks
   LumiInfo outputLumiInfo;
@@ -174,7 +173,6 @@ void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiS
   outputLumiInfo.setInstLumiAllBX(corrClustersPerBXOutput);
   lumiSeg.emplace(putToken_, std::move(outputLumiInfo));
 
-
   //Lumi saved in the csv file
   if (saveCSVFile_) {
     std::lock_guard<std::mutex> lock(fileLock_);
@@ -182,14 +180,13 @@ void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiS
     csfile << std::to_string(lumiSeg.run()) << ",";
     csfile << std::to_string(lumiSeg.luminosityBlock()) << ",";
     csfile << std::to_string(totalLumi);
-    
-    for (unsigned int bx = 0; bx < LumiConstants::numBX; bx++) 
+
+    for (unsigned int bx = 0; bx < LumiConstants::numBX; bx++)
       csfile << "," << std::to_string(corrClustersPerBXOutput[bx]);
     csfile << std::endl;
-    
+
     csfile.close();
   }
-
 }
 
 DEFINE_FWK_MODULE(RawPCCProducer);
