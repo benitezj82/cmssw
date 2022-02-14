@@ -1,10 +1,11 @@
 import FWCore.ParameterSet.Config as cms
 
+#note this default parameters are used to process the Random stream
 rawPCCProd = cms.EDProducer("RawPCCProducer",
     RawPCCProducerParameters = cms.PSet(
         inputPccLabel = cms.string("alcaPCCIntegratorRandom"),
         ProdInst = cms.string("alcaPCCRandom"),
-        OutputValue = cms.untracked.string("Average"),
+        OutputValue = cms.untracked.string("Totals"),
         ApplyCorrections = cms.untracked.bool(False),
         outputProductName = cms.untracked.string("rawPCCRandom"),
         modVeto=cms.vint32(),

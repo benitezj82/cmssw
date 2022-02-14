@@ -5,6 +5,7 @@ ALCARECORawPCCProd = rawPCCProd.clone()
 ALCARECORawPCCProd.RawPCCProducerParameters.inputPccLabel="alcaPCCIntegratorZeroBias"
 ALCARECORawPCCProd.RawPCCProducerParameters.ProdInst="alcaPCCZeroBias"
 ALCARECORawPCCProd.RawPCCProducerParameters.outputProductName="rawPCCProd"
+ALCARECORawPCCProd.RawPCCProducerParameters.OutputValue="Average"
 ALCARECORawPCCProd.RawPCCProducerParameters.ApplyCorrections=True
 ALCARECORawPCCProd.RawPCCProducerParameters.saveCSVFile=False  # .csv file may be retrived from PromtReco Crab jobs (saved into dataset)
 
