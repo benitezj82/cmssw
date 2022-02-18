@@ -82,9 +82,9 @@ RawPCCProducer::RawPCCProducer(const edm::ParameterSet& iConfig)
       iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::string>("ProdInst");
   pccToken_ = consumes<reco::PixelClusterCounts, edm::InLumi>(edm::InputTag(pccSource, prodInst));
 
-  std::cout << "RawPCCProducer veto list size: " << modVeto_.size() << std::endl;
-  std::cout << "RawPCCProducer applyCorr: " << applyCorr_ << std::endl;
-  std::cout << "RawPCCProducer takeAverage: " << takeAverageValue_.c_str() << std::endl;
+  edm::LogDebug("RawPCCProducer")<< " veto list size: " << modVeto_.size();
+  edm::LogDebug("RawPCCProducer")<< " applyCorr: " << applyCorr_ ;
+  edm::LogDebug("RawPCCProducer")<< " takeAverage: " << takeAverageValue_.c_str();
 }
 
 //--------------------------------------------------------------------------------------------------
