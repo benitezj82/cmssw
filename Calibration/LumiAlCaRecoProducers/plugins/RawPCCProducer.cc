@@ -46,7 +46,7 @@ private:
   const bool applyCorr_;                //background corrections
   const std::string takeAverageValue_;  //Output average values
 
-  const edm::EDPutTokenT<LumiInfo> putToken_;  //output object labels
+  edm::EDPutTokenT<LumiInfo> putToken_;  //output object labels
 
   const bool saveCSVFile_;  //produce csv lumi file
   const std::string csvOutLabel_;
