@@ -109,8 +109,7 @@ void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiS
   //////////////////////////////////
   /// read input , clusters per module per bx
   /////////////////////////////////
-  edm::Handle<reco::PixelClusterCounts> pccHandle;
-  lumiSeg.getByToken(pccToken_, pccHandle);
+  const edm::Handle<reco::PixelClusterCounts> pccHandle = lumiSeg.getHandle(pccToken_);
   const reco::PixelClusterCounts& inputPcc = *(pccHandle.product());
   //vector with Module IDs 1-1 map to bunch x-ing in clusers
   auto modID = inputPcc.readModID();
