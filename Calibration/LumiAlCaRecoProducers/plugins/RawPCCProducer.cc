@@ -40,7 +40,7 @@ private:
   void globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiSeg, const edm::EventSetup& iSetup) const final;
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const final;
 
-  edm::EDGetTokenT<reco::PixelClusterCounts> pccToken_;                              //input object labels
+  const edm::EDGetTokenT<reco::PixelClusterCounts> pccToken_;                              //input object labels
   const edm::ESGetToken<LumiCorrections, LumiCorrectionsRcd> lumiCorrectionsToken_;  //background corrections from DB
   const std::vector<int> modVeto_;      //The list of modules to skip in the lumi calc.
   const bool applyCorr_;                //background corrections
