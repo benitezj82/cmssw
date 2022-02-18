@@ -41,7 +41,7 @@ private:
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const final;
 
   //input object labels 
-  const edm::EDGetTokenT<reco::PixelClusterCounts> pccToken_;
+  edm::EDGetTokenT<reco::PixelClusterCounts> pccToken_;
   //background corrections from DB
   const edm::ESGetToken<LumiCorrections, LumiCorrectionsRcd> lumiCorrectionsToken_;
   //The list of modules to skip in the lumi calc.
@@ -52,7 +52,7 @@ private:
   const std::string takeAverageValue_;
 
   //output object labels
-  edm::EDPutTokenT<LumiInfo> putToken_;
+  const edm::EDPutTokenT<LumiInfo> putToken_;
 
   //produce csv lumi file
   const bool saveCSVFile_;
