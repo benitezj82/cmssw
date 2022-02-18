@@ -40,15 +40,22 @@ private:
   void globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiSeg, const edm::EventSetup& iSetup) const final;
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const final;
 
-  const edm::EDGetTokenT<reco::PixelClusterCounts> pccToken_;                              //input object labels
-  const edm::ESGetToken<LumiCorrections, LumiCorrectionsRcd> lumiCorrectionsToken_;  //background corrections from DB
-  const std::vector<int> modVeto_;      //The list of modules to skip in the lumi calc.
-  const bool applyCorr_;                //background corrections
-  const std::string takeAverageValue_;  //Output average values
+  //input object labels 
+  const edm::EDGetTokenT<reco::PixelClusterCounts> pccToken_;
+  //background corrections from DB
+  const edm::ESGetToken<LumiCorrections, LumiCorrectionsRcd> lumiCorrectionsToken_;
+  //The list of modules to skip in the lumi calc.
+  const std::vector<int> modVeto_;
+  //background corrections
+  const bool applyCorr_;
+  //Output average values
+  const std::string takeAverageValue_;
 
-  edm::EDPutTokenT<LumiInfo> putToken_;  //output object labels
+  //output object labels
+  edm::EDPutTokenT<LumiInfo> putToken_;
 
-  const bool saveCSVFile_;  //produce csv lumi file
+  //produce csv lumi file
+  const bool saveCSVFile_;
   const std::string csvOutLabel_;
   mutable std::mutex fileLock_;
 };
