@@ -96,8 +96,10 @@ void RawPCCProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::Event
 //--------------------------------------------------------------------------------------------------
 void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiSeg,
                                                      const edm::EventSetup& iSetup) const {
-  float totalLumi = 0.0;      //The total raw luminosity from the pixel clusters - not scaled
-  float statErrOnLumi = 0.0;  //the statistical error on the lumi - large num ie sqrt(N)
+  //The total raw luminosity from the pixel clusters - not scaled
+  float totalLumi = 0.0;
+  //the statistical error on the lumi - large num ie sqrt(N)
+  float statErrOnLumi = 0.0;
 
   //new vector containing clusters per bxid
   std::vector<int> clustersPerBXOutput(LumiConstants::numBX, 0);
@@ -110,9 +112,12 @@ void RawPCCProducer::globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiS
   edm::Handle<reco::PixelClusterCounts> pccHandle;
   lumiSeg.getByToken(pccToken_, pccHandle);
   const reco::PixelClusterCounts& inputPcc = *(pccHandle.product());
-  auto modID = inputPcc.readModID();                //vector with Module IDs 1-1 map to bunch x-ing in clusers
-  auto events = inputPcc.readEvents();              //vector with total events at each bxid.
-  auto clustersPerBXInput = inputPcc.readCounts();  //cluster counts per module per bx
+  //vector with Module IDs 1-1 map to bunch x-ing in clusers
+  auto modID = inputPcc.readModID();
+  //vector with total events at each bxid.
+  auto events = inputPcc.readEvents();
+  //cluster counts per module per bx
+  auto clustersPerBXInput = inputPcc.readCounts();
 
   ////////////////////////////
   ///Apply the module veto
