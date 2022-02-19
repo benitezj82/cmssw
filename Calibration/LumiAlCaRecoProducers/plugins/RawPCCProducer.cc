@@ -40,7 +40,7 @@ private:
   void globalEndLuminosityBlockProduce(edm::LuminosityBlock& lumiSeg, const edm::EventSetup& iSetup) const final;
   void produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const final;
 
-  //input object labels 
+  //input object labels
   edm::EDGetTokenT<reco::PixelClusterCounts> pccToken_;
   //background corrections from DB
   const edm::ESGetToken<LumiCorrections, LumiCorrectionsRcd> lumiCorrectionsToken_;
@@ -62,29 +62,27 @@ private:
 
 //--------------------------------------------------------------------------------------------------
 RawPCCProducer::RawPCCProducer(const edm::ParameterSet& iConfig)
-    : lumiCorrectionsToken_(esConsumes<edm::Transition::EndLuminosityBlock>()),
-      modVeto_(
-          iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::vector<int>>("modVeto")),
-      applyCorr_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-                     .getUntrackedParameter<bool>("ApplyCorrections", false)),
-      takeAverageValue_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-                            .getUntrackedParameter<std::string>("OutputValue", std::string("Average"))),
-      putToken_(produces<LumiInfo, edm::Transition::EndLuminosityBlock>(
-          iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-              .getUntrackedParameter<std::string>("outputProductName", "alcaLumi"))),
-      saveCSVFile_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-                       .getUntrackedParameter<bool>("saveCSVFile", false)),
-      csvOutLabel_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-                       .getUntrackedParameter<std::string>("label", std::string("rawPCC.csv"))) {
-  auto pccSource =
-      iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::string>("inputPccLabel");
-  auto prodInst =
-      iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::string>("ProdInst");
-  pccToken_ = consumes<reco::PixelClusterCounts, edm::InLumi>(edm::InputTag(pccSource, prodInst));
+  : pccToken_(consumes<reco::PixelClusterCounts, edm::InLumi>(edm::InputTag(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+									    .getParameter<std::string>("inputPccLabel"), 
+									    iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+									    .getParameter<std::string>("ProdInst")))),
+    lumiCorrectionsToken_(esConsumes<edm::Transition::EndLuminosityBlock>()),
+    modVeto_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+	     .getParameter<std::vector<int>>("modVeto")),
+    applyCorr_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+	       .getUntrackedParameter<bool>("ApplyCorrections", false)),
+    takeAverageValue_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+		      .getUntrackedParameter<std::string>("OutputValue", std::string("Average"))),
+    putToken_(produces<LumiInfo, edm::Transition::EndLuminosityBlock>(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+								      .getUntrackedParameter<std::string>("outputProductName", "alcaLumi"))),
+    saveCSVFile_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+		 .getUntrackedParameter<bool>("saveCSVFile", false)),
+    csvOutLabel_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+		 .getUntrackedParameter<std::string>("label", std::string("rawPCC.csv"))) {
 
-  edm::LogInfo("RawPCCProducer")<< " veto list size: " << modVeto_.size();
-  edm::LogInfo("RawPCCProducer")<< " applyCorr: " << applyCorr_ ;
-  edm::LogInfo("RawPCCProducer")<< " takeAverage: " << takeAverageValue_.c_str();
+  edm::LogPrint("RawPCCProducer") << " veto list size: " << modVeto_.size();
+  edm::LogPrint("RawPCCProducer") << " applyCorr: " << applyCorr_;
+  edm::LogPrint("RawPCCProducer") << " takeAverage: " << takeAverageValue_.c_str();
 }
 
 //--------------------------------------------------------------------------------------------------
