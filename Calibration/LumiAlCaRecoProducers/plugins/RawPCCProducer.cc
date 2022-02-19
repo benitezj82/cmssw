@@ -62,24 +62,23 @@ private:
 
 //--------------------------------------------------------------------------------------------------
 RawPCCProducer::RawPCCProducer(const edm::ParameterSet& iConfig)
-  : pccToken_(consumes<reco::PixelClusterCounts, edm::InLumi>(edm::InputTag(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-									    .getParameter<std::string>("inputPccLabel"), 
-									    iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-									    .getParameter<std::string>("ProdInst")))),
-    lumiCorrectionsToken_(esConsumes<edm::Transition::EndLuminosityBlock>()),
-    modVeto_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-	     .getParameter<std::vector<int>>("modVeto")),
-    applyCorr_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-	       .getUntrackedParameter<bool>("ApplyCorrections", false)),
-    takeAverageValue_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-		      .getUntrackedParameter<std::string>("OutputValue", std::string("Average"))),
-    putToken_(produces<LumiInfo, edm::Transition::EndLuminosityBlock>(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-								      .getUntrackedParameter<std::string>("outputProductName", "alcaLumi"))),
-    saveCSVFile_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-		 .getUntrackedParameter<bool>("saveCSVFile", false)),
-    csvOutLabel_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-		 .getUntrackedParameter<std::string>("label", std::string("rawPCC.csv"))) {
-
+    : pccToken_(consumes<reco::PixelClusterCounts, edm::InLumi>(edm::InputTag(
+          iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::string>("inputPccLabel"),
+          iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::string>("ProdInst")))),
+      lumiCorrectionsToken_(esConsumes<edm::Transition::EndLuminosityBlock>()),
+      modVeto_(
+          iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters").getParameter<std::vector<int>>("modVeto")),
+      applyCorr_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+                     .getUntrackedParameter<bool>("ApplyCorrections", false)),
+      takeAverageValue_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+                            .getUntrackedParameter<std::string>("OutputValue", std::string("Average"))),
+      putToken_(produces<LumiInfo, edm::Transition::EndLuminosityBlock>(
+          iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+              .getUntrackedParameter<std::string>("outputProductName", "alcaLumi"))),
+      saveCSVFile_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+                       .getUntrackedParameter<bool>("saveCSVFile", false)),
+      csvOutLabel_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
+                       .getUntrackedParameter<std::string>("label", std::string("rawPCC.csv"))) {
   edm::LogPrint("RawPCCProducer") << " veto list size: " << modVeto_.size();
   edm::LogPrint("RawPCCProducer") << " applyCorr: " << applyCorr_;
   edm::LogPrint("RawPCCProducer") << " takeAverage: " << takeAverageValue_.c_str();
