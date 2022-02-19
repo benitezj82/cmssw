@@ -79,9 +79,6 @@ RawPCCProducer::RawPCCProducer(const edm::ParameterSet& iConfig)
                        .getUntrackedParameter<bool>("saveCSVFile", false)),
       csvOutLabel_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
                        .getUntrackedParameter<std::string>("label", std::string("rawPCC.csv"))) {
-  edm::LogPrint("RawPCCProducer") << " veto list size: " << modVeto_.size();
-  edm::LogPrint("RawPCCProducer") << " applyCorr: " << applyCorr_;
-  edm::LogPrint("RawPCCProducer") << " takeAverage: " << takeAverageValue_.c_str();
 }
 
 //--------------------------------------------------------------------------------------------------
