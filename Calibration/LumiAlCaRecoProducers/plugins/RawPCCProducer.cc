@@ -78,8 +78,7 @@ RawPCCProducer::RawPCCProducer(const edm::ParameterSet& iConfig)
       saveCSVFile_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
                        .getUntrackedParameter<bool>("saveCSVFile", false)),
       csvOutLabel_(iConfig.getParameter<edm::ParameterSet>("RawPCCProducerParameters")
-                       .getUntrackedParameter<std::string>("label", std::string("rawPCC.csv"))) {
-}
+                       .getUntrackedParameter<std::string>("label", std::string("rawPCC.csv"))) {}
 
 //--------------------------------------------------------------------------------------------------
 RawPCCProducer::~RawPCCProducer() {}
