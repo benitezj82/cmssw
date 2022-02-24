@@ -2041,7 +2041,8 @@ steps['TIER0EXPTE']={'-s': 'ALCAPRODUCER:EcalTestPulsesRaw',
                      }
 
 steps['TIER0EXPLP']={'-s': 'ALCAPRODUCER:AlCaPCCRandom',
-                        '--conditions': 'auto:run2_data',
+                        '--conditions': 'auto:run3_data_express',
+                        '--era':'Run3',
                         '--datatier':'ALCARECO',
                         '--eventcontent':'ALCARECO',
                         '--data': '',
@@ -2051,7 +2052,8 @@ steps['TIER0EXPLP']={'-s': 'ALCAPRODUCER:AlCaPCCRandom',
                         }
 
 steps['TIER0PROMPTLP']={'-s': 'ALCAPRODUCER:AlCaPCCZeroBias+RawPCCProducer',
-                        '--conditions': 'auto:run2_data',
+                        '--conditions': 'auto:run3_data_express',
+                        '--era':'Run3',
                         '--datatier':'ALCARECO',
                         '--eventcontent':'ALCARECO',
                         '--data': '',
@@ -2063,13 +2065,15 @@ steps['TIER0PROMPTLP']={'-s': 'ALCAPRODUCER:AlCaPCCZeroBias+RawPCCProducer',
 
 
 steps['ALCAEXPLP']={'-s':'ALCAOUTPUT:AlCaPCCRandom,ALCA:PromptCalibProdLumiPCC',
-                  '--conditions':'auto:run2_data',
+                  '--conditions': 'auto:run3_data_express',
+                  '--era':'Run3',
                   '--datatier':'ALCARECO',
                   '--eventcontent':'ALCARECO',
                   '--triggerResultsProcess': 'RECO'}
 
 steps['ALCAHARVLP']={'-s':'ALCAHARVEST:%s'%(autoPCL['PromptCalibProdLumiPCC']),
-                     '--conditions':'auto:run2_data',
+                     '--conditions': 'auto:run3_data_express',
+                     '--era':'Run3',
                      '--scenario':'pp',
                      '--datatier':'DQM',
                      '--eventcontent': 'DQM',
