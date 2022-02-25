@@ -2052,7 +2052,7 @@ steps['TIER0EXPLP']={'-s': 'ALCAPRODUCER:AlCaPCCRandom',
                         }
 
 steps['TIER0PROMPTLP']={'-s': 'ALCAPRODUCER:AlCaPCCZeroBias+RawPCCProducer',
-                        '--conditions': 'auto:run3_data_express',
+                        '--conditions': 'auto:run3_data_prompt',
                         '--era':'Run3',
                         '--datatier':'ALCARECO',
                         '--eventcontent':'ALCARECO',
